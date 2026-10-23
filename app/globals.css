@@ -224,3 +224,25 @@ a.group:hover { border-color: var(--accent); }
 .filebtn { cursor: pointer; margin: 0; }
 .filebtn:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
 .field input[type="range"] { min-height: 0; padding: 0; accent-color: var(--accent); }
+
+/* ---------- الفيديوهات المقترحة (قائمة مستقلة التمرير) ---------- */
+.suggest-list { display: grid; gap: 12px; padding-inline: 16px; }
+.sug { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 10px; align-items: start; }
+.sug-thumb { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: var(--line); }
+.sug-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sug-info { display: grid; gap: 2px; min-width: 0; }
+.sug-info strong { font-size: .92rem; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sug-info small { color: var(--mute); font-size: .78rem; }
+.sug:hover strong { color: var(--accent); }
+.suggest-scroll:focus-visible { outline-offset: -3px; border-radius: 10px; }
+@media (min-width: 600px) { .suggest-list { padding-inline: 2px; } }
+@media (min-width: 1200px) {
+  .suggest { position: sticky; top: calc(var(--top) + 12px); display: flex; flex-direction: column; max-height: calc(100dvh - var(--top) - 28px); }
+  .suggest-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+}
+
+/* ---------- تسجيل الدخول بالبريد ---------- */
+.auth .or { display: flex; align-items: center; gap: 10px; color: var(--mute); font-size: .85rem; margin: 16px 0 0; }
+.auth .or::before, .auth .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.auth .switch { display: grid; gap: 8px; margin-top: 16px; justify-items: start; }
+.auth .linkbtn { background: none; color: var(--accent); height: auto; padding: 0; border-radius: 0; font-weight: 500; text-decoration: underline; cursor: pointer; }

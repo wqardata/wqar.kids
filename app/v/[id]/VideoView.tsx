@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import DrivePlayer from "@/components/DrivePlayer";
+import SuggestedVideos from "@/components/SuggestedVideos";
 import { useAuth } from "@/lib/auth";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { toVideo, type VideoDoc } from "@/lib/videos";
@@ -44,6 +45,7 @@ export default function VideoView({ id }: { id: string }) {
         {parts.length > 0 && <p className="meta">{parts.join(" • ")}</p>}
         {video.description && <p className="desc">{video.description}</p>}
       </article>
+      <SuggestedVideos current={video} />
     </div>
   );
 }

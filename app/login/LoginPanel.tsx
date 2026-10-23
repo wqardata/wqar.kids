@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
@@ -14,30 +14,86 @@ function GoogleLogo() {
   );
 }
 
+type Mode = "signin" | "signup" | "reset";
+
+function message(e: unknown): string {
+  const code = (e as { code?: string }).code ?? "unknown";
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/invalid-login-credentials":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "البريد أو كلمة المرور غير صحيحة.";
+    case "auth/email-already-in-use":
+      return "هذا البريد مسجّل مسبقًا. جرّب تسجيل الدخول.";
+    case "auth/weak-password":
+      return "كلمة المرور ضعيفة (6 أحرف على الأقل).";
+    case "auth/invalid-email":
+      return "البريد الإلكتروني غير صالح.";
+    case "auth/too-many-requests":
+      return "محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.";
+    case "auth/network-request-failed":
+      return "تعذّر الاتصال بالإنترنت.";
+    case "auth/popup-blocked":
+      return "المتصفح حجب نافذة جوجل. اسمح بالنوافذ المنبثقة لهذا الموقع ثم أعد المحاولة.";
+    case "auth/unauthorized-domain":
+      return "هذا الدومين غير مضاف في Firebase (Authentication ← Settings ← Authorized domains). (auth/unauthorized-domain)";
+    case "auth/web-storage-unsupported":
+    case "auth/operation-not-supported-in-this-environment":
+      return "متصفحك لا يدعم الدخول هنا (تصفح خاص أو متصفح داخل تطبيق). افتح الرابط في Chrome أو Safari.";
+    case "auth/operation-not-allowed":
+      return "التسجيل بالبريد وكلمة المرور غير مفعّل في Firebase بعد (Authentication ← Sign-in method ← Email/Password).";
+    default:
+      return `تعذّرت العملية. حاول مرة أخرى. (${code})`;
+  }
+}
+
 export default function LoginPanel() {
-  const { user, loading, configured, canAdd, signIn, signOut } = useAuth();
+  const { user, loading, configured, canAdd, signIn, signOut, signInEmail, signUpEmail, resetPassword } = useAuth();
   const router = useRouter();
+  const [mode, setMode] = useState<Mode>("signin");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
-  // بعد الدخول: المخوَّل يذهب للوحة التحكم، وغيره للرئيسية.
+  // بعد الدخول: المشرف يذهب للوحة التحكم، وأي مشاهد آخر للرئيسية.
   useEffect(() => {
     if (user) router.replace(canAdd ? "/admin" : "/");
   }, [user, canAdd, router]);
 
-  async function go() {
+  function switchMode(m: Mode) {
+    setMode(m);
+    setError("");
+    setInfo("");
+  }
+
+  async function run(fn: () => Promise<void>) {
     setBusy(true);
     setError("");
+    setInfo("");
     try {
-      await signIn();
+      await fn();
     } catch (e) {
       const code = (e as { code?: string }).code;
-      if (code !== "auth/popup-closed-by-user" && code !== "auth/cancelled-popup-request") {
-        setError("تعذّر تسجيل الدخول. تأكد من السماح بالنوافذ المنبثقة وحاول مرة أخرى.");
-      }
+      if (code !== "auth/popup-closed-by-user" && code !== "auth/cancelled-popup-request") setError(message(e));
     } finally {
       setBusy(false);
     }
+  }
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    void run(async () => {
+      if (mode === "signin") await signInEmail(email, password);
+      else if (mode === "signup") await signUpEmail(name, email, password);
+      else {
+        await resetPassword(email);
+        setInfo("إن كان البريد مسجّلًا فسيصلك رابط لإعادة تعيين كلمة المرور. تفقّد أيضًا البريد المزعج.");
+      }
+    });
   }
 
   if (!configured) {
@@ -59,12 +115,67 @@ export default function LoginPanel() {
 
   return (
     <div>
-      <p className="note">سجّل الدخول أو أنشئ حسابًا بنقرة واحدة باستخدام حساب جوجل.</p>
-      <button type="button" className="gbtn" onClick={() => void go()} disabled={busy || loading}>
-        <GoogleLogo />
-        <span>{busy ? "جارٍ الاتصال…" : "المتابعة باستخدام جوجل"}</span>
-      </button>
-      {error && <p className="field-error" role="alert">{error}</p>}
+      <p className="note">
+        {mode === "signup"
+          ? "أنشئ حسابًا مجانيًا للمشاهدة. رفع الفيديوهات وإدارة الموقع للمشرف فقط."
+          : mode === "reset"
+            ? "اكتب بريدك لنرسل لك رابط إعادة تعيين كلمة المرور."
+            : "سجّل الدخول، أو أنشئ حسابًا جديدًا للمشاهدة."}
+      </p>
+
+      {mode !== "reset" && (
+        <>
+          <button type="button" className="gbtn" onClick={() => void run(signIn)} disabled={busy || loading}>
+            <GoogleLogo />
+            <span>{busy ? "جارٍ الاتصال…" : "المتابعة باستخدام جوجل"}</span>
+          </button>
+          <p className="or" aria-hidden="true"><span>أو بالبريد الإلكتروني</span></p>
+        </>
+      )}
+
+      <form className="auth-form" onSubmit={onSubmit}>
+        {mode === "signup" && (
+          <label>
+            الاسم (اختياري)
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" />
+          </label>
+        )}
+        <label>
+          البريد الإلكتروني
+          <input type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+        </label>
+        {mode !== "reset" && (
+          <label>
+            كلمة المرور
+            <input
+              type="password"
+              dir="ltr"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            />
+          </label>
+        )}
+        {error && <p className="field-error" role="alert">{error}</p>}
+        {info && <p className="hint" role="status">{info}</p>}
+        <button type="submit" disabled={busy || loading}>
+          {busy ? "جارٍ التنفيذ…" : mode === "signin" ? "تسجيل الدخول" : mode === "signup" ? "إنشاء حساب" : "إرسال الرابط"}
+        </button>
+      </form>
+
+      <p className="switch">
+        {mode === "signin" && (
+          <>
+            <button type="button" className="linkbtn" onClick={() => switchMode("signup")}>ليس لديك حساب؟ أنشئ حسابًا</button>
+            <button type="button" className="linkbtn" onClick={() => switchMode("reset")}>نسيت كلمة المرور؟</button>
+          </>
+        )}
+        {mode !== "signin" && (
+          <button type="button" className="linkbtn" onClick={() => switchMode("signin")}>لديك حساب؟ سجّل الدخول</button>
+        )}
+      </p>
     </div>
   );
 }

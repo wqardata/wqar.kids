@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "تسجيل الدخول" };
 export default function Login() {
   return (
     <div className="auth">
-      <h1>تسجيل الدخول</h1>
+      <h1>تسجيل الدخول أو إنشاء حساب</h1>
       <LoginPanel />
     </div>
   );

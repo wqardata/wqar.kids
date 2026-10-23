@@ -42,8 +42,9 @@ export default async function Watch({ params }: Props) {
         <div className="actions"><FavoriteButton id={ep.id} /></div>
       </article>
 
-      <section aria-labelledby="related-title">
+      <section className="suggest" aria-labelledby="related-title">
         <h2 id="related-title">حلقات مقترحة</h2>
+        <div className="suggest-scroll" tabIndex={0} role="region" aria-label="قائمة الحلقات المقترحة">
         <ul className="grid grid--side">
           {related.map((e) => (
             <li key={e.id}>
@@ -51,6 +52,7 @@ export default async function Watch({ params }: Props) {
             </li>
           ))}
         </ul>
+        </div>
       </section>
     </div>
   );
