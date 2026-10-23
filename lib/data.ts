@@ -34,9 +34,34 @@ export type Episode = {
   views: number;
   when: string;
   description: string;
+  /** معرّف ملف الفيديو في جوجل درايف (اختياري). */
+  driveId?: string;
 };
 
-const SERIES = ["المغامرون", "حكايات الغابة", "الأصدقاء الصغار"];
+// ضع هنا معرّف درايف لكل حلقة: "رقم الحلقة": "معرّف الملف".
+// المعرّف هو الجزء بين /d/ و /view في رابط الملف:
+// drive.google.com/file/d/<المعرّف>/view
+// تذكّر ضبط مشاركة الملف على «أي شخص لديه الرابط – مشاهد».
+const DRIVE_IDS: Record<string, string> = {
+  // "1": "1AbCdEfGhIjKlMnOpQrStUvWxYz012345",
+};
+
+export const SERIES_LIST = [
+  { id: "1", name: "المغامرون" },
+  { id: "2", name: "حكايات الغابة" },
+  { id: "3", name: "الأصدقاء الصغار" },
+] as const;
+const SERIES = SERIES_LIST.map((s) => s.name);
+
+// ---- إعدادات الصفحات (املأها بما يناسبك) ----
+// بريد استقبال رسائل «تواصل معنا». اتركه فارغًا لتعطيل النموذج.
+export const CONTACT_EMAIL = "";
+// روابط الدعم (مثال: { label: "ادعمنا عبر ...", href: "https://..." }).
+export const SUPPORT_LINKS: readonly { label: string; href: string }[] = [];
+// رابط البث المباشر (يوتيوب/غيره). اتركه فارغًا إن لم يوجد بث.
+export const LIVE_URL = "";
+// قائمة الألعاب: { title, description, href }. اتركها فارغة إن لم توجد.
+export const GAMES: readonly { title: string; description: string; href: string }[] = [];
 const DURATIONS = ["6:45", "9:46", "3:48", "10:05", "14:08", "4:54"];
 const VIEWS = [0, 1, 2, 0, 5, 0];
 
@@ -51,7 +76,18 @@ export const episodes: readonly Episode[] = Array.from({ length: 12 }, (_, i) =>
   views: VIEWS[i % VIEWS.length],
   when: i < 6 ? "أمس" : "أول أمس",
   description: "وصف تجريبي للحلقة، سيُستبدل بالوصف الحقيقي عند ربط قاعدة البيانات.",
+  driveId: DRIVE_IDS[String(i + 1)],
 }));
+
+export function seriesEpisodes(name: string): Episode[] {
+  return episodes.filter((e) => e.series === name);
+}
+
+/** الحلقات القصيرة: أقل من 5 دقائق. */
+export function isShort(e: Episode): boolean {
+  const [m] = e.duration.split(":").map(Number);
+  return m < 5;
+}
 
 export function getEpisode(id: string): Episode | undefined {
   return episodes.find((e) => e.id === id);

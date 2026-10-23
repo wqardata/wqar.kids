@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import type { CSSProperties } from "react";
 import EpisodeCard from "@/components/EpisodeCard";
-import Icon from "@/components/Icon";
+import FavoriteButton from "@/components/FavoriteButton";
+import DrivePlayer from "@/components/DrivePlayer";
 import { episodes, getEpisode, relatedEpisodes } from "@/lib/data";
 import { viewsLabel } from "@/lib/format";
 
@@ -30,14 +30,7 @@ export default async function Watch({ params }: Props) {
   return (
     <div className="watch">
       <article>
-        <div
-          className="player"
-          role="img"
-          aria-label={`مشغّل الفيديو — ${ep.title} (قيد البناء)`}
-          style={{ "--h": hue } as CSSProperties}
-        >
-          <span className="play"><Icon name="play" size={34} /></span>
-        </div>
+        <DrivePlayer driveId={ep.driveId} title={ep.title} hue={hue} />
         <h1>{ep.title}</h1>
         <p className="meta">
           {ep.series} • م{ep.season} • ح{ep.episode} • {ep.duration}
@@ -46,6 +39,7 @@ export default async function Watch({ params }: Props) {
           {viewsLabel(ep.views)} • {ep.when}
         </p>
         <p className="desc">{ep.description}</p>
+        <div className="actions"><FavoriteButton id={ep.id} /></div>
       </article>
 
       <section aria-labelledby="related-title">

@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // غيّر البريد إلى بريدك (أو أضف عدة بريدات).
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ['you@gmail.com'];
+    }
+    match /videos/{id}     { allow read: if true; allow write: if isAdmin(); }
+    match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /series/{id}     { allow read: if true; allow write: if isAdmin(); }
+  }
+}

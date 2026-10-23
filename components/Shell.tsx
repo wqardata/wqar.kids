@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon from "./Icon";
+import { useAuth } from "@/lib/auth";
 import { nav, more, SITE_NAME, type NavItem } from "@/lib/data";
 
 function isActive(path: string, href: string) {
@@ -31,6 +32,7 @@ function NavLinks({ items, path, size, stacked }: { items: readonly NavItem[]; p
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? "/";
+  const { user, canAdd, signOut } = useAuth();
 
   return (
     <>
@@ -47,7 +49,21 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             autoComplete="off"
           />
         </form>
-        <Link href="/login" className="login">تسجيل الدخول</Link>
+        {user ? (
+          <>
+            {canAdd && <Link href="/add" className="login">+ فيديو</Link>}
+            <button type="button" className="logout" onClick={() => void signOut()} title="تسجيل الخروج" aria-label={`تسجيل الخروج (${user.email ?? ""})`}>
+              {user.photoURL ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.photoURL} alt="" referrerPolicy="no-referrer" />
+              ) : (
+                <Icon name="user" size={20} />
+              )}
+            </button>
+          </>
+        ) : (
+          <Link href="/login" className="login">تسجيل الدخول</Link>
+        )}
       </header>
 
       <nav className="side" aria-label="القائمة الرئيسية">

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Readex_Pro } from "next/font/google";
+import { AuthProvider } from "@/lib/auth";
 import Shell from "@/components/Shell";
 import { SITE_NAME, SITE_DESCRIPTION } from "@/lib/data";
 import "./globals.css";
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ar" dir="rtl">
       <body className={font.className}>
         <a href="#main" className="skip">تخطَّ إلى المحتوى</a>
-        <Shell>{children}</Shell>
+        <AuthProvider>
+          <Shell>{children}</Shell>
+        </AuthProvider>
       </body>
     </html>
   );

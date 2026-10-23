@@ -81,6 +81,9 @@ button, input { font: inherit; }
   position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9;
   background: linear-gradient(135deg, hsl(var(--h) 60% 40%), hsl(calc(var(--h) + 40) 65% 24%)); color: #fff;
 }
+.player--frame { background: #000; }
+.player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.player .soon { position: absolute; inset-inline: 0; bottom: 12px; text-align: center; font-size: .85rem; opacity: .9; }
 .play { display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; background: rgba(0,0,0,.55); }
 .watch article > h1 { font-size: 1.25rem; font-weight: 700; margin: 14px 16px 4px; }
 .watch .meta { font-size: .85rem; color: var(--mute); margin: 0 16px; }
@@ -115,3 +118,59 @@ button, input { font: inherit; }
   .grid--side { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+/* ---------- صفحات الأقسام ---------- */
+.groups { display: grid; gap: 10px; padding: 0 16px; max-width: 720px; }
+.group { display: flex; align-items: center; gap: 14px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+a.group:hover { border-color: var(--accent); }
+.group strong { display: block; font-weight: 600; }
+.group small { display: block; color: var(--mute); font-size: .82rem; }
+.group--row { justify-content: space-between; }
+.avatar { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 50%; color: #fff; font-weight: 700;
+  background: linear-gradient(135deg, hsl(var(--h) 60% 42%), hsl(calc(var(--h) + 40) 65% 30%)); }
+.btn--sm { margin: 0; padding: 6px 16px; font-size: .9rem; }
+.actions { margin: 14px 16px 0; }
+.fav { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.fav.on { color: var(--accent); border-color: var(--accent); }
+.fav.on svg { fill: currentColor; }
+.prose { max-width: 640px; padding: 8px 20px 24px; }
+.prose h1 { font-size: 1.3rem; margin-bottom: 10px; }
+.prose h2 { font-size: 1.05rem; margin: 24px 0 8px; }
+.prose p { margin-bottom: 12px; }
+.prose .groups { padding: 0; margin-bottom: 12px; }
+.prose .bullets { list-style: disc; padding-inline-start: 22px; display: grid; gap: 4px; }
+.prose .note { color: var(--mute); }
+.auth-form { display: grid; gap: 14px; margin-top: 16px; }
+.auth-form label { display: grid; gap: 6px; font-size: .9rem; }
+.auth-form input, .auth-form textarea { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
+.auth-form button { height: 44px; border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-weight: 600; cursor: pointer; }
+@media (min-width: 600px) { .groups, .actions { padding-inline: 2px; margin-inline: 2px; } .groups { margin-inline: 0; } }
+
+/* ---------- الدخول عبر جوجل وإضافة الفيديو ---------- */
+.auth--wide { max-width: 560px; }
+.auth code { font-size: .85em; background: var(--surface); padding: 1px 6px; border-radius: 6px; }
+.auth .gbtn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; height: 48px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 600; cursor: pointer; }
+.auth .gbtn:hover:not(:disabled) { border-color: var(--accent); }
+.auth .gbtn:disabled { opacity: .6; cursor: default; }
+.btn--ghost, .auth .btn--ghost, .auth-form .btn--ghost { background: none; color: var(--ink); border: 1px solid var(--line); font-weight: 400; }
+.logout { display: grid; place-items: center; flex: none; width: 36px; height: 36px; padding: 0; border-radius: 50%; overflow: hidden;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.logout img { width: 100%; height: 100%; object-fit: cover; }
+.field { display: grid; gap: 6px; font-size: .9rem; }
+.field input, .field select, .field textarea { width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: inherit; }
+.field-error { color: #b3261e; font-size: .85rem; margin-top: 6px; }
+@media (prefers-color-scheme: dark) { .field-error { color: #ff8a80; } }
+.hint { color: var(--mute); font-size: .82rem; min-height: 1.2em; }
+.addrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.addrow input { flex: 1; min-width: 140px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.preview-thumb { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line); color: var(--mute); font-size: .85rem; }
+.preview-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.auth-form button:disabled { opacity: .55; cursor: default; }
+.auth .addrow button, .auth-form .addrow button { height: auto; min-height: 40px; padding: 6px 16px; cursor: pointer; }
+.auth .addrow .btn:not(.btn--ghost) { background: var(--accent); color: var(--accent-ink); border: 0; }
