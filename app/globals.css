@@ -354,3 +354,16 @@ html, body { overflow-x: clip; }
 .live-queue li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .live-queue li.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .live-queue small { color: var(--mute); font-variant-numeric: tabular-nums; }
+
+/* ---------- تخصيص القائمة ---------- */
+.menu-admin { max-width: 560px; display: grid; gap: 10px; }
+.menu-list { list-style: none; padding: 0; display: grid; gap: 10px; }
+.menu-row { display: grid; gap: 4px; }
+.menu-row .addrow input { flex: 1; min-width: 120px; min-height: 44px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+.icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+
+/* ---------- استيراد مجلد ---------- */
+.import-list { max-height: 420px; overflow: auto; list-style: none; padding: 0; }
+.import-row { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--surface); }
+.import-row input[type="checkbox"] { width: 20px; height: 20px; margin-top: 10px; accent-color: var(--accent); }
+.import-row .arow-info input { width: 100%; min-height: 40px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }

@@ -21,3 +21,12 @@ export function driveThumbnail(id: string, width = 640): string {
 export function stripExtension(name: string): string {
   return name.replace(/\.(mp4|mkv|mov|avi|webm|m4v|wmv|flv|mpg|mpeg|3gp)$/i, "").trim();
 }
+
+/** يستخرج معرّف المجلد من رابط مجلد درايف (…/folders/ID أو ?id=ID) أو من المعرّف نفسه. */
+export function parseFolderId(input: string): string | null {
+  const s = input.trim();
+  if (!s) return null;
+  const m = s.match(/\/folders\/([A-Za-z0-9_-]{10,})/) || s.match(/[?&]id=([A-Za-z0-9_-]{10,})/);
+  if (m) return m[1];
+  return DRIVE_ID.test(s) ? s : null;
+}

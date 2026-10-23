@@ -8,7 +8,14 @@ export const SHOW_DEMO_DATA = false;
 export type IconName =
   | "home" | "bolt" | "stack" | "live" | "game" | "spark"
   | "heart" | "down" | "gift" | "mail" | "search" | "play" | "user"
-  | "like" | "flag" | "up" | "chevdown" | "trash" | "plus" | "close";
+  | "like" | "flag" | "up" | "chevdown" | "trash" | "plus" | "close"
+  | "star" | "film" | "book" | "music" | "fire" | "globe" | "tv" | "info" | "camera" | "trophy";
+
+/** الأيقونات التي يمكن اختيارها لعناصر القائمة من لوحة التحكم. */
+export const MENU_ICONS: readonly IconName[] = [
+  "home", "bolt", "stack", "live", "game", "spark", "heart", "like", "down", "gift", "mail", "play",
+  "star", "film", "book", "music", "fire", "globe", "tv", "info", "camera", "trophy", "user", "search",
+];
 
 export type NavItem = { href: string; label: string; icon: IconName };
 

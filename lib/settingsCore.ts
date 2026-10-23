@@ -1,5 +1,5 @@
 // منطق الإعدادات النقي (بلا "use client") ليعمل في الخادم والمتصفح معًا.
-import { CONTACT_EMAIL, LIVE_URL, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS } from "./data";
+import { CONTACT_EMAIL, LIVE_URL, MENU_ICONS, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS, type IconName } from "./data";
 import { DEFAULT_THEME, cleanTheme, type Theme } from "./theme";
 
 /** خطوط اسم الموقع. تُحمَّل من layout.tsx ولا تُنزَّل إلا عند استعمالها. */
@@ -15,6 +15,10 @@ export type BrandFontId = (typeof BRAND_FONTS)[number]["id"];
 export const BRAND_SIZE_MIN = 16;
 export const BRAND_SIZE_MAX = 32;
 const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/** تخصيص عنصر قائمة: الاسم والأيقونة (المفتاح هو مسار الصفحة مثل "/shorts"). */
+export type NavOverride = { label: string; icon: IconName };
+export type NavOverrides = Record<string, NavOverride>;
 
 export type SupportLink = { label: string; href: string };
 export type SiteSettings = {
@@ -34,6 +38,8 @@ export type SiteSettings = {
   brandFont: BrandFontId;
   /** ألوان الموقع والخطوط والحجم الأساسي. */
   theme: Theme;
+  /** أسماء وأيقونات القائمة المخصّصة (فارغ = الافتراضي). */
+  navItems: NavOverrides;
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -51,6 +57,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   brandSize: 22,
   brandFont: "default",
   theme: DEFAULT_THEME,
+  navItems: {},
 };
 
 export const LOGO_MIN = 20;
@@ -71,6 +78,18 @@ export function cleanUrl(s: string): string {
   } catch {
     return "";
   }
+}
+
+function cleanNav(v: unknown): NavOverrides {
+  const out: NavOverrides = {};
+  if (!v || typeof v !== "object" || Array.isArray(v)) return out;
+  for (const [href, raw] of Object.entries(v as Record<string, unknown>)) {
+    const o = (raw ?? {}) as { label?: unknown; icon?: unknown };
+    const label = typeof o.label === "string" ? o.label.trim().slice(0, 24) : "";
+    const icon = MENU_ICONS.find((i) => i === o.icon);
+    if (href.startsWith("/") && href.length <= 40 && label && icon) out[href] = { label, icon };
+  }
+  return out;
 }
 
 export function merge(d: Record<string, unknown>): SiteSettings {
@@ -97,6 +116,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     brandSize: Math.min(BRAND_SIZE_MAX, Math.max(BRAND_SIZE_MIN, Math.round(Number(d.brandSize) || DEFAULT_SETTINGS.brandSize))),
     brandFont: BRAND_FONTS.some((f) => f.id === d.brandFont) ? (d.brandFont as BrandFontId) : "default",
     theme: cleanTheme(d.theme),
+    navItems: cleanNav(d.navItems),
   };
 }
 

@@ -36,6 +36,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? "/";
   const { user, canAdd, signOut } = useAuth();
   const { settings } = useSettings();
+  // الأسماء والأيقونات المخصّصة من لوحة التحكم تتغلّب على الافتراضية.
+  const custom = (items: readonly NavItem[]): NavItem[] => items.map((n) => ({ ...n, ...settings.navItems[n.href] }));
+  const navItems = custom(nav);
+  const moreItems = custom(more);
 
   return (
     <>
@@ -75,15 +79,15 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       </header>
 
       <nav className="side" aria-label="القائمة الرئيسية">
-        <NavLinks items={nav} path={path} />
+        <NavLinks items={navItems} path={path} />
         <hr />
-        <NavLinks items={more} path={path} />
+        <NavLinks items={moreItems} path={path} />
       </nav>
 
       <main className="main" id="main" tabIndex={-1}>{children}</main>
 
       <nav className="bottom" aria-label="التنقل السريع">
-        <NavLinks items={nav} path={path} size={24} stacked />
+        <NavLinks items={navItems} path={path} size={24} stacked />
       </nav>
     </>
   );

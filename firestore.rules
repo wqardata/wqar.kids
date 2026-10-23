@@ -15,12 +15,12 @@ service cloud.firestore {
     match /live/{id}       { allow read: if true; allow write: if isAdmin(); }
     // بلاغات الزوار: أي شخص يُنشئ بلاغًا بحقول محدودة الحجم؛ القراءة والإدارة للمشرف فقط.
     match /reports/{id} {
-      allow create: if request.resource.data.keys().hasOnly(['videoId', 'videoTitle', 'reason', 'note', 'status', 'createdAt'])
-        && request.resource.data.videoId is string && request.resource.data.videoId.size() <= 40
+      allow create: if request.resource.data.videoId is string && request.resource.data.videoId.size() <= 40
         && request.resource.data.videoTitle is string && request.resource.data.videoTitle.size() <= 200
         && request.resource.data.reason is string && request.resource.data.reason.size() <= 80
         && request.resource.data.note is string && request.resource.data.note.size() <= 500
-        && request.resource.data.status == 'open';
+        && request.resource.data.status == 'open'
+        && request.resource.data.size() <= 8;
       allow read, update, delete: if isAdmin();
     }
     // الصور المصغّرة الملتقطة من الفيديو (JPEG بصيغة base64). القراءة عامة لأن /api/thumb يخدمها للزوار.

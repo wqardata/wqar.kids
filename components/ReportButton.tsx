@@ -36,8 +36,16 @@ export default function ReportButton({ videoId, videoTitle }: { videoId: string;
       sent.toggle(videoId);
       setOpen(false);
       setNote("");
-    } catch {
-      setError("تعذّر إرسال البلاغ. حاول لاحقًا.");
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? "";
+      console.error("report failed", e);
+      setError(
+        code === "permission-denied"
+          ? "تعذّر الإرسال: قواعد Firestore لا تسمح بالبلاغات بعد. (على المشرف لصق firestore.rules المحدّث ثم Publish.)"
+          : code === "unavailable"
+            ? "تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مجددًا."
+            : `تعذّر إرسال البلاغ${code ? ` (${code})` : ""}. حاول لاحقًا.`,
+      );
     } finally {
       setBusy(false);
     }
