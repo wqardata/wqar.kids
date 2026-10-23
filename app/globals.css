@@ -262,3 +262,20 @@ html, body { overflow-x: clip; }
   .search { padding: 0 10px; gap: 6px; }
   .brand-logo { max-width: 110px; }
 }
+
+/* ---------- بحث الهيدر على الجوال: أيقونة تتوسّع عند الضغط ---------- */
+.search-ico { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+@media (max-width: 600px) {
+  .brand { flex: 1 1 auto; }
+  .search { flex: none; width: 40px; padding: 0; justify-content: center; margin-inline: 0; }
+  .search input { flex: none; width: 0; padding: 0; }
+  .search-ico { width: 40px; height: 40px; }
+  .search:focus-within { position: fixed; z-index: 40; inset-inline: 10px; top: calc(env(safe-area-inset-top, 0px) + 8px);
+    width: auto; padding: 0 4px; justify-content: flex-start; background: var(--surface); outline: 3px solid var(--focus); }
+  .search:focus-within input { flex: 1; width: auto; padding: 0 6px; }
+}
+
+/* ---------- مشغّل درايف على الجوال: ارتفاع أدنى كي لا تُقصّ أزراره ---------- */
+@media (max-width: 599px) {
+  .player--frame { aspect-ratio: auto; height: max(56.25vw, 340px); }
+}

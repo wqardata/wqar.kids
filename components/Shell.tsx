@@ -44,9 +44,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           <BrandMark s={settings} />
         </Link>
         <form className="search" role="search" action="/search" method="get">
-          <Icon name="search" size={18} />
+          <label htmlFor="site-q" className="search-ico"><Icon name="search" size={18} /></label>
           <input
             type="search"
+            id="site-q"
             name="q"
             placeholder="ابحث عن مسلسل أو حلقة"
             aria-label="بحث"
