@@ -10,12 +10,13 @@ export const useLikes = likes.useIds;
 export const toggleLike = likes.toggle;
 
 /** زر إعجاب بلا نص. */
-export default function LikeButton({ id }: { id: string }) {
+export default function LikeButton({ id, showLabel = false }: { id: string; showLabel?: boolean }) {
   const on = useLikes().includes(id);
   const label = on ? "إلغاء الإعجاب" : "أعجبني";
   return (
-    <button type="button" className={`ibtn${on ? " on" : ""}`} aria-pressed={on} aria-label={label} title={label} onClick={() => toggleLike(id)}>
+    <button type="button" className={`ibtn${showLabel ? " ibtn--text" : ""}${on ? " on" : ""}`} aria-pressed={on} aria-label={label} title={label} onClick={() => toggleLike(id)}>
       <Icon name="like" size={20} />
+      {showLabel && <span>أعجبني</span>}
     </button>
   );
 }

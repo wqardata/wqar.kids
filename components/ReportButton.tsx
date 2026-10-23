@@ -11,7 +11,7 @@ export const REPORT_REASONS = ["محتوى غير مناسب", "الفيديو �
 const sent = createLocalSet("reported");
 
 /** زر «إبلاغ» (أيقونة + كلمة) يفتح نموذجًا صغيرًا أسفل صف الأزرار. */
-export default function ReportButton({ videoId, videoTitle }: { videoId: string; videoTitle: string }) {
+export default function ReportButton({ videoId, videoTitle, showLabel = true }: { videoId: string; videoTitle: string; showLabel?: boolean }) {
   const already = sent.useIds().includes(videoId);
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<string>(REPORT_REASONS[0]);
@@ -25,7 +25,24 @@ export default function ReportButton({ videoId, videoTitle }: { videoId: string;
     setBusy(true);
     setError("");
     try {
-      await addDoc(collection(getDb(), "reports"), {
+      // الطريق الأول: الخادم يحفظ البلاغ بحساب الخدمة فلا حاجة لقواعد Firestore ولا لتسجيل دخول.
+      let viaServer = false;
+      try {
+        const r = await fetch("/api/report", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ videoId, reason, note: note.trim().slice(0, 500) }),
+        });
+        if (r.ok) viaServer = true;
+        else if (r.status !== 501 && r.status !== 502) {
+          const j = (await r.json().catch(() => ({}))) as { error?: string };
+          throw Object.assign(new Error("server"), { serverMessage: j.error ?? "تعذّر إرسال البلاغ." });
+        }
+      } catch (se) {
+        if ((se as { serverMessage?: string }).serverMessage) throw se;
+        /* الخادم غير مهيّأ أو لا يُجيب: نجرّب الكتابة المباشرة */
+      }
+      if (!viaServer) await addDoc(collection(getDb(), "reports"), {
         videoId,
         videoTitle: videoTitle.slice(0, 200),
         reason,
@@ -37,6 +54,11 @@ export default function ReportButton({ videoId, videoTitle }: { videoId: string;
       setOpen(false);
       setNote("");
     } catch (e) {
+      const serverMessage = (e as { serverMessage?: string }).serverMessage;
+      if (serverMessage) {
+        setError(serverMessage);
+        return;
+      }
       const code = (e as { code?: string }).code ?? "";
       console.error("report failed", e);
       setError(
@@ -55,7 +77,8 @@ export default function ReportButton({ videoId, videoTitle }: { videoId: string;
     <>
       <button
         type="button"
-        className={`ibtn ibtn--text${already ? " on" : ""}`}
+        className={`ibtn${showLabel ? " ibtn--text" : ""}${already ? " on" : ""}`}
+        aria-label={already ? "تم الإبلاغ" : "إبلاغ"}
         aria-expanded={open}
         aria-controls="report-form"
         disabled={already}
@@ -63,7 +86,7 @@ export default function ReportButton({ videoId, videoTitle }: { videoId: string;
         onClick={() => setOpen((o) => !o)}
       >
         <Icon name="flag" size={20} />
-        <span>{already ? "تم الإبلاغ" : "إبلاغ"}</span>
+        {showLabel && <span>{already ? "تم الإبلاغ" : "إبلاغ"}</span>}
       </button>
       {open && (
         <form id="report-form" className="report-form" onSubmit={(e) => void submit(e)}>

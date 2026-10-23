@@ -10,8 +10,9 @@ import LiveTab from "./LiveTab";
 import MenuTab from "./MenuTab";
 import ReportsTab from "./ReportsTab";
 import MembersTab from "./MembersTab";
+import VideoPageTab from "./VideoPageTab";
 
-type Tab = "videos" | "shorts" | "live" | "reports" | "members" | "categories" | "series" | "menu" | "appearance" | "settings";
+type Tab = "videos" | "shorts" | "live" | "reports" | "members" | "categories" | "series" | "menu" | "videopage" | "appearance" | "settings";
 const TABS: { id: Tab; label: string }[] = [
   { id: "videos", label: "الفيديوهات" },
   { id: "shorts", label: "المقاطع القصيرة" },
@@ -21,6 +22,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "categories", label: "التصنيفات" },
   { id: "series", label: "السلاسل" },
   { id: "menu", label: "القائمة" },
+  { id: "videopage", label: "صفحة الفيديو" },
   { id: "appearance", label: "المظهر" },
   { id: "settings", label: "إعدادات الموقع" },
 ];
@@ -74,6 +76,7 @@ export default function AdminPanel() {
         {tab === "categories" && <NamedManager coll="categories" />}
         {tab === "series" && <NamedManager coll="series" />}
         {tab === "menu" && <MenuTab />}
+        {tab === "videopage" && <VideoPageTab />}
         {tab === "appearance" && <AppearanceTab />}
         {tab === "settings" && <SettingsTab />}
       </div>

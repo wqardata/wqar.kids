@@ -396,3 +396,10 @@ html, body { overflow-x: clip; }
 .history-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 14px 0; color: var(--mute); }
 .history-meta .ibtn { min-width: 36px; height: 36px; padding: 0 8px; }
 @media (min-width: 600px) { .history-bar { padding-inline: 2px; } .history-meta { margin-inline: 2px; } }
+.watch.watch--solo { grid-template-columns: minmax(0, 1fr) !important; max-width: 960px; }
+.vp-row { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.vp-row--off { opacity: .6; }
+.vp-row .addrow input[type="text"], .vp-row .addrow input:not([type]), .vp-row .field input { min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
+.vp-row .ibtn { min-width: 40px; height: 40px; padding: 0 8px; }
+.vp-row .ibtn.on svg { fill: none; }
+.vp-preview { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border: 1px dashed var(--line); border-radius: 12px; min-height: 68px; align-items: center; }

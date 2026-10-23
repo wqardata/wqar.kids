@@ -10,12 +10,12 @@ export type IconName =
   | "heart" | "down" | "gift" | "mail" | "search" | "play" | "user"
   | "like" | "flag" | "up" | "chevdown" | "trash" | "plus" | "close"
   | "star" | "film" | "book" | "music" | "fire" | "globe" | "tv" | "info" | "camera" | "trophy"
-  | "gear" | "history" | "check" | "copy" | "eye" | "eyeoff";
+  | "gear" | "history" | "check" | "copy" | "eye" | "eyeoff" | "share" | "link";
 
 /** الأيقونات التي يمكن اختيارها لعناصر القائمة من لوحة التحكم. */
 export const MENU_ICONS: readonly IconName[] = [
   "home", "bolt", "stack", "live", "game", "spark", "heart", "like", "down", "gift", "mail", "play",
-  "star", "film", "book", "music", "fire", "globe", "tv", "info", "camera", "trophy", "user", "search", "history",
+  "star", "film", "book", "music", "fire", "globe", "tv", "info", "camera", "trophy", "user", "search", "history", "share", "link",
 ];
 
 export type NavItem = { href: string; label: string; icon: IconName };

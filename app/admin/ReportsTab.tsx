@@ -2,19 +2,48 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { collection, deleteDoc, doc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { useAuth } from "@/lib/auth";
 import { getDb } from "@/lib/firebase";
 
 type Report = { id: string; videoId: string; videoTitle: string; reason: string; note: string; status: "open" | "done"; at: number | null };
 
 export default function ReportsTab() {
+  const { user } = useAuth();
+  // true = البلاغات تُدار عبر الخادم (FIREBASE_SERVICE_ACCOUNT)؛ false = مباشرة من Firestore (تتطلب القواعد).
+  const [viaApi, setViaApi] = useState(false);
   const [items, setItems] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [showDone, setShowDone] = useState(false);
 
+  async function api(method: "GET" | "PATCH" | "DELETE", id?: string): Promise<Response> {
+    const token = await user?.getIdToken();
+    return fetch(method === "DELETE" ? `/api/reports?id=${encodeURIComponent(id ?? "")}` : "/api/reports", {
+      method,
+      headers: { Authorization: `Bearer ${token}`, ...(method === "PATCH" ? { "content-type": "application/json" } : {}) },
+      body: method === "PATCH" ? JSON.stringify({ id }) : undefined,
+      cache: "no-store",
+    });
+  }
+
   useEffect(() => {
+    if (!user) return;
     let off = false;
+    // أولًا عبر الخادم؛ إن لم يُضبط (501) أو تعذّر نقرأ من Firestore مباشرة.
+    api("GET")
+      .then(async (r) => {
+        if (!r.ok) throw new Error("fallback");
+        const j = (await r.json()) as { reports: Report[] };
+        if (off) return;
+        setViaApi(true);
+        setItems(j.reports);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!off) loadFromDb();
+      });
+    function loadFromDb() {
     getDocs(query(collection(getDb(), "reports"), orderBy("createdAt", "desc"), limit(100)))
       .then((snap) => {
         if (off) return;
@@ -37,10 +66,12 @@ export default function ReportsTab() {
       })
       .catch(() => !off && setError("تعذّر تحميل البلاغات. تأكد من قواعد Firestore (reports)."))
       .finally(() => !off && setLoading(false));
+    }
     return () => {
       off = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   async function run(id: string, fn: () => Promise<void>, after: () => void) {
     setBusy(id);
@@ -80,7 +111,7 @@ export default function ReportsTab() {
               <div className="arow-actions">
                 {r.status === "open" && (
                   <button type="button" className="btn btn--ghost btn--sm" disabled={busy === r.id}
-                    onClick={() => void run(r.id, () => updateDoc(doc(getDb(), "reports", r.id), { status: "done", updatedAt: serverTimestamp() }), () => setItems((p) => p.map((x) => (x.id === r.id ? { ...x, status: "done" } : x))))}>
+                    onClick={() => void run(r.id, () => (viaApi ? api("PATCH", r.id).then((x) => { if (!x.ok) throw new Error("api"); }) : updateDoc(doc(getDb(), "reports", r.id), { status: "done", updatedAt: serverTimestamp() })), () => setItems((p) => p.map((x) => (x.id === r.id ? { ...x, status: "done" } : x))))}>
                     تمت المعالجة
                   </button>
                 )}
@@ -90,7 +121,7 @@ export default function ReportsTab() {
                   إخفاء الفيديو
                 </button>
                 <button type="button" className="btn btn--ghost btn--sm danger" disabled={busy === r.id}
-                  onClick={() => void run(r.id, () => deleteDoc(doc(getDb(), "reports", r.id)), () => setItems((p) => p.filter((x) => x.id !== r.id)))}>
+                  onClick={() => void run(r.id, () => (viaApi ? api("DELETE", r.id).then((x) => { if (!x.ok) throw new Error("api"); }) : deleteDoc(doc(getDb(), "reports", r.id))), () => setItems((p) => p.filter((x) => x.id !== r.id)))}>
                   حذف البلاغ
                 </button>
               </div>

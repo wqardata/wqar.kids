@@ -1,6 +1,7 @@
 // منطق الإعدادات النقي (بلا "use client") ليعمل في الخادم والمتصفح معًا.
 import { CONTACT_EMAIL, LIVE_URL, MENU_ICONS, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS, type IconName } from "./data";
 import { DEFAULT_THEME, cleanTheme, type Theme } from "./theme";
+import { DEFAULT_VIDEO_PAGE, cleanVideoPage, type VideoPageConfig } from "./videoPage";
 
 /** خطوط اسم الموقع. تُحمَّل من layout.tsx ولا تُنزَّل إلا عند استعمالها. */
 export const BRAND_FONTS = [
@@ -42,6 +43,8 @@ export type SiteSettings = {
   navItems: NavOverrides;
   /** مسارات عناصر القائمة المخفية (تبقى الصفحات تعمل برابطها المباشر). */
   navHidden: string[];
+  /** تصميم صفحة الفيديو: الأزرار وترتيبها والأقسام الظاهرة. */
+  videoPage: VideoPageConfig;
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -61,6 +64,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   theme: DEFAULT_THEME,
   navItems: {},
   navHidden: [],
+  videoPage: DEFAULT_VIDEO_PAGE,
 };
 
 export const LOGO_MIN = 20;
@@ -130,6 +134,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     theme: cleanTheme(d.theme),
     navItems: cleanNav(d.navItems),
     navHidden: cleanHidden(d.navHidden),
+    videoPage: cleanVideoPage(d.videoPage),
   };
 }
 
