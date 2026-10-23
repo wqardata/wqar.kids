@@ -367,3 +367,32 @@ html, body { overflow-x: clip; }
 .import-row { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--surface); }
 .import-row input[type="checkbox"] { width: 20px; height: 20px; margin-top: 10px; accent-color: var(--accent); }
 .import-row .arow-info input { width: 100%; min-height: 40px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+
+/* ---------- الأعضاء، الحساب، الصور الرمزية، اقتراح كلمة المرور، السجل ---------- */
+.menu-row .ibtn.on svg { fill: none; }
+.linkbtn--sm { font-size: .82rem; justify-self: start; }
+.auth-form .linkbtn { background: none; color: var(--accent); height: auto; padding: 0; border-radius: 0; font-weight: 500; text-decoration: underline; cursor: pointer; }
+.pw-suggest { display: grid; gap: 8px; padding: 12px; border: 1px dashed var(--accent); border-radius: 12px; background: var(--surface); }
+.pw-suggest p { margin: 0; font-size: .9rem; }
+.pw-suggest code { font-size: 1.05rem; letter-spacing: .04em; overflow-wrap: anywhere; user-select: all; background: var(--bg); padding: 8px 10px; border-radius: 8px; text-align: start; }
+.pw-used .linkbtn { display: inline; }
+.account { display: grid; gap: 24px; }
+.account h2 { font-size: 1.05rem; margin-bottom: 10px; }
+.account-head { display: flex; align-items: center; gap: 14px; }
+.account-head small { color: var(--mute); }
+.avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 8px; }
+.auth .avatar-opt { height: auto; width: auto; padding: 4px; border-radius: 50%; background: none; border: 2px solid transparent; cursor: pointer; justify-self: center; }
+.auth .avatar-opt:hover:not(:disabled) { border-color: var(--line); }
+.auth .avatar-opt.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--bg) inset; }
+.auth .avatar-opt:disabled { opacity: .6; cursor: default; }
+.account .addrow input { flex: 1; min-width: 140px; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
+.member-row { grid-template-columns: 44px minmax(0, 1fr); }
+.member-row .perm { color: var(--mute); font-size: .78rem; }
+.member-row select { min-height: 40px; padding: 4px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+.badge--ban { background: #b3261e; color: #fff; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (min-width: 700px) { .member-row { grid-template-columns: 44px minmax(0, 1fr) auto; } }
+.history-bar { padding-inline: 16px; margin-bottom: 12px; }
+.history-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 14px 0; color: var(--mute); }
+.history-meta .ibtn { min-width: 36px; height: 36px; padding: 0 8px; }
+@media (min-width: 600px) { .history-bar { padding-inline: 2px; } .history-meta { margin-inline: 2px; } }

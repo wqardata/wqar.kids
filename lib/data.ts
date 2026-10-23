@@ -9,12 +9,13 @@ export type IconName =
   | "home" | "bolt" | "stack" | "live" | "game" | "spark"
   | "heart" | "down" | "gift" | "mail" | "search" | "play" | "user"
   | "like" | "flag" | "up" | "chevdown" | "trash" | "plus" | "close"
-  | "star" | "film" | "book" | "music" | "fire" | "globe" | "tv" | "info" | "camera" | "trophy";
+  | "star" | "film" | "book" | "music" | "fire" | "globe" | "tv" | "info" | "camera" | "trophy"
+  | "gear" | "history" | "check" | "copy" | "eye" | "eyeoff";
 
 /** الأيقونات التي يمكن اختيارها لعناصر القائمة من لوحة التحكم. */
 export const MENU_ICONS: readonly IconName[] = [
   "home", "bolt", "stack", "live", "game", "spark", "heart", "like", "down", "gift", "mail", "play",
-  "star", "film", "book", "music", "fire", "globe", "tv", "info", "camera", "trophy", "user", "search",
+  "star", "film", "book", "music", "fire", "globe", "tv", "info", "camera", "trophy", "user", "search", "history",
 ];
 
 export type NavItem = { href: string; label: string; icon: IconName };
@@ -31,6 +32,7 @@ export const more: readonly NavItem[] = [
   { href: "/new", label: "الجديد", icon: "spark" },
   { href: "/favorites", label: "المفضلة", icon: "heart" },
   { href: "/liked", label: "أعجبني", icon: "like" },
+  { href: "/history", label: "سجل المشاهدة", icon: "history" },
   { href: "/downloads", label: "التنزيلات", icon: "down" },
   { href: "/support", label: "ادعمنا", icon: "gift" },
   { href: "/contact", label: "تواصل معنا", icon: "mail" },

@@ -8,6 +8,7 @@ import ReportButton from "@/components/ReportButton";
 import SuggestedVideos from "@/components/SuggestedVideos";
 import { useAuth } from "@/lib/auth";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
+import { recordView } from "@/lib/history";
 import { toVideo, type VideoDoc } from "@/lib/videos";
 
 export default function VideoView({ id }: { id: string }) {
@@ -24,6 +25,7 @@ export default function VideoView({ id }: { id: string }) {
         if (snap.exists()) {
           const v = toVideo(snap.id, snap.data());
           document.title = v.title;
+          if (!v.hidden) recordView(v.id); // سجل المشاهدة (محلي)
           setVideo(v);
           setState("ok");
         } else setState("missing");

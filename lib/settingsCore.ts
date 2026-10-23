@@ -40,6 +40,8 @@ export type SiteSettings = {
   theme: Theme;
   /** أسماء وأيقونات القائمة المخصّصة (فارغ = الافتراضي). */
   navItems: NavOverrides;
+  /** مسارات عناصر القائمة المخفية (تبقى الصفحات تعمل برابطها المباشر). */
+  navHidden: string[];
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -58,6 +60,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   brandFont: "default",
   theme: DEFAULT_THEME,
   navItems: {},
+  navHidden: [],
 };
 
 export const LOGO_MIN = 20;
@@ -92,6 +95,15 @@ function cleanNav(v: unknown): NavOverrides {
   return out;
 }
 
+/** عناصر القائمة التي لا تُخفى (كي لا تبقى القائمة فارغة). */
+export const NAV_ALWAYS_SHOWN: readonly string[] = ["/"];
+
+function cleanHidden(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out = v.filter((h): h is string => typeof h === "string" && h.startsWith("/") && h.length <= 40 && !NAV_ALWAYS_SHOWN.includes(h));
+  return Array.from(new Set(out)).slice(0, 40);
+}
+
 export function merge(d: Record<string, unknown>): SiteSettings {
   const str = (k: string, fallback: string) => (typeof d[k] === "string" ? (d[k] as string) : fallback);
   const links = Array.isArray(d.supportLinks)
@@ -117,6 +129,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     brandFont: BRAND_FONTS.some((f) => f.id === d.brandFont) ? (d.brandFont as BrandFontId) : "default",
     theme: cleanTheme(d.theme),
     navItems: cleanNav(d.navItems),
+    navHidden: cleanHidden(d.navHidden),
   };
 }
 

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { DRIVE_ID } from "@/lib/drive";
-import { bearer, emailFromToken, isAdminEmail } from "@/lib/serverAuth";
+import { adminFromToken, bearer } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,9 +27,8 @@ function fail(status: number, error: string) {
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token") || bearer(req);
-  const email = await emailFromToken(token);
-  if (!email) return fail(401, "غير مصرّح.");
-  if (!isAdminEmail(email)) return fail(403, "هذا الحساب غير مخوّل.");
+  const who = await adminFromToken(token);
+  if ("error" in who) return who.error === "unauthorized" ? fail(401, "غير مصرّح.") : fail(403, "هذا الحساب غير مخوّل.");
 
   const id = req.nextUrl.searchParams.get("id") ?? "";
   if (!DRIVE_ID.test(id)) return fail(400, "معرّف درايف غير صالح.");

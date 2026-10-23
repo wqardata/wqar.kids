@@ -41,7 +41,7 @@ export default function ReportButton({ videoId, videoTitle }: { videoId: string;
       console.error("report failed", e);
       setError(
         code === "permission-denied"
-          ? "تعذّر الإرسال: قواعد Firestore لا تسمح بالبلاغات بعد. (على المشرف لصق firestore.rules المحدّث ثم Publish.)"
+          ? "تعذّر الإرسال: قواعد Firestore لا تسمح بالبلاغات من الزوار غير المسجَّلين بعد. (على المشرف لصق firestore.rules المحدّث ثم Publish.)"
           : code === "unavailable"
             ? "تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مجددًا."
             : `تعذّر إرسال البلاغ${code ? ` (${code})` : ""}. حاول لاحقًا.`,
@@ -67,6 +67,7 @@ export default function ReportButton({ videoId, videoTitle }: { videoId: string;
       </button>
       {open && (
         <form id="report-form" className="report-form" onSubmit={(e) => void submit(e)}>
+          <p className="hint">يمكن لأي زائر الإبلاغ، ولا يلزم تسجيل الدخول.</p>
           <div className="field">
             <label htmlFor="rp-reason">سبب البلاغ</label>
             <select id="rp-reason" value={reason} onChange={(e) => setReason(e.target.value)}>

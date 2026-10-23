@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { DRIVE_ID, stripExtension } from "@/lib/drive";
-import { bearer, emailFromToken, isAdminEmail } from "@/lib/serverAuth";
+import { listFolderPublic } from "@/lib/driveFolderPublic";
+import { adminFromToken, bearer } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ const FOLDER = "application/vnd.google-apps.folder";
 type DriveFile = { id: string; name: string; mimeType: string; videoMediaMetadata?: { durationMillis?: string } };
 export type FolderVideo = { id: string; name: string; title: string; duration: number | null; path: string };
 
-async function listFolder(folderId: string, key: string): Promise<DriveFile[] | { error: string; status: number }> {
+/** عبر Drive API (يتطلب DRIVE_API_KEY). يعيد null إن تعذّر لأي سبب كي نجرّب الطريقة العامة بدل الفشل. */
+async function listFolderApi(folderId: string, key: string): Promise<DriveFile[] | null> {
   const out: DriveFile[] = [];
   let token = "";
   for (let page = 0; page < 10; page++) {
@@ -26,40 +28,46 @@ async function listFolder(folderId: string, key: string): Promise<DriveFile[] | 
     u.searchParams.set("includeItemsFromAllDrives", "true");
     u.searchParams.set("key", key);
     if (token) u.searchParams.set("pageToken", token);
-    const r = await fetch(u, { cache: "no-store", signal: AbortSignal.timeout(15000) });
-    if (r.status === 404 || r.status === 403 || r.status === 400) {
-      return { error: "تعذّر قراءة المجلد. اضبط مشاركته على «أي شخص لديه الرابط – مشاهد» وتأكد من تفعيل Google Drive API لمفتاحك.", status: 400 };
+    try {
+      const r = await fetch(u, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+      if (!r.ok) return null;
+      const j = (await r.json()) as { files?: DriveFile[]; nextPageToken?: string };
+      out.push(...(j.files ?? []));
+      if (!j.nextPageToken) break;
+      token = j.nextPageToken;
+    } catch {
+      return null;
     }
-    if (!r.ok) return { error: "تعذّر الاتصال بدرايف. حاول لاحقًا.", status: 502 };
-    const j = (await r.json()) as { files?: DriveFile[]; nextPageToken?: string };
-    out.push(...(j.files ?? []));
-    if (!j.nextPageToken) break;
-    token = j.nextPageToken;
   }
   return out;
 }
 
+/** بدون مفتاح: نقرأ صفحة المجلد العامة المضمّنة (تعرض الاسم والمعرّف دون المدة). */
+async function listFolderNoKey(folderId: string): Promise<DriveFile[] | null> {
+  const items = await listFolderPublic(folderId);
+  if (!items) return null;
+  return items.map((i) => ({ id: i.id, name: i.name, mimeType: i.isFolder ? FOLDER : i.isVideo ? "video/*" : "application/octet-stream" }));
+}
+
 export async function GET(req: NextRequest) {
-  const email = await emailFromToken(bearer(req));
-  if (!email) return NextResponse.json({ error: "غير مصرّح. سجّل الدخول أولًا." }, { status: 401 });
-  if (!isAdminEmail(email)) return NextResponse.json({ error: "هذا الحساب غير مخوّل." }, { status: 403 });
+  const who = await adminFromToken(bearer(req));
+  if ("error" in who) {
+    return who.error === "unauthorized"
+      ? NextResponse.json({ error: "غير مصرّح. سجّل الدخول أولًا." }, { status: 401 })
+      : NextResponse.json({ error: "هذا الحساب غير مخوّل." }, { status: 403 });
+  }
 
   const id = req.nextUrl.searchParams.get("id") ?? "";
   const deep = req.nextUrl.searchParams.get("deep") === "1";
   if (!DRIVE_ID.test(id)) return NextResponse.json({ error: "رابط المجلد غير صالح." }, { status: 400 });
 
   const key = process.env.DRIVE_API_KEY;
-  if (!key) {
-    return NextResponse.json(
-      { error: "استيراد مجلد يتطلب مفتاح Google Drive API: أضف DRIVE_API_KEY في متغيرات البيئة على Vercel (انظر README) ثم أعد النشر." },
-      { status: 501 },
-    );
-  }
-
   const videos: FolderVideo[] = [];
   let skipped = 0;
   let truncated = false;
   let folders = 0;
+  let usedApi = false;
+  let unreadable = false;
   const queue: { id: string; path: string; depth: number }[] = [{ id, path: "", depth: 0 }];
 
   while (queue.length) {
@@ -68,8 +76,19 @@ export async function GET(req: NextRequest) {
       truncated = true;
       break;
     }
-    const res = await listFolder(cur.id, key);
-    if (!Array.isArray(res)) return NextResponse.json({ error: res.error }, { status: res.status });
+    // الأفضل Drive API إن وُجد المفتاح (يعطي المدة)؛ وإلا أو إن رفضه درايف نقرأ الصفحة العامة.
+    let res: DriveFile[] | null = null;
+    if (key) {
+      res = await listFolderApi(cur.id, key);
+      if (res) usedApi = true;
+    }
+    if (!res) res = await listFolderNoKey(cur.id);
+    if (!res) {
+      // فشل المجلد الجذر = خطأ للمستخدم؛ فشل مجلد فرعي = نتجاوزه ونكمل.
+      if (cur.depth === 0) unreadable = true;
+      else skipped++;
+      continue;
+    }
     for (const f of res) {
       if (f.mimeType === FOLDER) {
         if (deep && cur.depth < MAX_DEPTH) queue.push({ id: f.id, path: cur.path ? `${cur.path} / ${f.name}` : f.name, depth: cur.depth + 1 });
@@ -91,6 +110,13 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  if (unreadable) {
+    return NextResponse.json(
+      { error: "تعذّر قراءة المجلد. تأكد أن مشاركته «أي شخص لديه الرابط – مشاهد» وأن الرابط صحيح، ثم حاول مجددًا." },
+      { status: 400 },
+    );
+  }
+
   videos.sort((a, b) => a.path.localeCompare(b.path, "ar") || a.name.localeCompare(b.name, "ar", { numeric: true }));
-  return NextResponse.json({ videos, skipped, truncated });
+  return NextResponse.json({ videos, skipped, truncated, usedApi });
 }

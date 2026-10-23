@@ -1,7 +1,9 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { cancelGoogleSuggestion, suggestGoogleAccount } from "@/lib/googleAccounts";
+import { generateStrongPassword } from "@/lib/password";
 
 function GoogleLogo() {
   return (
@@ -49,7 +51,7 @@ function message(e: unknown): string {
 }
 
 export default function LoginPanel() {
-  const { user, loading, configured, canAdd, signIn, signOut, signInEmail, signUpEmail, resetPassword } = useAuth();
+  const { user, loading, configured, canAdd, banned, signIn, signOut, signInEmail, signUpEmail, resetPassword } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
@@ -58,16 +60,59 @@ export default function LoginPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  // كلمة المرور القوية المقترحة (تظهر عند الضغط على خانة كلمة المرور في التسجيل) وهل اعتمدها المستخدم.
+  const [suggestion, setSuggestion] = useState("");
+  const [usedSuggestion, setUsedSuggestion] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const askedAccount = useRef(false);
 
-  // بعد الدخول: المشرف يذهب للوحة التحكم، وأي مشاهد آخر للرئيسية.
+  // بعد الدخول (وبعد تحميل صلاحياته): المشرف يذهب للوحة التحكم، وأي مشاهد آخر للرئيسية.
   useEffect(() => {
-    if (user) router.replace(canAdd ? "/admin" : "/");
-  }, [user, canAdd, router]);
+    if (user && !loading) router.replace(canAdd ? "/admin" : "/");
+  }, [user, loading, canAdd, router]);
 
   function switchMode(m: Mode) {
     setMode(m);
     setError("");
     setInfo("");
+    setSuggestion("");
+    setUsedSuggestion(false);
+    setShowPw(false);
+    askedAccount.current = false;
+    cancelGoogleSuggestion();
+  }
+
+  // أول ضغطة على خانة البريد عند التسجيل: يقترح المتصفح حساب جوجل الموجود فيه ويملأ البريد (والاسم) تلقائيًا.
+  function onEmailFocus() {
+    if (mode !== "signup" || email || askedAccount.current) return;
+    askedAccount.current = true;
+    void suggestGoogleAccount((p) => {
+      setEmail(p.email);
+      setName((n) => n || p.name.slice(0, 60));
+    });
+  }
+
+  // ضغطة على خانة كلمة المرور عند التسجيل: نقترح كلمة قوية (لا نفرضها).
+  function onPasswordFocus() {
+    if (mode === "signup" && !password && !usedSuggestion) setSuggestion((s) => s || generateStrongPassword());
+  }
+
+  function applySuggestion() {
+    setPassword(suggestion);
+    setShowPw(true); // يرى كلمة المرور ليحفظها
+    setUsedSuggestion(true);
+    setSuggestion("");
+  }
+
+  async function copySuggestion(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* النسخ غير متاح: يستطيع تحديد النص يدويًا */
+    }
   }
 
   async function run(fn: () => Promise<void>) {
@@ -142,22 +187,52 @@ export default function LoginPanel() {
         )}
         <label>
           البريد الإلكتروني
-          <input type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+          <input type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} onFocus={onEmailFocus} required autoComplete={mode === "signup" ? "email" : "username"} />
         </label>
         {mode !== "reset" && (
-          <label>
-            كلمة المرور
-            <input
-              type="password"
-              dir="ltr"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-            />
-          </label>
+          <>
+            <label>
+              كلمة المرور
+              <input
+                type={showPw ? "text" : "password"}
+                dir="ltr"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setSuggestion("");
+                  setUsedSuggestion(false);
+                }}
+                onFocus={onPasswordFocus}
+                required
+                minLength={6}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              />
+            </label>
+            <button type="button" className="linkbtn linkbtn--sm" onClick={() => setShowPw((v) => !v)} aria-pressed={showPw}>
+              {showPw ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+            </button>
+            {mode === "signup" && suggestion && (
+              <div className="pw-suggest" role="region" aria-label="اقتراح كلمة مرور قوية">
+                <p>كلمة مرور قوية مقترحة لك:</p>
+                <code dir="ltr">{suggestion}</code>
+                <div className="addrow">
+                  <button type="button" className="btn btn--sm" onMouseDown={(e) => e.preventDefault()} onClick={applySuggestion}>استخدامها</button>
+                  <button type="button" className="btn btn--ghost btn--sm" onMouseDown={(e) => e.preventDefault()} onClick={() => setSuggestion(generateStrongPassword())}>اقتراح آخر</button>
+                  <button type="button" className="btn btn--ghost btn--sm" onMouseDown={(e) => e.preventDefault()} onClick={() => void copySuggestion(suggestion)}>{copied ? "تم النسخ ✓" : "نسخ"}</button>
+                </div>
+                <p className="hint">مجرد اقتراح: يمكنك كتابة كلمة مرور من اختيارك، ويمكنك تغييرها في أي وقت من صفحة «حسابي» بعد التسجيل.</p>
+              </div>
+            )}
+            {mode === "signup" && usedSuggestion && password && (
+              <p className="hint pw-used" role="status">
+                تم تعيين كلمة المرور المقترحة. احفظها الآن (
+                <button type="button" className="linkbtn linkbtn--sm" onClick={() => void copySuggestion(password)}>{copied ? "تم النسخ ✓" : "نسخ"}</button>
+                ). يمكنك تغييرها لاحقًا من «حسابي».
+              </p>
+            )}
+          </>
         )}
+        {banned && !error && <p className="field-error" role="alert">تم إيقاف هذا الحساب من قِبل إدارة الموقع. تواصل معنا إن كان ذلك خطأ.</p>}
         {error && <p className="field-error" role="alert">{error}</p>}
         {info && <p className="hint" role="status">{info}</p>}
         <button type="submit" disabled={busy || loading}>

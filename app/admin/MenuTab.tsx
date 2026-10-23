@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Icon from "@/components/Icon";
 import { MENU_ICONS, more, nav, type IconName, type NavItem } from "@/lib/data";
-import { saveSettings, useSettings, type NavOverrides } from "@/lib/settings";
+import { NAV_ALWAYS_SHOWN, saveSettings, useSettings, type NavOverrides } from "@/lib/settings";
 
 const GROUPS: { title: string; items: readonly NavItem[] }[] = [
   { title: "القائمة الرئيسية (تظهر أيضًا في الشريط السفلي على الجوال)", items: nav },
@@ -12,6 +12,7 @@ const GROUPS: { title: string; items: readonly NavItem[] }[] = [
 export default function MenuTab() {
   const { settings, update, ready } = useSettings();
   const [ov, setOv] = useState<NavOverrides>(settings.navItems);
+  const [hid, setHid] = useState<string[]>(settings.navHidden);
   const [open, setOpen] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -21,6 +22,10 @@ export default function MenuTab() {
   const edit = (n: NavItem, patch: Partial<{ label: string; icon: IconName }>) => {
     setDone(false);
     setOv((o) => ({ ...o, [n.href]: { ...cur(n), ...patch } }));
+  };
+  const toggleShown = (n: NavItem, shown: boolean) => {
+    setDone(false);
+    setHid((h) => (shown ? h.filter((x) => x !== n.href) : h.includes(n.href) ? h : [...h, n.href]));
   };
   const reset = (n: NavItem) => {
     setDone(false);
@@ -42,9 +47,10 @@ export default function MenuTab() {
     }
     setSaving(true);
     try {
-      const saved = await saveSettings({ ...settings, navItems: clean });
+      const saved = await saveSettings({ ...settings, navItems: clean, navHidden: hid });
       update(saved);
       setOv(saved.navItems);
+      setHid(saved.navHidden);
       setDone(true);
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
@@ -57,7 +63,7 @@ export default function MenuTab() {
 
   return (
     <div className="panel menu-admin">
-      <p className="hint">غيّر اسم أي صفحة في القائمة وأيقونتها. المسارات لا تتغيّر، فالروابط الحالية تبقى تعمل.</p>
+      <p className="hint">غيّر اسم أي صفحة في القائمة وأيقونتها، أو أخفِها بإلغاء «إظهار». المسارات لا تتغيّر، فالروابط الحالية تبقى تعمل حتى للعناصر المخفية (تختفي من القائمة فقط). الرئيسية لا تُخفى.</p>
       {GROUPS.map((g) => (
         <section key={g.title}>
           <h2>{g.title}</h2>
@@ -65,9 +71,23 @@ export default function MenuTab() {
             {g.items.map((n) => {
               const c = cur(n);
               const changed = Boolean(ov[n.href]) && (c.label !== n.label || c.icon !== n.icon);
+              const shown = !hid.includes(n.href);
+              const locked = NAV_ALWAYS_SHOWN.includes(n.href);
               return (
                 <li key={n.href} className="menu-row">
                   <div className="addrow">
+                    <button
+                      type="button"
+                      className={shown ? "ibtn on" : "ibtn"}
+                      role="switch"
+                      aria-checked={shown}
+                      disabled={locked}
+                      aria-label={`${shown ? "إخفاء" : "إظهار"} «${c.label}» في القائمة`}
+                      title={locked ? "الرئيسية تبقى ظاهرة دائمًا" : shown ? "ظاهر في القائمة (اضغط للإخفاء)" : "مخفي من القائمة (اضغط للإظهار)"}
+                      onClick={() => toggleShown(n, !shown)}
+                    >
+                      <Icon name={shown ? "eye" : "eyeoff"} size={20} />
+                    </button>
                     <button type="button" className="ibtn" aria-expanded={open === n.href} aria-label={`اختيار أيقونة «${c.label}»`} title="تغيير الأيقونة" onClick={() => setOpen(open === n.href ? "" : n.href)}>
                       <Icon name={c.icon} size={22} />
                     </button>
@@ -94,7 +114,7 @@ export default function MenuTab() {
       {done && <p className="hint" role="status">تم حفظ القائمة ✓</p>}
       <div className="addrow">
         <button type="button" onClick={() => void save()} disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ القائمة"}</button>
-        <button type="button" className="btn btn--ghost" onClick={() => { setOv({}); setDone(false); }}>استعادة الكل</button>
+        <button type="button" className="btn btn--ghost" onClick={() => { setOv({}); setHid([]); setDone(false); }}>استعادة الكل</button>
       </div>
     </div>
   );

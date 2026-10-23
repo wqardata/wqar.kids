@@ -1,21 +1,36 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // غيّر البريد إلى بريدك (أو أضف عدة بريدات).
-    function isAdmin() {
+
+    // «المالك»: غيّر القائمة إلى بريداتك (يجب أن تطابق NEXT_PUBLIC_ADMIN_EMAILS / ADMIN_EMAILS).
+    // المالك وحده يدير الأعضاء وصلاحياتهم.
+    function isOwner() {
       return request.auth != null
         && request.auth.token.email_verified == true
         && request.auth.token.email in ['you@gmail.com'];
     }
+
+    // «المشرف»: المالك، أو عضو دوره admin في users/{uid} وغير محظور (بريده موثّق).
+    function isAdmin() {
+      return isOwner()
+        || (request.auth != null
+            && request.auth.token.email_verified == true
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('banned', false) != true);
+    }
+
     match /videos/{id}     { allow read: if true; allow write: if isAdmin(); }
     match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
     match /series/{id}     { allow read: if true; allow write: if isAdmin(); }
     match /settings/{id}   { allow read: if true; allow write: if isAdmin(); }
     // قائمة البث المباشر (مستند واحد: live/current).
     match /live/{id}       { allow read: if true; allow write: if isAdmin(); }
-    // بلاغات الزوار: أي شخص يُنشئ بلاغًا بحقول محدودة الحجم؛ القراءة والإدارة للمشرف فقط.
+
+    // بلاغات الزوار: أي شخص (مسجَّل أو غير مسجَّل) يُنشئ بلاغًا بحقول محدودة الحجم؛ القراءة والإدارة للمشرف فقط.
     match /reports/{id} {
-      allow create: if request.resource.data.videoId is string && request.resource.data.videoId.size() <= 40
+      allow create: if true
+        && request.resource.data.videoId is string && request.resource.data.videoId.size() <= 40
         && request.resource.data.videoTitle is string && request.resource.data.videoTitle.size() <= 200
         && request.resource.data.reason is string && request.resource.data.reason.size() <= 80
         && request.resource.data.note is string && request.resource.data.note.size() <= 500
@@ -23,6 +38,7 @@ service cloud.firestore {
         && request.resource.data.size() <= 8;
       allow read, update, delete: if isAdmin();
     }
+
     // الصور المصغّرة الملتقطة من الفيديو (JPEG بصيغة base64). القراءة عامة لأن /api/thumb يخدمها للزوار.
     match /thumbs/{id} {
       allow read: if true;
@@ -30,6 +46,30 @@ service cloud.firestore {
         && request.resource.data.b64 is string
         && request.resource.data.b64.size() < 300000;
       allow delete: if isAdmin();
+    }
+
+    // الأعضاء المسجَّلون: users/{uid}.
+    //  - العضو يقرأ سجله وينشئه عند أول دخول (دور viewer فقط) ويعدّل اسمه وصورته فقط.
+    //  - المالك وحده يقرأ كل الأعضاء ويغيّر الدور والحظر ويحذف السجل.
+    match /users/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isOwner());
+
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.role == 'viewer'
+        && request.resource.data.banned == false
+        && request.resource.data.keys().hasOnly(['email', 'name', 'avatar', 'role', 'banned', 'createdAt', 'lastLoginAt'])
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60
+        && request.resource.data.avatar is string && request.resource.data.avatar.size() <= 20;
+
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.banned == resource.data.banned
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email', 'name', 'avatar', 'lastLoginAt'])
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.avatar.size() <= 20;
+
+      allow update, delete: if isOwner();
     }
   }
 }

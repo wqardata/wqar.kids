@@ -34,3 +34,8 @@ export function canAddVideos(email?: string | null): boolean {
   if (!email) return false;
   return admins.length === 0 || admins.includes(email.toLowerCase());
 }
+
+/** هل البريد من «المالكين» في NEXT_PUBLIC_ADMIN_EMAILS؟ (صارم: قائمة فارغة = لا أحد). هم وحدهم يديرون الأعضاء. */
+export function isOwnerEmail(email?: string | null): boolean {
+  return Boolean(email) && admins.includes((email as string).toLowerCase());
+}

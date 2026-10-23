@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { DRIVE_ID, driveThumbnail, stripExtension } from "@/lib/drive";
-import { bearer, emailFromToken, isAdminEmail } from "@/lib/serverAuth";
+import { adminFromToken, bearer } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,10 +62,11 @@ async function nameFromPage(id: string): Promise<NameResult> {
 }
 
 export async function GET(req: NextRequest) {
-  const email = await emailFromToken(bearer(req));
-  if (!email) return NextResponse.json({ error: "غير مصرّح. سجّل الدخول أولًا." }, { status: 401 });
-  if (!isAdminEmail(email)) {
-    return NextResponse.json({ error: "هذا الحساب غير مخوّل بإضافة فيديوهات." }, { status: 403 });
+  const who = await adminFromToken(bearer(req));
+  if ("error" in who) {
+    return who.error === "unauthorized"
+      ? NextResponse.json({ error: "غير مصرّح. سجّل الدخول أولًا." }, { status: 401 })
+      : NextResponse.json({ error: "هذا الحساب غير مخوّل بإضافة فيديوهات." }, { status: 403 });
   }
 
   const id = req.nextUrl.searchParams.get("id") ?? "";

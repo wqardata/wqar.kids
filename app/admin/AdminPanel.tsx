@@ -9,13 +9,15 @@ import NamedManager from "./NamedManager";
 import LiveTab from "./LiveTab";
 import MenuTab from "./MenuTab";
 import ReportsTab from "./ReportsTab";
+import MembersTab from "./MembersTab";
 
-type Tab = "videos" | "shorts" | "live" | "reports" | "categories" | "series" | "menu" | "appearance" | "settings";
+type Tab = "videos" | "shorts" | "live" | "reports" | "members" | "categories" | "series" | "menu" | "appearance" | "settings";
 const TABS: { id: Tab; label: string }[] = [
   { id: "videos", label: "الفيديوهات" },
   { id: "shorts", label: "المقاطع القصيرة" },
   { id: "live", label: "البث المباشر" },
   { id: "reports", label: "البلاغات" },
+  { id: "members", label: "الأعضاء" },
   { id: "categories", label: "التصنيفات" },
   { id: "series", label: "السلاسل" },
   { id: "menu", label: "القائمة" },
@@ -24,7 +26,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function AdminPanel() {
-  const { user, loading, configured, canAdd } = useAuth();
+  const { user, loading, configured, canAdd, isOwner } = useAuth();
   const [tab, setTab] = useState<Tab>("videos");
 
   if (!configured) return <p className="note admin-note">لم يُضبط Firebase بعد — راجع README.</p>;
@@ -47,7 +49,7 @@ export default function AdminPanel() {
       </div>
 
       <div role="tablist" aria-label="أقسام لوحة التحكم" className="tabs">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.id !== "members" || isOwner).map((t) => (
           <button
             key={t.id}
             id={`tab-${t.id}`}
@@ -68,6 +70,7 @@ export default function AdminPanel() {
         {tab === "shorts" && <VideosTab shortsOnly />}
         {tab === "live" && <LiveTab />}
         {tab === "reports" && <ReportsTab />}
+        {tab === "members" && isOwner && <MembersTab />}
         {tab === "categories" && <NamedManager coll="categories" />}
         {tab === "series" && <NamedManager coll="series" />}
         {tab === "menu" && <MenuTab />}

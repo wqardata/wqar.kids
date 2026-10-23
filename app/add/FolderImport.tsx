@@ -66,6 +66,7 @@ export default function FolderImport() {
       const dup = list.filter((x) => x.exists).length;
       if (dup) parts.push(`${dup} منها مضاف سابقًا (غير محدَّد)`);
       if (j.skipped) parts.push(`تم تجاهل ${j.skipped} عنصرًا ليس فيديو`);
+      if (!j.usedApi && list.length > 0) parts.push("المدد غير متوفرة بدون مفتاح API (ستظهر بعد فتح الفيديو أو من «جلب المدد الناقصة»)");
       if (j.truncated) parts.push("القائمة مقتطعة عند الحد الأقصى (500 فيديو)");
       setNote(parts.join(" • "));
     } catch {
@@ -145,7 +146,7 @@ export default function FolderImport() {
         <label htmlFor="folder-url">رابط المجلد من جوجل درايف</label>
         <input id="folder-url" type="url" dir="ltr" inputMode="url" placeholder="https://drive.google.com/drive/folders/…" value={url} onChange={(e) => setUrl(e.target.value)} autoComplete="off" />
         {url.trim() && !folderId && <p className="field-error" role="alert">الرابط لا يبدو رابط مجلد من درايف.</p>}
-        <p className="hint">يجب أن يكون المجلد مشاركًا «أي شخص لديه الرابط – مشاهد»، ويتطلب ضبط <code>DRIVE_API_KEY</code>.</p>
+        <p className="hint">يجب أن يكون المجلد مشاركًا «أي شخص لديه الرابط – مشاهد». لا حاجة لمفتاح API: بدونه تُقرأ صفحة المجلد العامة (بلا مدة الفيديو)، ومعه تُجلب المدة أيضًا.</p>
       </div>
       <label className="check"><input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} /> تضمين المجلدات الفرعية</label>
       <div className="addrow">

@@ -5,6 +5,7 @@ import Icon from "./Icon";
 import { useAuth } from "@/lib/auth";
 import { nav, more, type NavItem } from "@/lib/data";
 import BrandMark from "./BrandMark";
+import Avatar from "./Avatar";
 import { brandStyle, useSettings } from "@/lib/settings";
 
 function isActive(path: string, href: string) {
@@ -34,12 +35,14 @@ function NavLinks({ items, path, size, stacked }: { items: readonly NavItem[]; p
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? "/";
-  const { user, canAdd, signOut } = useAuth();
+  const { user, canAdd, profile } = useAuth();
   const { settings } = useSettings();
   // الأسماء والأيقونات المخصّصة من لوحة التحكم تتغلّب على الافتراضية.
   const custom = (items: readonly NavItem[]): NavItem[] => items.map((n) => ({ ...n, ...settings.navItems[n.href] }));
-  const navItems = custom(nav);
-  const moreItems = custom(more);
+  // العناصر التي أخفاها المشرف من لوحة التحكم لا تظهر في القائمة الجانبية ولا في الشريط السفلي.
+  const visible = (items: NavItem[]) => items.filter((n) => !settings.navHidden.includes(n.href));
+  const navItems = visible(custom(nav));
+  const moreItems = visible(custom(more));
 
   return (
     <>
@@ -61,15 +64,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </form>
         {user ? (
           <>
-            {canAdd && <Link href="/admin" className="login">لوحة التحكم</Link>}
-            <button type="button" className="logout" onClick={() => void signOut()} title="تسجيل الخروج" aria-label={`تسجيل الخروج (${user.email ?? ""})`}>
-              {user.photoURL ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.photoURL} alt="" referrerPolicy="no-referrer" />
-              ) : (
-                <Icon name="user" size={20} />
-              )}
-            </button>
+            {canAdd && (
+              <Link href="/admin" className="logout" aria-label="لوحة التحكم" title="لوحة التحكم">
+                <Icon name="gear" size={20} />
+              </Link>
+            )}
+            <Link href="/account" className="logout" aria-label={`حسابي (${user.email ?? ""})`} title="حسابي">
+              <Avatar id={profile?.avatar} size={36} />
+            </Link>
           </>
         ) : (
           <Link href="/login" className="login login--icon" aria-label="تسجيل الدخول" title="تسجيل الدخول">
@@ -80,13 +82,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
       <nav className="side" aria-label="القائمة الرئيسية">
         <NavLinks items={navItems} path={path} />
-        <hr />
+        {navItems.length > 0 && moreItems.length > 0 && <hr />}
         <NavLinks items={moreItems} path={path} />
       </nav>
 
       <main className="main" id="main" tabIndex={-1}>{children}</main>
 
-      <nav className="bottom" aria-label="التنقل السريع">
+      <nav className="bottom" aria-label="التنقل السريع" style={{ gridTemplateColumns: `repeat(${Math.max(1, navItems.length)}, 1fr)` }}>
         <NavLinks items={navItems} path={path} size={24} stacked />
       </nav>
     </>
