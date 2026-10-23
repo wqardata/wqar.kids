@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { addDoc, collection, getDocs, orderBy, query, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, getDocs, limit, orderBy, query, serverTimestamp } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
 
 export type Named = { id: string; name: string };
@@ -91,4 +91,32 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
     hidden: d.hidden === true,
     createdAt: ts(d.createdAt),
   };
+}
+
+/** تطبيع عربي خفيف للبحث: يزيل التشكيل ويوحّد الألف والياء والتاء المربوطة. */
+export function normalizeAr(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه");
+}
+
+/** أحدث الفيديوهات الظاهرة للزوار (غير المخفية)، حتى 200. */
+export function useAllVideos() {
+  const [videos, setVideos] = useState<VideoDoc[]>([]);
+  const [ready, setReady] = useState(!isFirebaseConfigured);
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    let off = false;
+    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(200)))
+      .then((snap) => !off && setVideos(snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => !v.hidden)))
+      .catch(() => {})
+      .finally(() => !off && setReady(true));
+    return () => {
+      off = true;
+    };
+  }, []);
+  return { videos, ready };
 }

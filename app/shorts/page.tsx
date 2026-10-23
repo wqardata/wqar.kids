@@ -10,7 +10,7 @@ export default function Shorts() {
   return (
     <>
       <h1 className="page-title">مقاطع قصيرة</h1>
-      <AddedVideos mode="shorts" emptyNote={items.length ? undefined : "لا توجد مقاطع قصيرة بعد."} />
+      <AddedVideos mode="shorts" showHeading={false} emptyNote={items.length ? undefined : "لا توجد مقاطع قصيرة بعد."} />
       {items.length > 0 && <EpisodeGrid items={items} />}
     </>
   );

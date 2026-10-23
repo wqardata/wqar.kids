@@ -1,6 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { cleanUrl, LOGO_MAX, LOGO_MIN, saveSettings, useSettings, type SiteSettings } from "@/lib/settings";
+import BrandMark from "@/components/BrandMark";
+import { BRAND_FONTS, BRAND_SIZE_MAX, BRAND_SIZE_MIN, brandStyle, cleanUrl, LOGO_MAX, LOGO_MIN, saveSettings, useSettings, type BrandFontId, type SiteSettings } from "@/lib/settings";
 
 /** يصغّر الصورة (حتى 512px) ويحوّلها إلى data: URL صغير؛ إعادة الرسم تزيل أي سكربت من SVG. */
 async function fileToLogo(file: File): Promise<string> {
@@ -96,11 +97,7 @@ export default function SettingsTab() {
       <h2>الشعار</h2>
       <div className="logo-box">
         <div className="logo-preview" aria-label="معاينة الهيدر">
-          {form.logo && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={form.logo} alt="" className="brand-logo" style={{ height: form.logoHeight }} />
-          )}
-          {(!form.logo || form.showName) && <strong className="brand-prev">{form.siteName || "اسم الموقع"}</strong>}
+          <span className="brand" style={brandStyle(form)}><BrandMark s={form} /></span>
         </div>
         <div className="addrow">
           <label className="btn btn--ghost btn--sm filebtn">
@@ -122,6 +119,37 @@ export default function SettingsTab() {
         )}
         <p className="hint">يُفضَّل شعار بخلفية شفافة (PNG أو SVG). يُصغَّر تلقائيًا ويظهر في الهيدر بعد الحفظ.</p>
       </div>
+
+      <h2>مظهر اسم الموقع</h2>
+      <div className="field">
+        <label htmlFor="st-font">الخط</label>
+        <select id="st-font" value={form.brandFont} onChange={(e) => set("brandFont", e.target.value as BrandFontId)}>
+          {BRAND_FONTS.map((f) => (
+            <option key={f.id} value={f.id}>{f.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor="st-size">حجم الاسم: {form.brandSize}px</label>
+        <input id="st-size" type="range" min={BRAND_SIZE_MIN} max={BRAND_SIZE_MAX} value={form.brandSize} onChange={(e) => set("brandSize", Number(e.target.value))} />
+      </div>
+      <div className="two">
+        <div className="field">
+          <label htmlFor="st-col-l">اللون — الوضع الفاتح</label>
+          <div className="colorrow">
+            <input id="st-col-l" type="color" value={form.brandColor || "#087a68"} onChange={(e) => set("brandColor", e.target.value)} />
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => set("brandColor", "")} disabled={!form.brandColor}>افتراضي</button>
+          </div>
+        </div>
+        <div className="field">
+          <label htmlFor="st-col-d">اللون — الوضع الداكن</label>
+          <div className="colorrow">
+            <input id="st-col-d" type="color" value={form.brandColorDark || "#2cc4a8"} onChange={(e) => set("brandColorDark", e.target.value)} />
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => set("brandColorDark", "")} disabled={!form.brandColorDark}>افتراضي</button>
+          </div>
+        </div>
+      </div>
+      <p className="hint">الموقع يتبدّل بين الفاتح والداكن حسب إعداد جهاز الزائر، لذا اختر لونًا واضحًا في كل وضع.</p>
 
       <h2>الصفحات</h2>
       <div className="field">

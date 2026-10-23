@@ -1,8 +1,22 @@
 "use client";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
 import { CONTACT_EMAIL, LIVE_URL, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS } from "./data";
+
+/** خطوط اسم الموقع. تُحمَّل من layout.tsx ولا تُنزَّل إلا عند استعمالها. */
+export const BRAND_FONTS = [
+  { id: "default", label: "خط الموقع (Readex Pro)", css: "" },
+  { id: "cairo", label: "Cairo — عصري واضح", css: "var(--font-cairo), sans-serif" },
+  { id: "tajawal", label: "Tajawal — بسيط", css: "var(--font-tajawal), sans-serif" },
+  { id: "changa", label: "Changa — عريض للعناوين", css: "var(--font-changa), sans-serif" },
+  { id: "reemkufi", label: "Reem Kufi — كوفي", css: "var(--font-reemkufi), sans-serif" },
+  { id: "amiri", label: "Amiri — نسخ تقليدي", css: "var(--font-amiri), serif" },
+] as const;
+export type BrandFontId = (typeof BRAND_FONTS)[number]["id"];
+export const BRAND_SIZE_MIN = 16;
+export const BRAND_SIZE_MAX = 32;
+const HEX = /^#[0-9a-fA-F]{6}$/;
 
 export type SupportLink = { label: string; href: string };
 export type SiteSettings = {
@@ -15,6 +29,11 @@ export type SiteSettings = {
   logo: string;
   logoHeight: number;
   showName: boolean;
+  /** لون الاسم في الوضعين الفاتح والداكن (فارغ = لون الموقع الافتراضي). */
+  brandColor: string;
+  brandColorDark: string;
+  brandSize: number;
+  brandFont: BrandFontId;
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -27,6 +46,10 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   logo: "",
   logoHeight: 32,
   showName: true,
+  brandColor: "",
+  brandColorDark: "",
+  brandSize: 22,
+  brandFont: "default",
 };
 
 export const LOGO_MIN = 20;
@@ -68,7 +91,21 @@ function merge(d: Record<string, unknown>): SiteSettings {
     logo: cleanLogo(d.logo),
     logoHeight: Math.min(LOGO_MAX, Math.max(LOGO_MIN, Math.round(Number(d.logoHeight) || DEFAULT_SETTINGS.logoHeight))),
     showName: d.showName !== false,
+    brandColor: typeof d.brandColor === "string" && HEX.test(d.brandColor) ? d.brandColor : "",
+    brandColorDark: typeof d.brandColorDark === "string" && HEX.test(d.brandColorDark) ? d.brandColorDark : "",
+    brandSize: Math.min(BRAND_SIZE_MAX, Math.max(BRAND_SIZE_MIN, Math.round(Number(d.brandSize) || DEFAULT_SETTINGS.brandSize))),
+    brandFont: BRAND_FONTS.some((f) => f.id === d.brandFont) ? (d.brandFont as BrandFontId) : "default",
   };
+}
+
+/** نمط اسم الموقع (الحجم والخط واللون بحسب الوضع الفاتح/الداكن). */
+export function brandStyle(s: SiteSettings): CSSProperties {
+  const st: Record<string, string | number> = { fontSize: s.brandSize };
+  const f = BRAND_FONTS.find((x) => x.id === s.brandFont);
+  if (f?.css) st.fontFamily = f.css;
+  if (s.brandColor) st["--brand-l"] = s.brandColor;
+  if (s.brandColorDark) st["--brand-d"] = s.brandColorDark;
+  return st as CSSProperties;
 }
 
 /** يحفظ الإعدادات بعد تنظيفها ويعيد النسخة المنظّفة. */

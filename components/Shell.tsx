@@ -4,7 +4,8 @@ import { usePathname } from "next/navigation";
 import Icon from "./Icon";
 import { useAuth } from "@/lib/auth";
 import { nav, more, type NavItem } from "@/lib/data";
-import { useSettings } from "@/lib/settings";
+import BrandMark from "./BrandMark";
+import { brandStyle, useSettings } from "@/lib/settings";
 
 function isActive(path: string, href: string) {
   return href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);
@@ -39,12 +40,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <header className="top">
-        <Link href="/" className="brand" aria-label={settings.siteName}>
-          {settings.logo && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={settings.logo} alt="" className="brand-logo" style={{ height: settings.logoHeight }} />
-          )}
-          {(!settings.logo || settings.showName) && <span>{settings.siteName}</span>}
+        <Link href="/" className="brand" aria-label={settings.siteName} style={brandStyle(settings)}>
+          <BrandMark s={settings} />
         </Link>
         <form className="search" role="search" action="/search" method="get">
           <Icon name="search" size={18} />

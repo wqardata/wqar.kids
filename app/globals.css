@@ -246,3 +246,19 @@ a.group:hover { border-color: var(--accent); }
 .auth .or::before, .auth .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
 .auth .switch { display: grid; gap: 8px; margin-top: 16px; justify-items: start; }
 .auth .linkbtn { background: none; color: var(--accent); height: auto; padding: 0; border-radius: 0; font-weight: 500; text-decoration: underline; cursor: pointer; }
+
+/* ---------- اسم الموقع (لون/حجم/خط من الإعدادات) + تحصين الهيدر على الجوال ---------- */
+.brand { --bc: var(--brand-l, var(--accent)); color: var(--bc); line-height: 1.2; flex: 0 1 auto; min-width: 0; }
+@media (prefers-color-scheme: dark) { .brand { --bc: var(--brand-d, var(--accent)); } }
+.brand-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search { min-width: 0; }
+.login, .logout { flex: none; }
+html, body { overflow-x: clip; }
+.colorrow { display: flex; align-items: center; gap: 8px; }
+.field .colorrow input[type="color"] { width: 56px; min-height: 44px; padding: 4px; cursor: pointer; }
+@media (max-width: 480px) {
+  .top { gap: 8px; padding-inline: 10px; }
+  .login { padding: 8px 12px; font-size: .82rem; }
+  .search { padding: 0 10px; gap: 6px; }
+  .brand-logo { max-width: 110px; }
+}

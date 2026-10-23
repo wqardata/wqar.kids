@@ -2,6 +2,9 @@
 export const SITE_NAME = "موقعي";
 export const SITE_DESCRIPTION = "مشاهدة آمنة بلا إعلانات";
 
+// بيانات الحلقات/السلاسل التجريبية أدناه مخفية افتراضيًا. اجعلها true فقط لتجربة التصميم.
+export const SHOW_DEMO_DATA = false;
+
 export type IconName =
   | "home" | "bolt" | "stack" | "live" | "game" | "spark"
   | "heart" | "down" | "gift" | "mail" | "search" | "play" | "user";
@@ -46,12 +49,13 @@ const DRIVE_IDS: Record<string, string> = {
   // "1": "1AbCdEfGhIjKlMnOpQrStUvWxYz012345",
 };
 
-export const SERIES_LIST = [
+const DEMO_SERIES = [
   { id: "1", name: "المغامرون" },
   { id: "2", name: "حكايات الغابة" },
   { id: "3", name: "الأصدقاء الصغار" },
 ] as const;
-const SERIES = SERIES_LIST.map((s) => s.name);
+export const SERIES_LIST: readonly { id: string; name: string }[] = SHOW_DEMO_DATA ? DEMO_SERIES : [];
+const SERIES = DEMO_SERIES.map((s) => s.name);
 
 // ---- إعدادات الصفحات (املأها بما يناسبك) ----
 // بريد استقبال رسائل «تواصل معنا». اتركه فارغًا لتعطيل النموذج.
@@ -66,7 +70,7 @@ const DURATIONS = ["6:45", "9:46", "3:48", "10:05", "14:08", "4:54"];
 const VIEWS = [0, 1, 2, 0, 5, 0];
 
 // بيانات تجريبية — ستُستبدل لاحقًا بقاعدة البيانات.
-export const episodes: readonly Episode[] = Array.from({ length: 12 }, (_, i) => ({
+const DEMO_EPISODES: readonly Episode[] = Array.from({ length: 12 }, (_, i) => ({
   id: String(i + 1),
   title: `عنوان الحلقة ${i + 1}`,
   series: SERIES[i % SERIES.length],
@@ -78,6 +82,7 @@ export const episodes: readonly Episode[] = Array.from({ length: 12 }, (_, i) =>
   description: "وصف تجريبي للحلقة، سيُستبدل بالوصف الحقيقي عند ربط قاعدة البيانات.",
   driveId: DRIVE_IDS[String(i + 1)],
 }));
+export const episodes: readonly Episode[] = SHOW_DEMO_DATA ? DEMO_EPISODES : [];
 
 export function seriesEpisodes(name: string): Episode[] {
   return episodes.filter((e) => e.series === name);
