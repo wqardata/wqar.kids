@@ -1,9 +1,38 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { cleanUrl, saveSettings, useSettings, type SiteSettings } from "@/lib/settings";
+import { cleanUrl, LOGO_MAX, LOGO_MIN, saveSettings, useSettings, type SiteSettings } from "@/lib/settings";
+
+/** يصغّر الصورة (حتى 512px) ويحوّلها إلى data: URL صغير؛ إعادة الرسم تزيل أي سكربت من SVG. */
+async function fileToLogo(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("اختر ملف صورة (PNG أو SVG أو JPG أو WebP).");
+  if (file.size > 5 * 1024 * 1024) throw new Error("الصورة كبيرة؛ الحد الأقصى 5 ميغابايت.");
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = () => rej(new Error("تعذّر قراءة الصورة."));
+      i.src = url;
+    });
+    const w0 = img.naturalWidth || 512;
+    const h0 = img.naturalHeight || 512;
+    for (const max of [512, 256]) {
+      const k = Math.min(1, max / Math.max(w0, h0));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(w0 * k));
+      c.height = Math.max(1, Math.round(h0 * k));
+      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+      const out = c.toDataURL("image/webp", 0.9);
+      if (out.length <= 250_000) return out;
+    }
+    throw new Error("الصورة معقّدة جدًا؛ جرّب صورة أبسط أو أصغر.");
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 export default function SettingsTab() {
-  const { settings, update } = useSettings();
+  const { settings, update, ready } = useSettings();
   const [form, setForm] = useState<SiteSettings>(settings);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -15,6 +44,16 @@ export default function SettingsTab() {
   };
   const setLink = (i: number, key: "label" | "href", v: string) =>
     set("supportLinks", form.supportLinks.map((l, j) => (j === i ? { ...l, [key]: v } : l)));
+
+  async function onLogo(file: File | undefined) {
+    if (!file) return;
+    setError("");
+    try {
+      set("logo", await fileToLogo(file));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذّر رفع الصورة.");
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -40,6 +79,8 @@ export default function SettingsTab() {
     }
   }
 
+  if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
+
   return (
     <form className="auth-form panel" onSubmit={(e) => void onSubmit(e)}>
       <h2>معلومات الموقع الأساسية</h2>
@@ -50,6 +91,36 @@ export default function SettingsTab() {
       <div className="field">
         <label htmlFor="st-desc">وصف الموقع</label>
         <input id="st-desc" value={form.siteDescription} onChange={(e) => set("siteDescription", e.target.value)} maxLength={160} />
+      </div>
+
+      <h2>الشعار</h2>
+      <div className="logo-box">
+        <div className="logo-preview" aria-label="معاينة الهيدر">
+          {form.logo && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={form.logo} alt="" className="brand-logo" style={{ height: form.logoHeight }} />
+          )}
+          {(!form.logo || form.showName) && <strong className="brand-prev">{form.siteName || "اسم الموقع"}</strong>}
+        </div>
+        <div className="addrow">
+          <label className="btn btn--ghost btn--sm filebtn">
+            {form.logo ? "تغيير الشعار" : "رفع شعار"}
+            <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void onLogo(e.target.files?.[0]); e.target.value = ""; }} />
+          </label>
+          {form.logo && (
+            <button type="button" className="btn btn--ghost btn--sm danger" onClick={() => set("logo", "")}>إزالة الشعار</button>
+          )}
+        </div>
+        {form.logo && (
+          <>
+            <div className="field">
+              <label htmlFor="st-logo-h">حجم الشعار: {form.logoHeight}px</label>
+              <input id="st-logo-h" type="range" min={LOGO_MIN} max={LOGO_MAX} value={form.logoHeight} onChange={(e) => set("logoHeight", Number(e.target.value))} />
+            </div>
+            <label className="check"><input type="checkbox" checked={form.showName} onChange={(e) => set("showName", e.target.checked)} /> إظهار اسم الموقع بجانب الشعار</label>
+          </>
+        )}
+        <p className="hint">يُفضَّل شعار بخلفية شفافة (PNG أو SVG). يُصغَّر تلقائيًا ويظهر في الهيدر بعد الحفظ.</p>
       </div>
 
       <h2>الصفحات</h2>

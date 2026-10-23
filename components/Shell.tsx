@@ -39,7 +39,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <header className="top">
-        <Link href="/" className="brand">{settings.siteName}</Link>
+        <Link href="/" className="brand" aria-label={settings.siteName}>
+          {settings.logo && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={settings.logo} alt="" className="brand-logo" style={{ height: settings.logoHeight }} />
+          )}
+          {(!settings.logo || settings.showName) && <span>{settings.siteName}</span>}
+        </Link>
         <form className="search" role="search" action="/search" method="get">
           <Icon name="search" size={18} />
           <input
