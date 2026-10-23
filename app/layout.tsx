@@ -34,7 +34,16 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <head>
+        {/* يطبّق آخر ثيم محفوظ فور التحميل (قبل وصول الإعدادات من Firestore) لتفادي وميض الألوان القديمة. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{var c=localStorage.getItem("site-theme-css");if(c){var s=document.createElement("style");s.id="site-theme";s.textContent=c;document.head.appendChild(s)}}catch(e){}',
+          }}
+        />
+      </head>
       <body className={`${font.className} ${cairo.variable} ${tajawal.variable} ${changa.variable} ${reemkufi.variable} ${amiri.variable}`}>
         <a href="#main" className="skip">تخطَّ إلى المحتوى</a>
         <AuthProvider>

@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type CSSProper
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
 import { CONTACT_EMAIL, LIVE_URL, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS } from "./data";
+import { DEFAULT_THEME, THEME_CACHE_KEY, THEME_STYLE_ID, cleanTheme, effectiveColors, themeCss, type Theme } from "./theme";
 
 /** خطوط اسم الموقع. تُحمَّل من layout.tsx ولا تُنزَّل إلا عند استعمالها. */
 export const BRAND_FONTS = [
@@ -34,6 +35,8 @@ export type SiteSettings = {
   brandColorDark: string;
   brandSize: number;
   brandFont: BrandFontId;
+  /** ألوان الموقع والخطوط والحجم الأساسي. */
+  theme: Theme;
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -50,6 +53,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   brandColorDark: "",
   brandSize: 22,
   brandFont: "default",
+  theme: DEFAULT_THEME,
 };
 
 export const LOGO_MIN = 20;
@@ -95,6 +99,7 @@ function merge(d: Record<string, unknown>): SiteSettings {
     brandColorDark: typeof d.brandColorDark === "string" && HEX.test(d.brandColorDark) ? d.brandColorDark : "",
     brandSize: Math.min(BRAND_SIZE_MAX, Math.max(BRAND_SIZE_MIN, Math.round(Number(d.brandSize) || DEFAULT_SETTINGS.brandSize))),
     brandFont: BRAND_FONTS.some((f) => f.id === d.brandFont) ? (d.brandFont as BrandFontId) : "default",
+    theme: cleanTheme(d.theme),
   };
 }
 
@@ -115,19 +120,47 @@ export async function saveSettings(s: SiteSettings): Promise<SiteSettings> {
   return clean;
 }
 
+/** يكتب CSS الثيم في <style id="site-theme">، ويحدّث لون شريط المتصفح، ويحفظ نسخة محلية. */
+export function applyTheme(theme: Theme, persist = true) {
+  if (typeof document === "undefined") return;
+  const css = themeCss(theme);
+  let el = document.getElementById(THEME_STYLE_ID) as HTMLStyleElement | null;
+  if (!el) {
+    el = document.createElement("style");
+    el.id = THEME_STYLE_ID;
+    document.head.appendChild(el);
+  }
+  el.textContent = css;
+  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((m) => {
+    const dark = (m.media || "").includes("dark");
+    m.content = effectiveColors(theme, dark ? "dark" : "light").bg;
+  });
+  if (!persist) return;
+  try {
+    if (css) localStorage.setItem(THEME_CACHE_KEY, css);
+    else localStorage.removeItem(THEME_CACHE_KEY);
+  } catch {
+    /* التخزين المحلي غير متاح (وضع خاص مثلًا): لا بأس */
+  }
+}
+
 type Ctx = { settings: SiteSettings; update: (s: SiteSettings) => void; ready: boolean };
 const SettingsCtx = createContext<Ctx | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(!isFirebaseConfigured);
+  // لا نطبّق الثيم قبل معرفة ما في Firestore، كي لا نمسح النسخة المحلية ويحدث وميض بالألوان الافتراضية.
+  const [themeKnown, setThemeKnown] = useState(false);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     let off = false;
     getDoc(doc(getDb(), "settings", "site"))
       .then((snap) => {
-        if (!off && snap.exists()) setSettings(merge(snap.data()));
+        if (off) return;
+        if (snap.exists()) setSettings(merge(snap.data()));
+        setThemeKnown(true);
       })
       .catch(() => {})
       .finally(() => !off && setReady(true));
@@ -135,6 +168,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       off = true;
     };
   }, []);
+
+  // تطبيق الثيم على الصفحة وتخزينه محليًا ليظهر فورًا في الزيارة التالية دون وميض.
+  useEffect(() => {
+    if (themeKnown) applyTheme(settings.theme);
+  }, [settings.theme, themeKnown]);
 
   const value = useMemo<Ctx>(() => ({ settings, update: setSettings, ready }), [settings, ready]);
   return <SettingsCtx.Provider value={value}>{children}</SettingsCtx.Provider>;

@@ -11,5 +11,13 @@ service cloud.firestore {
     match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
     match /series/{id}     { allow read: if true; allow write: if isAdmin(); }
     match /settings/{id}   { allow read: if true; allow write: if isAdmin(); }
+    // الصور المصغّرة الملتقطة من الفيديو (JPEG بصيغة base64). القراءة عامة لأن /api/thumb يخدمها للزوار.
+    match /thumbs/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.b64 is string
+        && request.resource.data.b64.size() < 300000;
+      allow delete: if isAdmin();
+    }
   }
 }

@@ -279,3 +279,40 @@ html, body { overflow-x: clip; }
 @media (max-width: 599px) {
   .player--frame { aspect-ratio: auto; height: max(56.25vw, 340px); }
 }
+
+/* ---------- تبويب المظهر ---------- */
+.panel--wide { max-width: 760px; }
+.pv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pv { display: grid; gap: 10px; padding: 12px; border: 1px solid; border-radius: 14px; line-height: 1.5; }
+.pv-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid; }
+.pv-card { display: grid; gap: 4px; justify-items: start; padding: 10px; border: 1px solid; border-radius: 12px; }
+.pv-card h4 { font-size: 1em; font-weight: 600; }
+.pv-card p { font-size: .82em; }
+.pv-pill { display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: .8em; }
+.pv-label { text-align: center; }
+.cset { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 10px; min-width: 0; }
+.cset legend { padding-inline: 6px; font-weight: 600; font-size: .95rem; }
+.cgrid { display: grid; grid-template-columns: 1fr; gap: 10px 16px; }
+.crow label { display: grid; gap: 0; }
+.crow .hint { min-height: 0; margin: 0; }
+.colorrow code { font-size: .8rem; color: var(--mute); min-width: 4.5em; }
+.warn { color: #8a5200; font-size: .85rem; }
+@media (prefers-color-scheme: dark) { .warn { color: #f2b035; } }
+@media (min-width: 600px) { .cgrid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 420px) { .pv-row { grid-template-columns: 1fr; } }
+
+/* ---------- إدارة التصنيفات والسلاسل ---------- */
+.nlist { max-width: 640px; }
+.nrow { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.nrow-info { display: grid; min-width: 0; }
+.nrow-info strong { font-weight: 600; overflow-wrap: anywhere; }
+.nrow-info small { color: var(--mute); }
+.nrow-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.nrow-edit { flex: 1; min-width: 0; }
+.nrow .btn { margin-top: 0; }
+
+/* ---------- لقطة الفيديو العشوائية ---------- */
+.preview-busy { position: absolute; inset-inline: 0; bottom: 0; padding: 6px 10px; text-align: center; font-size: .8rem; color: #fff; background: rgba(0,0,0,.62); }
+.preview--short { max-width: 180px; }
+.preview--short .preview-thumb { aspect-ratio: 9 / 16; }
+.thumbedit-img { max-width: 240px; }

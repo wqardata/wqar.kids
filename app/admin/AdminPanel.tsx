@@ -4,11 +4,16 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import VideosTab from "./VideosTab";
 import SettingsTab from "./SettingsTab";
+import AppearanceTab from "./AppearanceTab";
+import NamedManager from "./NamedManager";
 
-type Tab = "videos" | "shorts" | "settings";
+type Tab = "videos" | "shorts" | "categories" | "series" | "appearance" | "settings";
 const TABS: { id: Tab; label: string }[] = [
   { id: "videos", label: "الفيديوهات" },
   { id: "shorts", label: "المقاطع القصيرة" },
+  { id: "categories", label: "التصنيفات" },
+  { id: "series", label: "السلاسل" },
+  { id: "appearance", label: "المظهر" },
   { id: "settings", label: "إعدادات الموقع" },
 ];
 
@@ -55,6 +60,9 @@ export default function AdminPanel() {
       <div id="admin-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
         {tab === "videos" && <VideosTab />}
         {tab === "shorts" && <VideosTab shortsOnly />}
+        {tab === "categories" && <NamedManager coll="categories" />}
+        {tab === "series" && <NamedManager coll="series" />}
+        {tab === "appearance" && <AppearanceTab />}
         {tab === "settings" && <SettingsTab />}
       </div>
     </div>

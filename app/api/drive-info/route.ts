@@ -1,31 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import { DRIVE_ID, driveThumbnail, stripExtension } from "@/lib/drive";
+import { bearer, emailFromToken, isAdminEmail } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const JWKS = createRemoteJWKSet(
-  new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
-);
-
-/** يتحقق من توكن Firebase ويعيد البريد، أو null إن كان غير صالح. */
-async function verifiedEmail(req: NextRequest): Promise<string | null> {
-  const header = req.headers.get("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  if (!token || !projectId) return null;
-  try {
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: `https://securetoken.google.com/${projectId}`,
-      audience: projectId,
-    });
-    if (payload.email_verified !== true || typeof payload.email !== "string") return null;
-    return payload.email.toLowerCase();
-  } catch {
-    return null;
-  }
-}
 
 function decodeEntities(s: string): string {
   return s
@@ -81,14 +59,9 @@ async function nameFromPage(id: string): Promise<NameResult> {
 }
 
 export async function GET(req: NextRequest) {
-  const email = await verifiedEmail(req);
+  const email = await emailFromToken(bearer(req));
   if (!email) return NextResponse.json({ error: "غير مصرّح. سجّل الدخول أولًا." }, { status: 401 });
-
-  const admins = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  if (admins.length > 0 && !admins.includes(email)) {
+  if (!isAdminEmail(email)) {
     return NextResponse.json({ error: "هذا الحساب غير مخوّل بإضافة فيديوهات." }, { status: 403 });
   }
 

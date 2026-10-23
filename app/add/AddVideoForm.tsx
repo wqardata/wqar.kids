@@ -2,11 +2,14 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import CreatableSelect from "@/components/CreatableSelect";
 import { useAuth } from "@/lib/auth";
 import { driveThumbnail, parseDriveId } from "@/lib/drive";
 import { getDb } from "@/lib/firebase";
+import { deleteThumb, saveThumb } from "@/lib/thumbs";
+import { useRandomFrame } from "@/lib/useRandomFrame";
+import { formatClock } from "@/lib/format";
 import { useNamedList } from "@/lib/videos";
 
 type Info = { id: string; title: string | null; thumbnail: string; warning: string | null };
@@ -32,8 +35,12 @@ export default function AddVideoForm() {
   const [thumbOk, setThumbOk] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // لقطة عشوائية بعد الثانية 10 بدل صورة درايف الافتراضية.
+  const [randomThumb, setRandomThumb] = useState(true);
 
   const driveId = parseDriveId(url);
+  const frame = useRandomFrame(driveId, user, randomThumb);
+  const capturing = randomThumb && frame.status === "loading";
 
   // جلب الاسم والصورة تلقائيًا بمجرد لصق رابط صالح.
   useEffect(() => {
@@ -90,21 +97,40 @@ export default function AddVideoForm() {
       const cat = categories.items.find((c) => c.id === categoryId);
       const ser = series.items.find((s) => s.id === seriesId);
       const num = (v: string) => (v.trim() && Number.isFinite(Number(v)) ? Math.max(1, Math.floor(Number(v))) : null);
-      const ref = await addDoc(collection(getDb(), "videos"), {
-        title: title.trim(),
-        driveId,
-        thumbnail: driveThumbnail(driveId),
-        description: description.trim(),
-        categoryId,
-        categoryName: cat?.name ?? "",
-        seriesId: ser?.id ?? "",
-        seriesName: ser?.name ?? "",
-        season: ser ? num(season) : null,
-        episode: ser ? num(episode) : null,
-        createdBy: user.uid,
-        createdByEmail: user.email ?? "",
-        createdAt: serverTimestamp(),
-      });
+      const ref = doc(collection(getDb(), "videos"));
+      let thumbnail = driveThumbnail(driveId);
+      let savedThumb = false;
+      if (randomThumb && frame.status === "ok" && frame.dataUrl) {
+        try {
+          thumbnail = await saveThumb(ref.id, frame.dataUrl);
+          savedThumb = true;
+        } catch {
+          // لا نكمل بصمت بصورة مختلفة عمّا رآه المشرف في المعاينة.
+          setError("تعذّر حفظ الصورة المختارة. حدّث قواعد Firestore (thumbs) من firestore.rules أو ألغِ خيار «لقطة عشوائية».");
+          setSaving(false);
+          return;
+        }
+      }
+      try {
+        await setDoc(ref, {
+          title: title.trim(),
+          driveId,
+          thumbnail,
+          description: description.trim(),
+          categoryId,
+          categoryName: cat?.name ?? "",
+          seriesId: ser?.id ?? "",
+          seriesName: ser?.name ?? "",
+          season: ser ? num(season) : null,
+          episode: ser ? num(episode) : null,
+          createdBy: user.uid,
+          createdByEmail: user.email ?? "",
+          createdAt: serverTimestamp(),
+        });
+      } catch (e) {
+        if (savedThumb) void deleteThumb(ref.id);
+        throw e;
+      }
       router.push(`/v/${ref.id}`);
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore.");
@@ -154,15 +180,35 @@ export default function AddVideoForm() {
       </div>
 
       {info && driveId && (
-        <div className="preview">
-          <div className="preview-thumb">
-            {thumbOk ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={info.thumbnail} alt="" referrerPolicy="no-referrer" onError={() => setThumbOk(false)} />
-            ) : (
-              <span>لا توجد صورة مصغّرة</span>
-            )}
+        <div className="field">
+          <div className="preview">
+            <div className="preview-thumb">
+              {frame.status === "ok" && frame.dataUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={frame.dataUrl} alt="" />
+              ) : thumbOk ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={info.thumbnail} alt="" referrerPolicy="no-referrer" onError={() => setThumbOk(false)} />
+              ) : (
+                <span>لا توجد صورة مصغّرة</span>
+              )}
+              {capturing && <span className="preview-busy" role="status">جارٍ التقاط صورة من الفيديو…</span>}
+            </div>
           </div>
+          <label className="check">
+            <input type="checkbox" checked={randomThumb} onChange={(e) => setRandomThumb(e.target.checked)} />
+            التقاط صورة عشوائية بعد الثانية 10 من الفيديو
+          </label>
+          {randomThumb && frame.status === "ok" && (
+            <div className="addrow">
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => void frame.reroll()} disabled={!frame.canReroll}>
+                🎲 لقطة أخرى
+              </button>
+              <small className="hint">اللقطة من الثانية {formatClock(frame.time)}</small>
+            </div>
+          )}
+          {randomThumb && frame.message && <p className="hint" role="status">{frame.message}</p>}
+          {!randomThumb && <p className="hint">ستُستخدم صورة درايف المصغّرة الافتراضية.</p>}
         </div>
       )}
 
@@ -215,7 +261,7 @@ export default function AddVideoForm() {
       </div>
 
       {error && <p className="field-error" role="alert">{error}</p>}
-      <button type="submit" disabled={saving || !driveId}>{saving ? "جارٍ الحفظ…" : "نشر الفيديو"}</button>
+      <button type="submit" disabled={saving || !driveId || capturing}>{saving ? "جارٍ الحفظ…" : capturing ? "جارٍ التقاط الصورة…" : "نشر الفيديو"}</button>
     </form>
   );
 }

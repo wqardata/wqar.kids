@@ -1,11 +1,14 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import CreatableSelect from "@/components/CreatableSelect";
 import { useAuth } from "@/lib/auth";
 import { driveThumbnail } from "@/lib/drive";
 import { useDriveInfo } from "@/lib/driveInfo";
+import { formatClock } from "@/lib/format";
 import { getDb } from "@/lib/firebase";
+import { deleteThumb, saveThumb } from "@/lib/thumbs";
+import { useRandomFrame } from "@/lib/useRandomFrame";
 import { useNamedList } from "@/lib/videos";
 
 /** إنشاء مقطع قصير: ملف درايف مستقل (قصصتَه بأي محرر) يُنشر في قسم «قصيرة». */
@@ -20,6 +23,9 @@ export default function ShortForm({ onCreated }: { onCreated: () => void }) {
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const { driveId, info, status, message } = useDriveInfo(url, user);
+  const [randomThumb, setRandomThumb] = useState(true);
+  const frame = useRandomFrame(driveId, user, randomThumb);
+  const capturing = randomThumb && frame.status === "loading";
 
   useEffect(() => {
     if (info?.title) setTitle(info.title);
@@ -34,23 +40,41 @@ export default function ShortForm({ onCreated }: { onCreated: () => void }) {
     setDone(false);
     try {
       const cat = categories.items.find((c) => c.id === categoryId);
-      await addDoc(collection(getDb(), "videos"), {
-        title: title.trim(),
-        driveId,
-        thumbnail: driveThumbnail(driveId),
-        description: description.trim(),
-        categoryId: cat?.id ?? "",
-        categoryName: cat?.name ?? "",
-        seriesId: "",
-        seriesName: "",
-        season: null,
-        episode: null,
-        isShort: true,
-        hidden: false,
-        createdBy: user.uid,
-        createdByEmail: user.email ?? "",
-        createdAt: serverTimestamp(),
-      });
+      const ref = doc(collection(getDb(), "videos"));
+      let thumbnail = driveThumbnail(driveId);
+      let savedThumb = false;
+      if (randomThumb && frame.status === "ok" && frame.dataUrl) {
+        try {
+          thumbnail = await saveThumb(ref.id, frame.dataUrl);
+          savedThumb = true;
+        } catch {
+          setError("تعذّر حفظ الصورة المختارة. حدّث قواعد Firestore (thumbs) من firestore.rules أو ألغِ خيار «لقطة عشوائية».");
+          setSaving(false);
+          return;
+        }
+      }
+      try {
+        await setDoc(ref, {
+          title: title.trim(),
+          driveId,
+          thumbnail,
+          description: description.trim(),
+          categoryId: cat?.id ?? "",
+          categoryName: cat?.name ?? "",
+          seriesId: "",
+          seriesName: "",
+          season: null,
+          episode: null,
+          isShort: true,
+          hidden: false,
+          createdBy: user.uid,
+          createdByEmail: user.email ?? "",
+          createdAt: serverTimestamp(),
+        });
+      } catch (e) {
+        if (savedThumb) void deleteThumb(ref.id);
+        throw e;
+      }
       setUrl("");
       setTitle("");
       setDescription("");
@@ -76,6 +100,32 @@ export default function ShortForm({ onCreated }: { onCreated: () => void }) {
           {message}
         </p>
       </div>
+      {driveId && (
+        <div className="field">
+          {randomThumb && frame.status === "ok" && frame.dataUrl && (
+            <div className="preview preview--short">
+              <div className="preview-thumb">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={frame.dataUrl} alt="" />
+              </div>
+            </div>
+          )}
+          {capturing && <p className="hint" role="status">جارٍ التقاط صورة من المقطع…</p>}
+          <label className="check">
+            <input type="checkbox" checked={randomThumb} onChange={(e) => setRandomThumb(e.target.checked)} />
+            التقاط صورة عشوائية بعد الثانية 10 من المقطع
+          </label>
+          {randomThumb && frame.status === "ok" && (
+            <div className="addrow">
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => void frame.reroll()} disabled={!frame.canReroll}>
+                🎲 لقطة أخرى
+              </button>
+              <small className="hint">اللقطة من الثانية {formatClock(frame.time)}</small>
+            </div>
+          )}
+          {randomThumb && frame.message && <p className="hint" role="status">{frame.message}</p>}
+        </div>
+      )}
       <div className="field">
         <label htmlFor="s-title">العنوان</label>
         <input id="s-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} required />
@@ -97,7 +147,7 @@ export default function ShortForm({ onCreated }: { onCreated: () => void }) {
       </div>
       {error && <p className="field-error" role="alert">{error}</p>}
       {done && <p className="hint" role="status">تم نشر المقطع ✓</p>}
-      <button type="submit" disabled={saving || !driveId}>{saving ? "جارٍ الحفظ…" : "نشر المقطع"}</button>
+      <button type="submit" disabled={saving || !driveId || capturing}>{saving ? "جارٍ الحفظ…" : capturing ? "جارٍ التقاط الصورة…" : "نشر المقطع"}</button>
     </form>
   );
 }

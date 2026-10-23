@@ -3,7 +3,12 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { collection, deleteDoc, doc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import CreatableSelect from "@/components/CreatableSelect";
+import { useAuth } from "@/lib/auth";
+import { driveThumbnail } from "@/lib/drive";
 import { getDb } from "@/lib/firebase";
+import { formatClock } from "@/lib/format";
+import { deleteThumb, saveThumb } from "@/lib/thumbs";
+import { useRandomFrame } from "@/lib/useRandomFrame";
 import { toVideo, useNamedList, type VideoDoc } from "@/lib/videos";
 import ShortForm from "./ShortForm";
 
@@ -30,6 +35,13 @@ function EditForm({ video, categories, series, onSaved, onCancel }: {
   const [hidden, setHidden] = useState(video.hidden);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // الصورة المصغّرة: إبقاء الحالية، أو لقطة عشوائية بعد الثانية 10، أو صورة درايف الافتراضية.
+  const { user } = useAuth();
+  const [thumbMode, setThumbMode] = useState<"keep" | "random" | "drive">("keep");
+  const frame = useRandomFrame(video.driveId || null, user, thumbMode === "random");
+  const capturing = thumbMode === "random" && frame.status === "loading";
+  const newFrame = thumbMode === "random" && frame.status === "ok" && frame.dataUrl ? frame.dataUrl : "";
+  const shownThumb = newFrame || (thumbMode === "drive" && video.driveId ? driveThumbnail(video.driveId) : video.thumbnail);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -40,7 +52,20 @@ function EditForm({ video, categories, series, onSaved, onCancel }: {
       const cat = categories.items.find((c) => c.id === categoryId);
       const ser = series.items.find((s) => s.id === seriesId);
       const num = (v: string) => (v.trim() && Number.isFinite(Number(v)) ? Math.max(1, Math.floor(Number(v))) : null);
+      let thumbnail = video.thumbnail;
+      if (newFrame) {
+        try {
+          thumbnail = await saveThumb(video.id, newFrame);
+        } catch {
+          setError("تعذّر حفظ الصورة المختارة. حدّث قواعد Firestore (thumbs) من firestore.rules.");
+          setSaving(false);
+          return;
+        }
+      } else if (thumbMode === "drive" && video.driveId) {
+        thumbnail = driveThumbnail(video.driveId);
+      }
       const patch = {
+        thumbnail,
         title: title.trim(),
         description: description.trim(),
         categoryId: cat?.id ?? "",
@@ -53,6 +78,7 @@ function EditForm({ video, categories, series, onSaved, onCancel }: {
         hidden,
       };
       await updateDoc(doc(getDb(), "videos", video.id), { ...patch, updatedAt: serverTimestamp() });
+      if (thumbMode === "drive") void deleteThumb(video.id); // لم تعد اللقطة المحفوظة مستعملة
       onSaved({ ...video, ...patch });
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore.");
@@ -69,6 +95,36 @@ function EditForm({ video, categories, series, onSaved, onCancel }: {
       <div className="field">
         <label htmlFor={`d-${video.id}`}>الوصف</label>
         <textarea id={`d-${video.id}`} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} />
+      </div>
+      <div className="field">
+        <span id={`th-${video.id}`}>الصورة المصغّرة</span>
+        <div className="arow-thumb thumbedit-img" aria-labelledby={`th-${video.id}`}>
+          {shownThumb && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={shownThumb} alt="" referrerPolicy="no-referrer" />
+          )}
+        </div>
+        {video.driveId && (
+          <div className="addrow">
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              disabled={capturing}
+              onClick={() => (thumbMode === "random" && frame.canReroll ? void frame.reroll() : setThumbMode("random"))}
+            >
+              🎲 {thumbMode === "random" && frame.status === "ok" ? "لقطة أخرى" : "لقطة عشوائية بعد الثانية 10"}
+            </button>
+            <button type="button" className="btn btn--ghost btn--sm" disabled={thumbMode === "drive"} onClick={() => setThumbMode("drive")}>
+              صورة درايف الافتراضية
+            </button>
+            {thumbMode !== "keep" && (
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setThumbMode("keep")}>إبقاء الحالية</button>
+            )}
+          </div>
+        )}
+        {capturing && <p className="hint" role="status">جارٍ التقاط صورة من الفيديو…</p>}
+        {thumbMode === "random" && frame.status === "ok" && <p className="hint">اللقطة من الثانية {formatClock(frame.time)} — تُحفظ عند الضغط على «حفظ التعديلات».</p>}
+        {thumbMode === "random" && frame.message && <p className="hint" role="status">{frame.message}</p>}
       </div>
       <CreatableSelect label="التصنيف" items={categories.items} value={categoryId} onChange={setCategoryId} onCreate={categories.create}
         placeholder="بدون تصنيف" newLabel="إضافة تصنيف جديد…" newPlaceholder="اسم التصنيف الجديد" disabled={categories.loading} />
@@ -90,7 +146,7 @@ function EditForm({ video, categories, series, onSaved, onCancel }: {
       <label className="check"><input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> مخفي عن الزوار</label>
       {error && <p className="field-error" role="alert">{error}</p>}
       <div className="addrow">
-        <button type="submit" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ التعديلات"}</button>
+        <button type="submit" disabled={saving || capturing}>{saving ? "جارٍ الحفظ…" : "حفظ التعديلات"}</button>
         <button type="button" className="btn btn--ghost" onClick={onCancel}>إلغاء</button>
       </div>
     </form>
@@ -158,6 +214,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
     setError("");
     try {
       await deleteDoc(doc(getDb(), "videos", v.id));
+      void deleteThumb(v.id);
       setItems((prev) => prev.filter((x) => x.id !== v.id));
     } catch {
       setError("تعذّر الحذف. تأكد من الصلاحيات.");
