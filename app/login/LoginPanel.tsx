@@ -20,9 +20,9 @@ export default function LoginPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  // بعد الدخول: المخوَّل يذهب لصفحة الإضافة، وغيره للرئيسية.
+  // بعد الدخول: المخوَّل يذهب للوحة التحكم، وغيره للرئيسية.
   useEffect(() => {
-    if (user) router.replace(canAdd ? "/add" : "/");
+    if (user) router.replace(canAdd ? "/admin" : "/");
   }, [user, canAdd, router]);
 
   async function go() {

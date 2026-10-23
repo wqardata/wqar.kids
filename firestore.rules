@@ -10,5 +10,6 @@ service cloud.firestore {
     match /videos/{id}     { allow read: if true; allow write: if isAdmin(); }
     match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
     match /series/{id}     { allow read: if true; allow write: if isAdmin(); }
+    match /settings/{id}   { allow read: if true; allow write: if isAdmin(); }
   }
 }

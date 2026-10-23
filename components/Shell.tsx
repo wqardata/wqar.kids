@@ -3,7 +3,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon from "./Icon";
 import { useAuth } from "@/lib/auth";
-import { nav, more, SITE_NAME, type NavItem } from "@/lib/data";
+import { nav, more, type NavItem } from "@/lib/data";
+import { useSettings } from "@/lib/settings";
 
 function isActive(path: string, href: string) {
   return href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);
@@ -33,11 +34,12 @@ function NavLinks({ items, path, size, stacked }: { items: readonly NavItem[]; p
 export default function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? "/";
   const { user, canAdd, signOut } = useAuth();
+  const { settings } = useSettings();
 
   return (
     <>
       <header className="top">
-        <Link href="/" className="brand">{SITE_NAME}</Link>
+        <Link href="/" className="brand">{settings.siteName}</Link>
         <form className="search" role="search" action="/search" method="get">
           <Icon name="search" size={18} />
           <input
@@ -51,7 +53,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </form>
         {user ? (
           <>
-            {canAdd && <Link href="/add" className="login">+ فيديو</Link>}
+            {canAdd && <Link href="/admin" className="login">لوحة التحكم</Link>}
             <button type="button" className="logout" onClick={() => void signOut()} title="تسجيل الخروج" aria-label={`تسجيل الخروج (${user.email ?? ""})`}>
               {user.photoURL ? (
                 // eslint-disable-next-line @next/next/no-img-element

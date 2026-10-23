@@ -17,6 +17,9 @@ export type VideoDoc = {
   seriesName: string;
   season: number | null;
   episode: number | null;
+  isShort: boolean;
+  hidden: boolean;
+  createdAt: number | null;
 };
 
 function norm(s: string) {
@@ -64,6 +67,11 @@ export function useNamedList(coll: "categories" | "series") {
   return { items, loading, error, create };
 }
 
+function ts(v: unknown): number | null {
+  const t = v as { toMillis?: () => number } | null;
+  return t && typeof t.toMillis === "function" ? t.toMillis() : null;
+}
+
 export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
   const s = (k: string) => (typeof d[k] === "string" ? (d[k] as string) : "");
   const n = (k: string) => (typeof d[k] === "number" ? (d[k] as number) : null);
@@ -79,5 +87,8 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
     seriesName: s("seriesName"),
     season: n("season"),
     episode: n("episode"),
+    isShort: d.isShort === true,
+    hidden: d.hidden === true,
+    createdAt: ts(d.createdAt),
   };
 }
