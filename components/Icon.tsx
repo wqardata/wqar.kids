@@ -1,4 +1,6 @@
-const paths: Record<string, string> = {
+import type { IconName } from "@/lib/data";
+
+const paths: Record<IconName, string> = {
   home: "M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
   bolt: "M13 2L4 14h6l-1 8 9-12h-6z",
   stack: "M4 7h16M6 3h12M4 11h16v9H4z",
@@ -10,13 +12,25 @@ const paths: Record<string, string> = {
   gift: "M4 10h16v10H4zM3 7h18v3H3zM12 7v13M12 7c-3 0-4-4-1-4s1 4 1 4zm0 0c3 0 4-4 1-4s-1 4-1 4z",
   mail: "M3 6h18v12H3zM3 7l9 7 9-7",
   search: "M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4",
+  play: "M8 5v14l11-7z",
+  user: "M12 12a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
 };
 
-export default function Icon({ name, size = 22 }: { name: string; size?: number }) {
+export default function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={paths[name] ?? ""} />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={paths[name]} />
     </svg>
   );
 }
