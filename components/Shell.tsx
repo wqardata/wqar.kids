@@ -68,7 +68,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             </button>
           </>
         ) : (
-          <Link href="/login" className="login">تسجيل الدخول</Link>
+          <Link href="/login" className="login login--icon" aria-label="تسجيل الدخول" title="تسجيل الدخول">
+            <Icon name="user" size={20} />
+          </Link>
         )}
       </header>
 

@@ -12,7 +12,7 @@ import { useRandomFrame } from "@/lib/useRandomFrame";
 import { formatClock } from "@/lib/format";
 import { useNamedList } from "@/lib/videos";
 
-type Info = { id: string; title: string | null; thumbnail: string; warning: string | null };
+type Info = { id: string; title: string | null; thumbnail: string; duration: number | null; warning: string | null };
 type Fetch = "idle" | "loading" | "ok" | "error";
 
 export default function AddVideoForm() {
@@ -39,8 +39,12 @@ export default function AddVideoForm() {
   const [randomThumb, setRandomThumb] = useState(true);
 
   const driveId = parseDriveId(url);
-  const frame = useRandomFrame(driveId, user, randomThumb);
+  // المدة: من Drive API إن توفّر (DRIVE_API_KEY)، وإلا من البيانات الوصفية للفيديو نفسه في المتصفح.
+  const apiDuration = info?.duration ?? null;
+  const needMeta = !randomThumb && (status === "ok" || status === "error") && apiDuration == null;
+  const frame = useRandomFrame(driveId, user, randomThumb || needMeta, randomThumb);
   const capturing = randomThumb && frame.status === "loading";
+  const duration = apiDuration ?? (frame.duration > 0 ? frame.duration : null);
 
   // جلب الاسم والصورة تلقائيًا بمجرد لصق رابط صالح.
   useEffect(() => {
@@ -65,7 +69,7 @@ export default function AddVideoForm() {
         if (off) return;
         if (!r.ok) {
           setStatus("error");
-          setInfo({ id: driveId, title: null, thumbnail: driveThumbnail(driveId), warning: null });
+          setInfo({ id: driveId, title: null, thumbnail: driveThumbnail(driveId), duration: null, warning: null });
           setFetchMsg(j.error ?? "تعذّر جلب بيانات الملف.");
           return;
         }
@@ -116,6 +120,7 @@ export default function AddVideoForm() {
           title: title.trim(),
           driveId,
           thumbnail,
+          duration,
           description: description.trim(),
           categoryId,
           categoryName: cat?.name ?? "",
@@ -177,6 +182,11 @@ export default function AddVideoForm() {
           {status === "ok" && !fetchMsg && "تم جلب بيانات الملف ✓"}
           {fetchMsg}
         </p>
+        {driveId && info && (
+          <p className="hint" role="status" aria-live="polite">
+            {duration ? `مدة الفيديو: ${formatClock(duration)} ✓` : "جارٍ قراءة مدة الفيديو…"}
+          </p>
+        )}
       </div>
 
       {info && driveId && (

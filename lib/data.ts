@@ -7,7 +7,8 @@ export const SHOW_DEMO_DATA = false;
 
 export type IconName =
   | "home" | "bolt" | "stack" | "live" | "game" | "spark"
-  | "heart" | "down" | "gift" | "mail" | "search" | "play" | "user";
+  | "heart" | "down" | "gift" | "mail" | "search" | "play" | "user"
+  | "like" | "flag" | "up" | "chevdown" | "trash" | "plus" | "close";
 
 export type NavItem = { href: string; label: string; icon: IconName };
 
@@ -22,6 +23,7 @@ export const nav: readonly NavItem[] = [
 export const more: readonly NavItem[] = [
   { href: "/new", label: "الجديد", icon: "spark" },
   { href: "/favorites", label: "المفضلة", icon: "heart" },
+  { href: "/liked", label: "أعجبني", icon: "like" },
   { href: "/downloads", label: "التنزيلات", icon: "down" },
   { href: "/support", label: "ادعمنا", icon: "gift" },
   { href: "/contact", label: "تواصل معنا", icon: "mail" },

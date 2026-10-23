@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import DrivePlayer from "@/components/DrivePlayer";
 import FavoriteButton from "@/components/FavoriteButton";
+import LikeButton from "@/components/LikeButton";
+import ReportButton from "@/components/ReportButton";
 import SuggestedVideos from "@/components/SuggestedVideos";
 import { useAuth } from "@/lib/auth";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
@@ -45,7 +47,11 @@ export default function VideoView({ id }: { id: string }) {
         <h1>{video.title}</h1>
         {parts.length > 0 && <p className="meta">{parts.join(" • ")}</p>}
         {video.description && <p className="desc">{video.description}</p>}
-        <div className="actions"><FavoriteButton id={video.id} /></div>
+        <div className="actions" role="group" aria-label="إجراءات الفيديو">
+          <FavoriteButton id={video.id} />
+          <LikeButton id={video.id} />
+          <ReportButton videoId={video.id} videoTitle={video.title} />
+        </div>
       </article>
       <SuggestedVideos current={video} />
     </div>

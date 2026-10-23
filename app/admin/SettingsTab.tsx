@@ -86,7 +86,7 @@ export default function SettingsTab() {
     <form className="auth-form panel" onSubmit={(e) => void onSubmit(e)}>
       <h2>معلومات الموقع الأساسية</h2>
       <div className="field">
-        <label htmlFor="st-name">اسم الموقع</label>
+        <label htmlFor="st-name">اسم الموقع (يظهر في تبويب المتصفح والهيدر)</label>
         <input id="st-name" value={form.siteName} onChange={(e) => set("siteName", e.target.value)} maxLength={60} required />
       </div>
       <div className="field">
@@ -94,7 +94,7 @@ export default function SettingsTab() {
         <input id="st-desc" value={form.siteDescription} onChange={(e) => set("siteDescription", e.target.value)} maxLength={160} />
       </div>
 
-      <h2>الشعار</h2>
+      <h2>الشعار (يظهر في الهيدر وكأيقونة للتبويب)</h2>
       <div className="logo-box">
         <div className="logo-preview" aria-label="معاينة الهيدر">
           <span className="brand" style={brandStyle(form)}><BrandMark s={form} /></span>
@@ -157,7 +157,7 @@ export default function SettingsTab() {
         <input id="st-mail" type="email" dir="ltr" value={form.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} maxLength={120} />
       </div>
       <div className="field">
-        <label htmlFor="st-live">رابط البث المباشر (فارغ = لا يوجد بث)</label>
+        <label htmlFor="st-live">رابط بث خارجي (يُستخدم فقط حين لا يوجد بث من تبويب «البث المباشر»)</label>
         <input id="st-live" type="url" dir="ltr" placeholder="https://" value={form.liveUrl} onChange={(e) => set("liveUrl", e.target.value)} maxLength={300} />
       </div>
 

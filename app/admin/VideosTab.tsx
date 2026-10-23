@@ -253,7 +253,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
                   </div>
                   <div className="arow-info">
                     <Link href={`/v/${v.id}`}><strong>{v.title}</strong></Link>
-                    <small>{[v.categoryName, v.seriesName].filter(Boolean).join(" • ") || "بدون تصنيف"}</small>
+                    <small>{[v.categoryName, v.seriesName].filter(Boolean).join(" • ") || "بدون تصنيف"}{v.duration ? ` • ${formatClock(v.duration)}` : ""}</small>
                     <span className="badges">
                       {v.isShort && <b className="badge">قصير</b>}
                       {v.hidden && <b className="badge badge--off">مخفي</b>}

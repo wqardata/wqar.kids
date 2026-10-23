@@ -15,19 +15,22 @@ function decodeEntities(s: string): string {
     .replace(/&amp;/g, "&");
 }
 
-type NameResult = { name: string | null; reason?: "private" | "unknown" };
+type NameResult = { name: string | null; reason?: "private" | "unknown"; duration?: number | null };
 
 /** المسار الأدق: Drive API (يحتاج DRIVE_API_KEY والملف مشارك للعموم). */
 async function nameFromApi(id: string, key: string): Promise<NameResult | null> {
   try {
     const r = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${id}?fields=name&supportsAllDrives=true&key=${encodeURIComponent(key)}`,
+      `https://www.googleapis.com/drive/v3/files/${id}?fields=name,videoMediaMetadata(durationMillis)&supportsAllDrives=true&key=${encodeURIComponent(key)}`,
       { cache: "no-store", signal: AbortSignal.timeout(8000) },
     );
     if (r.status === 404 || r.status === 403) return { name: null, reason: "private" };
     if (!r.ok) return null;
-    const j = (await r.json()) as { name?: string };
-    return j.name ? { name: j.name } : null;
+    const j = (await r.json()) as { name?: string; videoMediaMetadata?: { durationMillis?: string } };
+    const ms = Number(j.videoMediaMetadata?.durationMillis);
+    // مدة الفيديو بالثواني (تتوفر بعد انتهاء معالجة الملف في درايف).
+    const duration = Number.isFinite(ms) && ms > 0 ? Math.round(ms / 1000) : null;
+    return j.name ? { name: j.name, duration } : null;
   } catch {
     return null;
   }
@@ -74,6 +77,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     id,
     name: result.name,
+    duration: result.duration ?? null,
     title: result.name ? stripExtension(result.name) : null,
     thumbnail: driveThumbnail(id),
     warning:

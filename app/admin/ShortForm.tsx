@@ -24,8 +24,11 @@ export default function ShortForm({ onCreated }: { onCreated: () => void }) {
   const [done, setDone] = useState(false);
   const { driveId, info, status, message } = useDriveInfo(url, user);
   const [randomThumb, setRandomThumb] = useState(true);
-  const frame = useRandomFrame(driveId, user, randomThumb);
+  const apiDuration = info?.duration ?? null;
+  const needMeta = !randomThumb && (status === "ok" || status === "error") && apiDuration == null;
+  const frame = useRandomFrame(driveId, user, randomThumb || needMeta, randomThumb);
   const capturing = randomThumb && frame.status === "loading";
+  const duration = apiDuration ?? (frame.duration > 0 ? frame.duration : null);
 
   useEffect(() => {
     if (info?.title) setTitle(info.title);
@@ -58,6 +61,7 @@ export default function ShortForm({ onCreated }: { onCreated: () => void }) {
           title: title.trim(),
           driveId,
           thumbnail,
+          duration,
           description: description.trim(),
           categoryId: cat?.id ?? "",
           categoryName: cat?.name ?? "",
@@ -99,6 +103,11 @@ export default function ShortForm({ onCreated }: { onCreated: () => void }) {
           {status === "ok" && !message && "تم جلب بيانات الملف ✓"}
           {message}
         </p>
+        {driveId && info && (
+          <p className="hint" role="status" aria-live="polite">
+            {duration ? `مدة المقطع: ${formatClock(duration)} ✓` : "جارٍ قراءة مدة المقطع…"}
+          </p>
+        )}
       </div>
       {driveId && (
         <div className="field">

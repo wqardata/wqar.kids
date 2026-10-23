@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import { parseDriveId } from "./drive";
 
-export type DriveInfo = { id: string; title: string | null; thumbnail: string; warning: string | null };
+export type DriveInfo = { id: string; title: string | null; thumbnail: string; duration: number | null; warning: string | null };
 
 /** يجلب اسم ملف درايف وصورته عند لصق رابط صالح (عبر /api/drive-info). */
 export function useDriveInfo(url: string, user: User | null) {

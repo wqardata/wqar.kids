@@ -3,7 +3,8 @@ import { Amiri, Cairo, Changa, Readex_Pro, Reem_Kufi, Tajawal } from "next/font/
 import { AuthProvider } from "@/lib/auth";
 import { SettingsProvider } from "@/lib/settings";
 import Shell from "@/components/Shell";
-import { SITE_NAME, SITE_DESCRIPTION } from "@/lib/data";
+import { getServerSettings, shortHash } from "@/lib/serverSettings";
+import { themeCss } from "@/lib/theme";
 import "./globals.css";
 
 const font = Readex_Pro({ subsets: ["arabic", "latin"], display: "swap" });
@@ -15,11 +16,17 @@ const changa = Changa({ subsets: ["arabic", "latin"], weight: ["400", "700"], di
 const reemkufi = Reem_Kufi({ subsets: ["arabic", "latin"], weight: ["400", "700"], display: "swap", preload: false, variable: "--font-reemkufi" });
 const amiri = Amiri({ subsets: ["arabic", "latin"], weight: ["400", "700"], display: "swap", preload: false, variable: "--font-amiri" });
 
-export const metadata: Metadata = {
-  title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
-  description: SITE_DESCRIPTION,
-  applicationName: SITE_NAME,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getServerSettings();
+  // الشعار المرفوع يصبح أيقونة التبويب؛ وإن لم يوجد شعار تُستخدم الأيقونة الافتراضية.
+  const icon = s.logo ? `/api/logo?v=${shortHash(s.logo)}` : "/icons/icon-192.png";
+  return {
+    title: { default: s.siteName, template: `%s | ${s.siteName}` },
+    description: s.siteDescription,
+    applicationName: s.siteName,
+    icons: { icon, apple: icon },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -32,22 +39,25 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const settings = await getServerSettings();
+  const themeStyle = themeCss(settings.theme);
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
-        {/* يطبّق آخر ثيم محفوظ فور التحميل (قبل وصول الإعدادات من Firestore) لتفادي وميض الألوان القديمة. */}
+        {/* ثيم الموقع من الخادم داخل HTML نفسه (بلا وميض). النسخة المحلية احتياط إن تعذّر وصول الخادم لـ Firestore. */}
+        {themeStyle && <style id="site-theme" dangerouslySetInnerHTML={{ __html: themeStyle }} />}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              'try{var c=localStorage.getItem("site-theme-css");if(c){var s=document.createElement("style");s.id="site-theme";s.textContent=c;document.head.appendChild(s)}}catch(e){}',
+              'try{var c=document.getElementById("site-theme")?null:localStorage.getItem("site-theme-css");if(c){var s=document.createElement("style");s.id="site-theme";s.textContent=c;document.head.appendChild(s)}}catch(e){}',
           }}
         />
       </head>
       <body className={`${font.className} ${cairo.variable} ${tajawal.variable} ${changa.variable} ${reemkufi.variable} ${amiri.variable}`}>
         <a href="#main" className="skip">تخطَّ إلى المحتوى</a>
         <AuthProvider>
-          <SettingsProvider>
+          <SettingsProvider initial={settings}>
             <Shell>{children}</Shell>
           </SettingsProvider>
         </AuthProvider>

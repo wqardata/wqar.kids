@@ -19,6 +19,8 @@ export type VideoDoc = {
   episode: number | null;
   isShort: boolean;
   hidden: boolean;
+  /** مدة الفيديو بالثواني (null = غير معروفة). */
+  duration: number | null;
   createdAt: number | null;
 };
 
@@ -89,6 +91,7 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
     episode: n("episode"),
     isShort: d.isShort === true,
     hidden: d.hidden === true,
+    duration: typeof d.duration === "number" && d.duration > 0 ? Math.round(d.duration) : null,
     createdAt: ts(d.createdAt),
   };
 }

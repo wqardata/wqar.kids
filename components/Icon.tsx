@@ -14,6 +14,13 @@ const paths: Record<IconName, string> = {
   search: "M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4",
   play: "M8 5v14l11-7z",
   user: "M12 12a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
+  like: "M7 11v9H4v-9h3zM7 11l4-8c1.7 0 2.7 1.2 2.3 2.8L12.8 9H19a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7",
+  flag: "M5 21V4M5 4h12l-2.5 4L17 12H5",
+  up: "M6 15l6-6 6 6",
+  chevdown: "M6 9l6 6 6-6",
+  trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6",
+  plus: "M12 5v14M5 12h14",
+  close: "M6 6l12 12M18 6L6 18",
 };
 
 export default function Icon({ name, size = 22 }: { name: IconName; size?: number }) {

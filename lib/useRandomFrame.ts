@@ -9,8 +9,10 @@ export type FrameState = {
   /** ثانية اللقطة داخل الفيديو. */
   time: number;
   message: string;
+  /** مدة الفيديو بالثواني من بياناته الوصفية (0 = غير معروفة بعد). */
+  duration: number;
 };
-const IDLE: FrameState = { status: "idle", dataUrl: "", time: 0, message: "" };
+const IDLE: FrameState = { status: "idle", dataUrl: "", time: 0, message: "", duration: 0 };
 
 const FAIL =
   "تعذّر التقاط صورة من الفيديو (قد تكون صيغته غير مدعومة في المتصفح، أو الملف غير مشارك للعموم، أو التحميل بطيء). سنستخدم صورة درايف المصغّرة.";
@@ -19,7 +21,7 @@ const FAIL =
  * يلتقط لقطة عشوائية بعد الثانية 10 من فيديو درايف عند تغيّر المعرّف،
  * ويتيح `reroll()` لالتقاط لقطة أخرى دون إعادة فتح الفيديو.
  */
-export function useRandomFrame(driveId: string | null, user: User | null, enabled: boolean) {
+export function useRandomFrame(driveId: string | null, user: User | null, enabled: boolean, wantFrame = true) {
   const [state, setState] = useState<FrameState>(IDLE);
   const grabber = useRef<Grabber | null>(null);
   const run = useRef(0); // يُبطل نتائج الطلبات القديمة
@@ -37,17 +39,25 @@ export function useRandomFrame(driveId: string | null, user: User | null, enable
     }
     setState({ ...IDLE, status: "loading" });
     const timer = setTimeout(async () => {
+      let duration = 0;
       try {
         const token = await user.getIdToken();
         const g = await openGrabber(`/api/drive-video?id=${encodeURIComponent(driveId)}&token=${encodeURIComponent(token)}`);
         if (me !== run.current) return g.dispose();
         grabber.current = g;
+        duration = Math.round(g.duration);
+        if (!wantFrame) {
+          // نحتاج المدة فقط: لا نلتقط صورة.
+          if (me === run.current) setState({ ...IDLE, duration });
+          drop();
+          return;
+        }
         const f = await g.grab();
-        if (me === run.current) setState({ status: "ok", dataUrl: f.dataUrl, time: f.time, message: "" });
+        if (me === run.current) setState({ status: "ok", dataUrl: f.dataUrl, time: f.time, message: "", duration });
       } catch {
         if (me === run.current) {
           drop();
-          setState({ ...IDLE, status: "error", message: FAIL });
+          setState({ ...IDLE, status: "error", message: FAIL, duration });
         }
       }
     }, 700); // انتظار بسيط حتى يستقر الرابط الملصوق
@@ -56,7 +66,7 @@ export function useRandomFrame(driveId: string | null, user: User | null, enable
       run.current++;
       drop();
     };
-  }, [driveId, user, enabled]);
+  }, [driveId, user, enabled, wantFrame]);
 
   const reroll = useCallback(async () => {
     const g = grabber.current;
@@ -65,7 +75,7 @@ export function useRandomFrame(driveId: string | null, user: User | null, enable
     setState((s) => ({ ...s, status: "loading", message: "" }));
     try {
       const f = await g.grab();
-      if (me === run.current) setState({ status: "ok", dataUrl: f.dataUrl, time: f.time, message: "" });
+      if (me === run.current) setState((s) => ({ status: "ok", dataUrl: f.dataUrl, time: f.time, message: "", duration: s.duration }));
     } catch {
       if (me === run.current) setState((s) => ({ ...s, status: s.dataUrl ? "ok" : "error", message: "تعذّر التقاط لقطة أخرى." }));
     }

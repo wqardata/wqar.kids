@@ -1,11 +1,14 @@
 import type { MetadataRoute } from "next";
-import { SITE_NAME, SITE_DESCRIPTION } from "@/lib/data";
+import { getServerSettings } from "@/lib/serverSettings";
 
-export default function manifest(): MetadataRoute.Manifest {
+export const revalidate = 300;
+
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const s = await getServerSettings();
   return {
-    name: SITE_NAME,
-    short_name: SITE_NAME,
-    description: SITE_DESCRIPTION,
+    name: s.siteName,
+    short_name: s.siteName.slice(0, 12),
+    description: s.siteDescription,
     lang: "ar",
     dir: "rtl",
     start_url: "/",
