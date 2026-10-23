@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { addDoc, collection, getDocs, limit, orderBy, query, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, documentId, getDocs, limit, orderBy, query, serverTimestamp, where } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
 
 export type Named = { id: string; name: string };
@@ -121,5 +121,40 @@ export function useAllVideos() {
       off = true;
     };
   }, []);
+  return { videos, ready };
+}
+
+/**
+ * يجلب فيديوهات بمعرّفاتها (للسجل). يحافظ على ترتيب المعرّفات ويتجاهل المحذوف والمخفي.
+ * Firestore يحدّ استعلام «in» بـ 30 معرّفًا، فنقسّم على دفعات.
+ */
+export function useVideosByIds(ids: readonly string[]) {
+  const [videos, setVideos] = useState<VideoDoc[]>([]);
+  const [ready, setReady] = useState(!isFirebaseConfigured);
+  const key = ids.join(",");
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    if (!key) {
+      setVideos([]);
+      setReady(true);
+      return;
+    }
+    let off = false;
+    const list = key.split(",");
+    const chunks: string[][] = [];
+    for (let i = 0; i < list.length; i += 30) chunks.push(list.slice(i, i + 30));
+    Promise.all(chunks.map((c) => getDocs(query(collection(getDb(), "videos"), where(documentId(), "in", c)))))
+      .then((snaps) => {
+        if (off) return;
+        const byId = new Map<string, VideoDoc>();
+        for (const s of snaps) for (const d of s.docs) byId.set(d.id, toVideo(d.id, d.data()));
+        setVideos(list.map((id) => byId.get(id)).filter((v): v is VideoDoc => Boolean(v) && !v!.hidden));
+      })
+      .catch(() => {})
+      .finally(() => !off && setReady(true));
+    return () => {
+      off = true;
+    };
+  }, [key]);
   return { videos, ready };
 }
