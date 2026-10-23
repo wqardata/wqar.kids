@@ -5,14 +5,19 @@ import DrivePlayer from "@/components/DrivePlayer";
 import FavoriteButton from "@/components/FavoriteButton";
 import LikeButton from "@/components/LikeButton";
 import ReportButton from "@/components/ReportButton";
+import ShareButton from "@/components/ShareButton";
+import CustomVideoButton from "@/components/CustomVideoButton";
 import SuggestedVideos from "@/components/SuggestedVideos";
 import { useAuth } from "@/lib/auth";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
+import { useSettings } from "@/lib/settings";
 import { recordView } from "@/lib/history";
 import { toVideo, type VideoDoc } from "@/lib/videos";
 
 export default function VideoView({ id }: { id: string }) {
   const { loading: authLoading, canAdd } = useAuth();
+  const { settings } = useSettings();
+  const page = settings.videoPage;
   const [video, setVideo] = useState<VideoDoc | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing">(isFirebaseConfigured ? "loading" : "missing");
 
@@ -42,20 +47,26 @@ export default function VideoView({ id }: { id: string }) {
   const parts = [video.categoryName, video.seriesName && `${video.seriesName}${video.season ? ` • م${video.season}` : ""}${video.episode ? ` • ح${video.episode}` : ""}`].filter(Boolean);
 
   return (
-    <div className="watch">
+    <div className={page.showSuggested ? "watch" : "watch watch--solo"}>
       <article>
         <DrivePlayer driveId={video.driveId} title={video.title} hue={160} />
         {video.hidden && <p className="meta">⚠ هذا الفيديو مخفي عن الزوار (تراه لأنك مشرف).</p>}
         <h1>{video.title}</h1>
-        {parts.length > 0 && <p className="meta">{parts.join(" • ")}</p>}
-        {video.description && <p className="desc">{video.description}</p>}
+        {page.showMeta && parts.length > 0 && <p className="meta">{parts.join(" • ")}</p>}
+        {page.showDescription && video.description && <p className="desc">{video.description}</p>}
         <div className="actions" role="group" aria-label="إجراءات الفيديو">
-          <FavoriteButton id={video.id} />
-          <LikeButton id={video.id} />
-          <ReportButton videoId={video.id} videoTitle={video.title} />
+          {page.buttons.filter((b) => b.on).map((b) => {
+            switch (b.kind) {
+              case "favorite": return <FavoriteButton key={b.id} id={video.id} showLabel={b.showLabel} />;
+              case "like": return <LikeButton key={b.id} id={video.id} showLabel={b.showLabel} />;
+              case "share": return <ShareButton key={b.id} title={video.title} showLabel={b.showLabel} />;
+              case "report": return <ReportButton key={b.id} videoId={video.id} videoTitle={video.title} showLabel={b.showLabel} />;
+              default: return <CustomVideoButton key={b.id} b={b} video={video} />;
+            }
+          })}
         </div>
       </article>
-      <SuggestedVideos current={video} />
+      {page.showSuggested && <SuggestedVideos current={video} />}
     </div>
   );
 }
