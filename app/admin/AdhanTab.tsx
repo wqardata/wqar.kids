@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import AdhanCard from "@/components/AdhanCard";
+import AdhanRemind from "@/components/AdhanRemind";
 import {
   ASR_MODES, CITIES, METHODS, PRAYERS, cleanAdhan, configuredCoords,
   type AdhanSettings, type AsrMode, type LocationMode, type MethodId, type PrayerId,
@@ -33,6 +34,8 @@ export default function AdhanTab() {
   };
   const setPrayer = (id: PrayerId, on: boolean) => set("prayers", { ...form.prayers, [id]: on });
   const setAdjust = (id: PrayerId, n: number) => set("adjust", { ...form.adjust, [id]: n });
+  const setRemind = (id: PrayerId, n: number) => set("remindMin", { ...form.remindMin, [id]: Math.min(60, Math.max(0, Math.round(n) || 0)) });
+  const [remindTest, setRemindTest] = useState(false);
 
   useEffect(() => {
     if (test === null) return;
@@ -135,6 +138,29 @@ export default function AdhanTab() {
         <p className="hint">الأوقات المعروضة محسوبة لليوم بحسب الموقع والطريقة أعلاه. الرقم الموجب يؤخّر الصلاة والسالب يقدّمها. قارنها بتقويم مسجدك المحلي قبل الاعتماد عليها.</p>
       </section>
 
+      <section className="panel auth-form" aria-labelledby="ad-h-rem">
+        <h2 id="ad-h-rem">التنبيه قبل الأذان</h2>
+        <label className="check"><input type="checkbox" checked={form.remind} onChange={(e) => set("remind", e.target.checked)} /> إظهار فقاعة زجاجية «اقتربت صلاة …» قبل موعد كل صلاة</label>
+        <div className="field">
+          <label htmlFor="ad-rtext">نص التنبيه — {"{prayer}"} اسم الصلاة و{"{min}"} الدقائق المتبقية</label>
+          <input id="ad-rtext" value={form.remindText} onChange={(e) => set("remindText", e.target.value)} maxLength={120} />
+        </div>
+        {PRAYERS.map((p) => (
+          <div className="addrow" key={p.id}>
+            <span style={{ minWidth: 60 }}>{p.label}</span>
+            <label>
+              <span className="sr-only">دقائق التنبيه قبل {p.label}</span>
+              <input type="number" min={0} max={60} step={1} dir="ltr" value={form.remindMin[p.id]} onChange={(e) => setRemind(p.id, Number(e.target.value))} style={{ width: 80 }} disabled={!form.remind} />
+            </label>
+            <small>دقيقة قبل الأذان (0 = بلا تنبيه)</small>
+          </div>
+        ))}
+        <p className="hint">تظهر الفقاعة قبل موعد الصلاة بالمدة المضبوطة لها (بعد تعديل الدقائق أعلاه)، ثم تتحول إلى نافذة الأذان عند دخول الوقت. يمكن للزائر إغلاقها. تُحتسب فقط للصلوات المفعّلة في قسم «الصلوات والتعديل».</p>
+        <div className="addrow">
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setRemindTest(true)} disabled={!form.remind}>تجربة التنبيه</button>
+        </div>
+      </section>
+
       <section className="panel auth-form" aria-labelledby="ad-h-win">
         <h2 id="ad-h-win">النافذة والنص والعدّاد</h2>
         <div className="field">
@@ -170,6 +196,10 @@ export default function AdhanTab() {
         <button type="button" className="btn" onClick={() => void save()} disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات الأذان"}</button>
         <button type="button" className="btn btn--ghost" onClick={() => setTest(form.countdownMin * 60)}>تجربة النافذة</button>
       </div>
+
+      {remindTest && (
+        <AdhanRemind text={form.remindText} prayerLabel="الظهر" minutes={form.remindMin.dhuhr || 5} onClose={() => setRemindTest(false)} />
+      )}
 
       {test !== null && (
         <div className="adhan-overlay">
