@@ -4,10 +4,17 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
 import { useAuth } from "@/lib/auth";
-import { nav, more, type NavItem } from "@/lib/data";
+import type { NavItem } from "@/lib/data";
 import BrandMark from "./BrandMark";
 import Avatar from "./Avatar";
-import { brandStyle, useSettings } from "@/lib/settings";
+import { brandStyle, resolveNav, useSettings } from "@/lib/settings";
+import { applyColorMode, readColorMode, type ColorMode } from "@/lib/colorMode";
+
+const MODES: { id: ColorMode; label: string }[] = [
+  { id: "auto", label: "تلقائي" },
+  { id: "light", label: "فاتح" },
+  { id: "dark", label: "داكن" },
+];
 
 const SIDE_KEY = "side";
 
@@ -51,11 +58,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const custom = (items: readonly NavItem[]): NavItem[] => items.map((n) => ({ ...n, ...settings.navItems[n.href] }));
   // العناصر التي أخفاها المشرف من لوحة التحكم لا تظهر في القائمة الجانبية ولا في الشريط السفلي.
   const visible = (items: NavItem[]) => items.filter((n) => !settings.navHidden.includes(n.href));
-  const navItems = visible(custom(nav));
-  const moreItems = visible(custom(more));
+  const layout = resolveNav(settings.navLayout);
+  const navItems = visible(custom(layout.main));
+  const moreItems = visible(custom(layout.more));
+  const [mode, setMode] = useState<ColorMode>("auto");
 
   useEffect(() => {
     setMini(document.documentElement.dataset.side === "mini");
+    setMode(readColorMode());
   }, []);
 
   function toggleSide() {
@@ -67,6 +77,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     } catch {
       /* التخزين غير متاح: يبقى التغيير للجلسة فقط */
     }
+  }
+
+  function chooseMode(m: ColorMode) {
+    setMode(m);
+    applyColorMode(m, settings.theme);
   }
 
   function openMenu() {
@@ -133,10 +148,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                 <Icon name="gear" size={20} />
               </Link>
             )}
-            {/* الشاشات الكبيرة: رابط مباشر لحسابي. الجوال: نافذة فيها حسابي والقسم الثاني من القائمة. */}
-            <Link href="/account" className="logout acct-d" aria-label={`حسابي (${user.email ?? ""})`} title="حسابي">
-              <Avatar id={profile?.avatar} size={36} />
-            </Link>
+            {/* نافذة فيها حسابي ولون العرض (والقسم الثاني من القائمة على الجوال). */}
             <button type="button" className="logout acct-m" aria-label="الحساب والمزيد" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={openMenu}>
               <Avatar id={profile?.avatar} size={36} />
             </button>
@@ -178,6 +190,16 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                 </div>
               </>
             )}
+            <div className="acct-mode" role="radiogroup" aria-label="لون العرض">
+              <span>لون العرض</span>
+              <div className="seg">
+                {MODES.map((m) => (
+                  <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => chooseMode(m.id)}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {moreItems.length > 0 && (
               <div className="acct-more">
                 <hr />

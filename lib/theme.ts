@@ -169,7 +169,8 @@ export function themeCss(raw: Theme): string {
   if (light || t.baseSize !== BASE_SIZE_DEFAULT) {
     out.push(`html:root{${[light, t.baseSize !== BASE_SIZE_DEFAULT ? `font-size:${t.baseSize}px` : ""].filter(Boolean).join(";")}}`);
   }
-  if (dark) out.push(`@media (prefers-color-scheme:dark){html:root{${dark}}}`);
+  // الداكن يُطبَّق مع إعداد الجهاز (إلا إن اختار الزائر الفاتح يدويًا) أو عند اختياره الداكن يدويًا.
+  if (dark) out.push(`@media (prefers-color-scheme:dark){html:root:not([data-theme="light"]){${dark}}}`, `html:root[data-theme="dark"]{${dark}}`);
   const body = SITE_FONTS.find((f) => f.id === t.bodyFont);
   if (body?.css) out.push(`html:root body{font-family:${body.css}}`);
   const headId = t.headingFont === "same" ? t.bodyFont : t.headingFont;

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { addDoc, collection, doc, documentId, getDocs, increment, limit, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
 
-export type Named = { id: string; name: string };
+export type Named = { id: string; name: string; /** فيديو الغلاف المختار للسلسلة (فارغ = تلقائي). */ coverVideoId?: string };
 
 export type VideoDoc = {
   id: string;
@@ -41,7 +41,7 @@ export function useNamedList(coll: "categories" | "series") {
     let off = false;
     getDocs(query(collection(getDb(), coll), orderBy("name")))
       .then((snap) => {
-        if (!off) setItems(snap.docs.map((d) => ({ id: d.id, name: String(d.data().name ?? "") })));
+        if (!off) setItems(snap.docs.map((d) => ({ id: d.id, name: String(d.data().name ?? ""), coverVideoId: typeof d.data().coverVideoId === "string" ? (d.data().coverVideoId as string) : "" })));
       })
       .catch(() => {
         if (!off) setError("تعذّر تحميل القائمة.");
@@ -173,4 +173,10 @@ export function useVideosByIds(ids: readonly string[]) {
     };
   }, [key]);
   return { videos, ready };
+}
+
+/** صورة المجموعة: الفيديو الذي اختاره المشرف، وإلا الأكثر مشاهدة (ثم الأحدث). تتجاهل المخفي. */
+export function pickCover(list: readonly VideoDoc[], coverId = ""): VideoDoc | undefined {
+  const usable = list.filter((v) => !v.hidden);
+  return usable.find((v) => v.id === coverId) ?? [...usable].sort((a, b) => b.views - a.views || (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
 }

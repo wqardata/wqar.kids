@@ -1,5 +1,5 @@
 // منطق الإعدادات النقي (بلا "use client") ليعمل في الخادم والمتصفح معًا.
-import { CONTACT_EMAIL, LIVE_URL, MENU_ICONS, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS, type IconName } from "./data";
+import { CONTACT_EMAIL, LIVE_URL, MENU_ICONS, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS, more, nav, type IconName, type NavItem } from "./data";
 import { DEFAULT_THEME, cleanTheme, type Theme } from "./theme";
 
 /** خطوط اسم الموقع. تُحمَّل من layout.tsx ولا تُنزَّل إلا عند استعمالها. */
@@ -65,7 +65,10 @@ function cleanWatch(v: unknown): WatchButton[] {
 
 export type SupportLink = { label: string; href: string };
 export type SiteSettings = {
+  /** اسم الموقع كما يظهر داخل الصفحات (الهيدر، الدعم…). */
   siteName: string;
+  /** الاسم الذي يظهر في تبويب المتصفح وعند تثبيت الموقع (فارغ = نفس اسم الموقع). */
+  tabName: string;
   siteDescription: string;
   contactEmail: string;
   liveUrl: string;
@@ -85,6 +88,8 @@ export type SiteSettings = {
   navItems: NavOverrides;
   /** مسارات عناصر القائمة المخفية (تبقى الصفحات تعمل برابطها المباشر). */
   navHidden: string[];
+  /** ترتيب القائمة وتوزيعها بين القسمين (فارغ = الترتيب الافتراضي). المفاتيح مسارات الصفحات. */
+  navLayout: NavLayout;
   /** أزرار أسفل مشغّل الفيديو بترتيبها. */
   watchButtons: WatchButton[];
   /** شاشة الشعار لثانية عند فتح الرئيسية. */
@@ -96,6 +101,7 @@ export type SiteSettings = {
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
 export const DEFAULT_SETTINGS: SiteSettings = {
   siteName: SITE_NAME,
+  tabName: "",
   siteDescription: SITE_DESCRIPTION,
   contactEmail: CONTACT_EMAIL,
   liveUrl: LIVE_URL,
@@ -110,6 +116,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   theme: DEFAULT_THEME,
   navItems: {},
   navHidden: [],
+  navLayout: { main: [], more: [] },
   watchButtons: DEFAULT_WATCH_BUTTONS,
   splash: true,
   autoplay: true,
@@ -156,6 +163,51 @@ function cleanHidden(v: unknown): string[] {
   return Array.from(new Set(out)).slice(0, 40);
 }
 
+/** توزيع عناصر القائمة: القسم الأول (الرئيسية + الشريط السفلي) والقسم الثاني (المزيد). */
+export type NavLayout = { main: string[]; more: string[] };
+/** أقصى عدد عناصر في القسم الأول (يظهر أيضًا في الشريط السفلي للجوال). */
+export const NAV_MAIN_MAX = 7;
+const ALL_NAV: readonly NavItem[] = [...nav, ...more];
+
+function cleanLayout(v: unknown): NavLayout {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const known = new Set(ALL_NAV.map((n) => n.href));
+  const seen = new Set<string>();
+  const pick = (a: unknown): string[] => {
+    const out: string[] = [];
+    if (Array.isArray(a)) {
+      for (const h of a) {
+        if (typeof h === "string" && known.has(h) && !seen.has(h)) {
+          seen.add(h);
+          out.push(h);
+        }
+      }
+    }
+    return out;
+  };
+  const main = pick(o.main);
+  let mo = pick(o.more);
+  if (!main.length && !mo.length) return { main: [], more: [] };
+  // الرئيسية تبقى دائمًا في القسم الأول.
+  if (!main.includes("/")) {
+    mo = mo.filter((h) => h !== "/");
+    main.unshift("/");
+    seen.add("/");
+  }
+  // أي صفحة غابت عن الإعداد (مثلًا أُضيفت لاحقًا) تعود لقسمها الافتراضي.
+  for (const n of nav) if (!seen.has(n.href)) main.push(n.href);
+  for (const n of more) if (!seen.has(n.href)) mo.push(n.href);
+  return { main, more: mo };
+}
+
+/** يطبّق التوزيع المحفوظ على عناصر القائمة (الأسماء والأيقونات المخصّصة تُطبَّق بعدها). */
+export function resolveNav(layout: NavLayout): { main: NavItem[]; more: NavItem[] } {
+  if (!layout.main.length && !layout.more.length) return { main: [...nav], more: [...more] };
+  const by = new Map(ALL_NAV.map((n) => [n.href, n] as const));
+  const list = (hs: string[]) => hs.map((h) => by.get(h)).filter((n): n is NavItem => Boolean(n));
+  return { main: list(layout.main), more: list(layout.more) };
+}
+
 export function merge(d: Record<string, unknown>): SiteSettings {
   const str = (k: string, fallback: string) => (typeof d[k] === "string" ? (d[k] as string) : fallback);
   const links = Array.isArray(d.supportLinks)
@@ -168,6 +220,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     : DEFAULT_SETTINGS.supportLinks;
   return {
     siteName: str("siteName", DEFAULT_SETTINGS.siteName).trim() || DEFAULT_SETTINGS.siteName,
+    tabName: str("tabName", "").trim().slice(0, 60),
     siteDescription: str("siteDescription", DEFAULT_SETTINGS.siteDescription),
     contactEmail: str("contactEmail", DEFAULT_SETTINGS.contactEmail).trim(),
     liveUrl: cleanUrl(str("liveUrl", DEFAULT_SETTINGS.liveUrl)),
@@ -182,6 +235,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     theme: cleanTheme(d.theme),
     navItems: cleanNav(d.navItems),
     navHidden: cleanHidden(d.navHidden),
+    navLayout: cleanLayout(d.navLayout),
     watchButtons: cleanWatch(d.watchButtons),
     splash: d.splash !== false,
     autoplay: d.autoplay !== false,
