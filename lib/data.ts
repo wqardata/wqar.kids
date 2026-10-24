@@ -11,7 +11,7 @@ export type IconName =
   | "like" | "flag" | "up" | "chevdown" | "trash" | "plus" | "close"
   | "star" | "film" | "book" | "music" | "fire" | "globe" | "tv" | "info" | "camera" | "trophy"
   | "gear" | "history" | "check" | "copy" | "eye" | "eyeoff"
-  | "share" | "link" | "menu" | "sun" | "moon" | "auto";
+  | "share" | "link" | "menu" | "sun" | "moon" | "auto" | "edit" | "scissors";
 
 /** الأيقونات التي يمكن اختيارها لعناصر القائمة من لوحة التحكم. */
 export const MENU_ICONS: readonly IconName[] = [

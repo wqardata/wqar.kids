@@ -2,6 +2,10 @@
 import { useEffect, useState } from "react";
 import { useSettings } from "@/lib/settings";
 
+declare global {
+  interface Window { __bip?: BIPEvent | null }
+}
+
 type BIPEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 
 const KEY = "install-dismissed";
@@ -16,11 +20,16 @@ function snoozed(): boolean {
   }
 }
 
-/** فقاعة تعرض تثبيت الموقع كتطبيق على الهاتف. أندرويد/كروم: زر يثبّته مباشرة. آيفون: خطوات «أضف إلى الشاشة الرئيسية». */
+/**
+ * نافذة تثبيت الموقع كتطبيق، على الهاتف والكمبيوتر.
+ * كروم/إيدج/أندرويد: زر يثبّته مباشرة (حدث beforeinstallprompt يلتقطه سكربت في <head> مبكرًا كي لا يفوتنا).
+ * آيفون وسفاري: خطوات يدوية. فايرفوكس سطح المكتب لا يدعم تثبيت المواقع فلا تظهر له النافذة.
+ */
 export default function InstallPrompt() {
   const { settings } = useSettings();
   const [evt, setEvt] = useState<BIPEvent | null>(null);
   const [ios, setIos] = useState(false);
+  const [safariDesktop, setSafariDesktop] = useState(false);
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -32,24 +41,33 @@ export default function InstallPrompt() {
 
     const ua = navigator.userAgent;
     const isIos = /iphone|ipad|ipod/i.test(ua) || (ua.includes("Mac") && navigator.maxTouchPoints > 1);
-    const mobile = isIos || /android|mobile/i.test(ua);
-    if (!mobile) return;
+    const isSafari = /^((?!chrome|chromium|crios|fxios|edg|android).)*safari/i.test(ua);
 
-    if (isIos) {
-      setIos(true);
-      const t = setTimeout(() => setShow(true), 1500);
-      return () => clearTimeout(t);
-    }
     const onBip = (e: Event) => {
       e.preventDefault();
       setEvt(e as BIPEvent);
       setShow(true);
     };
-    const onInstalled = () => { setShow(false); setEvt(null); };
+    const onReady = () => {
+      if (window.__bip) onBip(window.__bip);
+    };
+    const onInstalled = () => { setShow(false); setEvt(null); window.__bip = null; };
     window.addEventListener("beforeinstallprompt", onBip);
+    window.addEventListener("bip-ready", onReady);
     window.addEventListener("appinstalled", onInstalled);
+    onReady(); // الحدث وصل قبل تحميل هذا المكوّن
+
+    // سفاري (آيفون أو ماك) بلا حدث تثبيت: نعرض الخطوات اليدوية.
+    let t: ReturnType<typeof setTimeout> | undefined;
+    if (isIos || isSafari) {
+      setIos(true);
+      setSafariDesktop(!isIos);
+      t = setTimeout(() => setShow(true), 1500);
+    }
     return () => {
+      if (t) clearTimeout(t);
       window.removeEventListener("beforeinstallprompt", onBip);
+      window.removeEventListener("bip-ready", onReady);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
@@ -77,7 +95,7 @@ export default function InstallPrompt() {
         <img src="/icons/icon-192.png" alt="" />
         <div>
           <strong>ثبّت تطبيق {name}</strong>
-          <small>وصول أسرع من شاشة هاتفك الرئيسية</small>
+          <small>وصول أسرع، وتفتح في نافذة مستقلة كأي برنامج</small>
         </div>
         <button type="button" className="install-x" aria-label="إغلاق" onClick={dismiss}>✕</button>
       </div>
@@ -85,7 +103,11 @@ export default function InstallPrompt() {
         <button type="button" className="btn" onClick={() => void install()}>تثبيت التطبيق</button>
       ) : (
         <p className="install-steps">
-          اضغط زر المشاركة <b>⎋</b> في أسفل سفاري، ثم اختر <b>«إضافة إلى الشاشة الرئيسية»</b>.
+          {safariDesktop ? (
+            <>من قائمة <b>ملف</b> في سفاري اختر <b>«إضافة إلى Dock»</b>.</>
+          ) : (
+            <>اضغط زر المشاركة <b>⎋</b> في أسفل سفاري، ثم اختر <b>«إضافة إلى الشاشة الرئيسية»</b>.</>
+          )}
         </p>
       )}
     </div>

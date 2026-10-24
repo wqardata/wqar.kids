@@ -21,6 +21,8 @@ export type VideoDoc = {
   hidden: boolean;
   /** مدة الفيديو بالثواني (null = غير معروفة). */
   duration: number | null;
+  /** مقطع مقتطع من فيديو أطول: يُشغَّل جزء منه فقط بإطار طولي (null = فيديو كامل). x = موضع القص الأفقي 0–1. */
+  clip: { start: number; end: number; x: number } | null;
   /** عدد المشاهدات (يزيد مرة لكل زائر في كل جلسة). */
   views: number;
   createdAt: number | null;
@@ -76,6 +78,13 @@ function ts(v: unknown): number | null {
   return t && typeof t.toMillis === "function" ? t.toMillis() : null;
 }
 
+function toClip(d: Record<string, unknown>): VideoDoc["clip"] {
+  const start = d.clipStart, end = d.clipEnd;
+  if (typeof start !== "number" || typeof end !== "number" || !(start >= 0) || !(end > start)) return null;
+  const x = typeof d.clipX === "number" && d.clipX >= 0 && d.clipX <= 1 ? d.clipX : 0.5;
+  return { start, end, x };
+}
+
 export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
   const s = (k: string) => (typeof d[k] === "string" ? (d[k] as string) : "");
   const n = (k: string) => (typeof d[k] === "number" ? (d[k] as number) : null);
@@ -94,6 +103,7 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
     isShort: d.isShort === true,
     hidden: d.hidden === true,
     duration: typeof d.duration === "number" && d.duration > 0 ? Math.round(d.duration) : null,
+    clip: toClip(d),
     views: typeof d.views === "number" && d.views > 0 ? Math.floor(d.views) : 0,
     createdAt: ts(d.createdAt),
   };

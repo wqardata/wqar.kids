@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
+import ClipPlayer from "@/components/ClipPlayer";
 import Icon from "@/components/Icon";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { recordView } from "@/lib/history";
@@ -145,7 +146,9 @@ export default function ShortsFeed() {
           return (
             <section key={s.key} className="short-slide" data-i={i} aria-label={v.title}>
               <div className="short-frame">
-                {i === active ? (
+                {i === active && v.clip ? (
+                  <ClipPlayer driveId={v.driveId} title={v.title} clip={v.clip} />
+                ) : i === active ? (
                   <iframe
                     src={`https://drive.google.com/file/d/${v.driveId}/preview?autoplay=1`}
                     title={`مشغّل الفيديو — ${v.title}`}
@@ -159,7 +162,7 @@ export default function ShortsFeed() {
                     <img src={v.thumbnail} alt="" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />
                   )
                 )}
-                {i === active && touchable !== i && (
+                {i === active && !v.clip && touchable !== i && (
                   <div className="short-swipe" onPointerDown={onDown} onPointerUp={(e) => onUp(e, i)} />
                 )}
                 <div className="short-info">
