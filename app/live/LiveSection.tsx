@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
-import DrivePlayer from "@/components/DrivePlayer";
+import LivePlayer from "@/components/LivePlayer";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
 import { EMPTY_LIVE, formatTotal, nowPlaying, parseLive, type LiveDoc } from "@/lib/live";
@@ -18,10 +18,22 @@ function useNow(active: boolean) {
   return now;
 }
 
-/** المشغّل يُثبَّت بنقطة البدء عند تركيبه فقط، كي لا يُعاد تحميله كل ثانية مع تغيّر الوقت. */
-function LivePlayer({ driveId, title, offset }: { driveId: string; title: string; offset: number }) {
-  const [startAt] = useState(offset);
-  return <DrivePlayer driveId={driveId} title={title} hue={160} autoplay startAt={startAt} />;
+function useVolume() {
+  const [vol, setVol] = useState({ volume: 1, muted: false });
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("live-volume");
+      if (raw) {
+        const o = JSON.parse(raw) as { volume?: number; muted?: boolean };
+        setVol({ volume: typeof o.volume === "number" ? Math.min(1, Math.max(0, o.volume)) : 1, muted: o.muted === true });
+      }
+    } catch {}
+  }, []);
+  const set = (volume: number, muted: boolean) => {
+    setVol({ volume, muted });
+    try { localStorage.setItem("live-volume", JSON.stringify({ volume, muted })); } catch {}
+  };
+  return [vol, set] as const;
 }
 
 export default function LiveSection() {
@@ -43,6 +55,7 @@ export default function LiveSection() {
 
   const running = live.active && live.startedAt !== null && live.items.length > 0;
   const now = useNow(running);
+  const [vol, setVol] = useVolume();
 
   if (!ready) return <p role="status">جارٍ التحميل…</p>;
 
@@ -55,7 +68,7 @@ export default function LiveSection() {
       return (
         <div className="live-view">
           <p className="live-badge" role="status">● بث مباشر{live.title ? ` — ${live.title}` : ""}</p>
-          <LivePlayer key={`${np.index}-${cur.videoId}`} driveId={cur.driveId} title={cur.title} offset={np.offset} />
+          <LivePlayer key={`${np.index}-${cur.videoId}`} driveId={cur.driveId} title={cur.title} offset={np.offset} volume={vol.volume} muted={vol.muted} onVolume={setVol} />
           <h2 className="live-now">{cur.title}</h2>
           <p className="live-meta">
             مضى {formatClock(np.offset)} من {formatClock(cur.duration)} • المقطع {np.index + 1} من {live.items.length}

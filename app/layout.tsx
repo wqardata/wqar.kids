@@ -3,6 +3,7 @@ import { Amiri, Cairo, Changa, Readex_Pro, Reem_Kufi, Tajawal } from "next/font/
 import { AuthProvider } from "@/lib/auth";
 import { SettingsProvider } from "@/lib/settings";
 import Shell from "@/components/Shell";
+import InstallPrompt from "@/components/InstallPrompt";
 import Splash from "@/components/Splash";
 import { getServerSettings, shortHash } from "@/lib/serverSettings";
 import { themeCss } from "@/lib/theme";
@@ -63,6 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <SettingsProvider initial={settings}>
             <Splash />
             <Shell>{children}</Shell>
+            <InstallPrompt />
           </SettingsProvider>
         </AuthProvider>
       </body>

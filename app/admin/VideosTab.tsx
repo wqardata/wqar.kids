@@ -263,6 +263,41 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
     }
   }
 
+  /** إخفاء/إظهار/حذف كل المحدَّدين دفعة واحدة. */
+  async function bulkAction(kind: "hide" | "show" | "delete") {
+    const picked = items.filter((v) => sel.has(v.id));
+    if (picked.length === 0) return setError("حدّد فيديو واحدًا على الأقل.");
+    if (kind === "delete" && !window.confirm(`حذف ${picked.length} فيديو نهائيًا؟ لا يمكن التراجع. (ملفات درايف نفسها لن تُحذف)`)) return;
+    setBulkBusy(true);
+    setError("");
+    setBulkMsg("");
+    try {
+      const db = getDb();
+      for (let i = 0; i < picked.length; i += 400) {
+        const batch = writeBatch(db);
+        picked.slice(i, i + 400).forEach((v) => {
+          const ref = doc(db, "videos", v.id);
+          if (kind === "delete") batch.delete(ref);
+          else batch.update(ref, { hidden: kind === "hide", updatedAt: serverTimestamp() });
+        });
+        await batch.commit();
+      }
+      const done = new Set(picked.map((v) => v.id));
+      if (kind === "delete") {
+        picked.forEach((v) => void deleteThumb(v.id));
+        setItems((prev) => prev.filter((v) => !done.has(v.id)));
+      } else {
+        setItems((prev) => prev.map((v) => (done.has(v.id) ? { ...v, hidden: kind === "hide" } : v)));
+      }
+      setBulkMsg(`${kind === "delete" ? "تم حذف" : kind === "hide" ? "تم إخفاء" : "تم إظهار"} ${picked.length} فيديو ✓`);
+      setSel(new Set());
+    } catch {
+      setError("تعذّر تنفيذ العملية الجماعية. تأكد من الصلاحيات ثم أعد المحاولة (قد يكون جزء منها قد نُفّذ).");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   function replace(v: VideoDoc) {
     setItems((prev) => prev.map((x) => (x.id === v.id ? v : x)));
   }
@@ -348,6 +383,11 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
       {sel.size > 0 && (
         <div className="panel bulk-bar" role="region" aria-label="تعديل جماعي">
           <strong>تعديل {sel.size} فيديو معًا</strong>
+          <div className="addrow">
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => void bulkAction("hide")} disabled={bulkBusy}>إخفاء المحدَّد</button>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => void bulkAction("show")} disabled={bulkBusy}>إظهار المحدَّد</button>
+            <button type="button" className="btn btn--ghost btn--sm danger" onClick={() => void bulkAction("delete")} disabled={bulkBusy}>حذف المحدَّد</button>
+          </div>
           <label className="check"><input type="checkbox" checked={chgCat} onChange={(e) => setChgCat(e.target.checked)} /> تغيير التصنيف</label>
           {chgCat && (
             <CreatableSelect label="التصنيف الجديد" items={categories.items} value={bulkCat} onChange={setBulkCat} onCreate={categories.create}

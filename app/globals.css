@@ -517,3 +517,31 @@ html, body { overflow-x: clip; }
 /* تحديد الفيديوهات للتعديل الجماعي */
 .arow-pick { position: absolute; inset-block-start: 6px; inset-inline-start: 6px; z-index: 2; width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; }
 .bulk-bar { display: grid; gap: 10px; margin-bottom: 14px; }
+
+/* ---------- مشغّل البث المباشر (بلا إيقاف) ---------- */
+.live-player, .live-frame { position: relative; background: #000; border-radius: 14px; overflow: hidden; }
+.live-player video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; pointer-events: none; }
+.live-shield { position: absolute; inset: 0; z-index: 2; background: transparent; }
+.live-bar { position: absolute; inset-inline: 0; bottom: 0; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  background: linear-gradient(transparent, rgba(0,0,0,.75)); color: #fff; }
+.live-ibtn { background: none; border: 0; color: #fff; font-size: 1.25rem; cursor: pointer; min-width: 40px; height: 40px; border-radius: 10px; }
+.live-ibtn:hover { background: rgba(255,255,255,.18); }
+.live-vol { width: min(160px, 38%); accent-color: var(--accent); }
+.live-pill { margin-inline-start: auto; font-size: .8rem; font-weight: 700; color: #ff5a4d; }
+.live-unmute { position: absolute; z-index: 3; inset-inline: 0; margin-inline: auto; top: 50%; transform: translateY(-50%); width: max-content; max-width: 90%;
+  background: rgba(0,0,0,.75); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; padding: 12px 22px; font-size: 1rem; cursor: pointer; }
+
+/* ---------- فقاعة تثبيت التطبيق ---------- */
+.install { position: fixed; z-index: 60; inset-inline: 12px; bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom, 0px)); max-width: 420px; margin-inline: auto;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: grid; gap: 10px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.28); animation: install-in .35s ease-out; }
+@media (min-width: 900px) { .install { inset-inline-end: 20px; inset-inline-start: auto; bottom: 20px; margin: 0; } }
+.install-head { display: flex; align-items: center; gap: 12px; }
+.install-head img { width: 48px; height: 48px; border-radius: 12px; flex: none; }
+.install-head strong { display: block; }
+.install-head small { color: var(--mute); }
+.install-x { margin-inline-start: auto; background: none; border: 0; color: var(--mute); font-size: 1.3rem; cursor: pointer; width: 36px; height: 36px; border-radius: 10px; }
+.install .btn { margin: 0; width: 100%; font-weight: 700; }
+.install-steps { font-size: .9rem; color: var(--mute); line-height: 1.8; }
+@keyframes install-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .install { animation: none; } }
