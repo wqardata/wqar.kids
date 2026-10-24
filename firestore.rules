@@ -20,7 +20,15 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('banned', false) != true);
     }
 
-    match /videos/{id}     { allow read: if true; allow write: if isAdmin(); }
+    match /videos/{id} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      // المشرف يعدّل كل شيء؛ أي زائر يستطيع فقط زيادة عدّاد المشاهدات بمقدار 1 (لا شيء غيره).
+      allow update: if isAdmin()
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])
+            && request.resource.data.views is int
+            && request.resource.data.views == resource.data.get('views', 0) + 1);
+    }
     match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
     match /series/{id}     { allow read: if true; allow write: if isAdmin(); }
     match /settings/{id}   { allow read: if true; allow write: if isAdmin(); }

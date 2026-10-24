@@ -1,7 +1,6 @@
 // منطق الإعدادات النقي (بلا "use client") ليعمل في الخادم والمتصفح معًا.
 import { CONTACT_EMAIL, LIVE_URL, MENU_ICONS, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS, type IconName } from "./data";
 import { DEFAULT_THEME, cleanTheme, type Theme } from "./theme";
-import { DEFAULT_VIDEO_PAGE, cleanVideoPage, type VideoPageConfig } from "./videoPage";
 
 /** خطوط اسم الموقع. تُحمَّل من layout.tsx ولا تُنزَّل إلا عند استعمالها. */
 export const BRAND_FONTS = [
@@ -20,6 +19,49 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 /** تخصيص عنصر قائمة: الاسم والأيقونة (المفتاح هو مسار الصفحة مثل "/shorts"). */
 export type NavOverride = { label: string; icon: IconName };
 export type NavOverrides = Record<string, NavOverride>;
+
+/** أزرار أسفل الفيديو: أزرار مدمجة (تُرتَّب وتُخفى فقط) وأزرار روابط يضيفها المشرف. */
+export const WATCH_BUILTINS = [
+  { id: "favorite", label: "المفضلة" },
+  { id: "like", label: "أعجبني" },
+  { id: "share", label: "مشاركة" },
+  { id: "report", label: "إبلاغ" },
+] as const;
+export type WatchBuiltinId = (typeof WATCH_BUILTINS)[number]["id"];
+export const WATCH_LINK_ICONS: readonly IconName[] = [...MENU_ICONS, "share", "link", "flag"];
+export type WatchButton = { id: string; kind: "builtin" | "link"; label: string; icon: IconName; href: string; show: boolean };
+
+const builtinButton = (id: WatchBuiltinId, show = true): WatchButton => ({ id, kind: "builtin", label: "", icon: "link", href: "", show });
+export const DEFAULT_WATCH_BUTTONS: WatchButton[] = WATCH_BUILTINS.map((b) => builtinButton(b.id));
+
+function cleanWatch(v: unknown): WatchButton[] {
+  const out: WatchButton[] = [];
+  const seen = new Set<string>();
+  if (Array.isArray(v)) {
+    for (const raw of v.slice(0, 24)) {
+      const o = (raw ?? {}) as Record<string, unknown>;
+      const id = typeof o.id === "string" ? o.id.slice(0, 40) : "";
+      if (!id || seen.has(id)) continue;
+      const show = o.show !== false;
+      const builtin = WATCH_BUILTINS.find((b) => b.id === id);
+      if (builtin) {
+        out.push(builtinButton(builtin.id, show));
+        seen.add(id);
+      } else if (id.startsWith("link-")) {
+        const label = typeof o.label === "string" ? o.label.trim().slice(0, 24) : "";
+        const href = typeof o.href === "string" ? cleanUrl(o.href) : "";
+        const icon = WATCH_LINK_ICONS.find((i) => i === o.icon) ?? "link";
+        if (label && href) {
+          out.push({ id, kind: "link", label, icon, href, show });
+          seen.add(id);
+        }
+      }
+    }
+  }
+  // أي زر مدمج غاب عن القائمة (مثل الإعدادات القديمة) يُضاف في آخرها.
+  for (const b of WATCH_BUILTINS) if (!seen.has(b.id)) out.push(builtinButton(b.id));
+  return out;
+}
 
 export type SupportLink = { label: string; href: string };
 export type SiteSettings = {
@@ -43,8 +85,12 @@ export type SiteSettings = {
   navItems: NavOverrides;
   /** مسارات عناصر القائمة المخفية (تبقى الصفحات تعمل برابطها المباشر). */
   navHidden: string[];
-  /** تصميم صفحة الفيديو: الأزرار وترتيبها والأقسام الظاهرة. */
-  videoPage: VideoPageConfig;
+  /** أزرار أسفل مشغّل الفيديو بترتيبها. */
+  watchButtons: WatchButton[];
+  /** شاشة الشعار لثانية عند فتح الرئيسية. */
+  splash: boolean;
+  /** تشغيل الفيديو تلقائيًا عند فتح صفحته (قدر ما يسمح المتصفح والمشغّل). */
+  autoplay: boolean;
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -64,7 +110,9 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   theme: DEFAULT_THEME,
   navItems: {},
   navHidden: [],
-  videoPage: DEFAULT_VIDEO_PAGE,
+  watchButtons: DEFAULT_WATCH_BUTTONS,
+  splash: true,
+  autoplay: true,
 };
 
 export const LOGO_MIN = 20;
@@ -134,7 +182,9 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     theme: cleanTheme(d.theme),
     navItems: cleanNav(d.navItems),
     navHidden: cleanHidden(d.navHidden),
-    videoPage: cleanVideoPage(d.videoPage),
+    watchButtons: cleanWatch(d.watchButtons),
+    splash: d.splash !== false,
+    autoplay: d.autoplay !== false,
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { addDoc, collection, documentId, getDocs, limit, orderBy, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, doc, documentId, getDocs, increment, limit, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
 
 export type Named = { id: string; name: string };
@@ -21,6 +21,8 @@ export type VideoDoc = {
   hidden: boolean;
   /** مدة الفيديو بالثواني (null = غير معروفة). */
   duration: number | null;
+  /** عدد المشاهدات (يزيد مرة لكل زائر في كل جلسة). */
+  views: number;
   createdAt: number | null;
 };
 
@@ -92,8 +94,22 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
     isShort: d.isShort === true,
     hidden: d.hidden === true,
     duration: typeof d.duration === "number" && d.duration > 0 ? Math.round(d.duration) : null,
+    views: typeof d.views === "number" && d.views > 0 ? Math.floor(d.views) : 0,
     createdAt: ts(d.createdAt),
   };
+}
+
+/** يزيد عدّاد مشاهدات الفيديو مرة واحدة لكل جلسة متصفح. الفشل صامت (لا يمنع المشاهدة). */
+export async function countView(id: string): Promise<void> {
+  if (!isFirebaseConfigured) return;
+  try {
+    const k = `viewed:${id}`;
+    if (sessionStorage.getItem(k)) return;
+    sessionStorage.setItem(k, "1");
+    await updateDoc(doc(getDb(), "videos", id), { views: increment(1) });
+  } catch {
+    /* القواعد القديمة أو التخزين غير متاح: نتجاهل */
+  }
 }
 
 /** تطبيع عربي خفيف للبحث: يزيل التشكيل ويوحّد الألف والياء والتاء المربوطة. */
