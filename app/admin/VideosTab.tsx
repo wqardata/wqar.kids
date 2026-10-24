@@ -15,6 +15,20 @@ import ShortForm from "./ShortForm";
 
 type NamedList = ReturnType<typeof useNamedList>;
 
+const PAGE_SIZE = 50;
+
+/** أرقام الصفحات: الأولى والأخيرة وما حول الحالية، وبينها «…». */
+function pageList(cur: number, last: number): (number | "gap")[] {
+  const keep = new Set([1, last, cur - 1, cur, cur + 1]);
+  const nums = [...keep].filter((n) => n >= 1 && n <= last).sort((a, b) => a - b);
+  const out: (number | "gap")[] = [];
+  nums.forEach((n, i) => {
+    if (i > 0 && n - nums[i - 1] > 1) out.push("gap");
+    out.push(n);
+  });
+  return out;
+}
+
 function norm(s: string) {
   return s.toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه");
 }
@@ -164,6 +178,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
   const [editing, setEditing] = useState("");
   const [busy, setBusy] = useState("");
   const [tick, setTick] = useState(0);
+  const [page, setPage] = useState(1);
   const { user } = useAuth();
   const [probe, setProbe] = useState("");
   // التعديل الجماعي: الفيديوهات المحدَّدة، وما سيُغيَّر (التصنيف و/أو السلسلة).
@@ -178,7 +193,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
   useEffect(() => {
     let off = false;
     setLoading(true);
-    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(200)))
+    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(1000)))
       .then((snap) => {
         if (!off) {
           setItems(snap.docs.map((d) => toVideo(d.id, d.data())));
@@ -202,6 +217,16 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
       });
   }, [items, q, shortsOnly]);
 
+  const lastPage = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const cur = Math.min(page, lastPage);
+  const pageItems = useMemo(() => shown.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE), [shown, cur]);
+  // البحث يعيدنا للصفحة الأولى.
+  useEffect(() => setPage(1), [q, shortsOnly]);
+  const goTo = (n: number) => {
+    setPage(Math.min(lastPage, Math.max(1, n)));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const toggle = (id: string) =>
     setSel((s) => {
       const n = new Set(s);
@@ -209,7 +234,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
       else n.add(id);
       return n;
     });
-  const allShownSelected = shown.length > 0 && shown.every((v) => sel.has(v.id));
+  const allShownSelected = pageItems.length > 0 && pageItems.every((v) => sel.has(v.id));
 
   /** يطبّق التصنيف و/أو السلسلة على كل المحدَّدين دفعة واحدة. */
   async function applyBulk() {
@@ -374,8 +399,14 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
       )}
       {!loading && shown.length > 0 && (
         <div className="addrow">
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setSel(allShownSelected ? new Set() : new Set(shown.map((v) => v.id)))}>
-            {allShownSelected ? "إلغاء تحديد الكل" : `تحديد الكل (${shown.length})`}
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() =>
+            setSel((s0) => {
+              const n = new Set(s0);
+              pageItems.forEach((v) => (allShownSelected ? n.delete(v.id) : n.add(v.id)));
+              return n;
+            })
+          }>
+            {allShownSelected ? "إلغاء تحديد هذه الصفحة" : `تحديد كل الصفحة (${pageItems.length})`}
           </button>
           {sel.size > 0 && <small className="hint">المحدَّد: {sel.size}</small>}
         </div>
@@ -415,7 +446,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
         <p className="empty-note">{shortsOnly ? "لا توجد مقاطع قصيرة بعد." : "لا توجد فيديوهات."}</p>
       ) : (
         <ul className="alist">
-          {shown.map((v) => (
+          {pageItems.map((v) => (
             <li key={v.id} className="arow">
               {editing === v.id ? (
                 <EditForm video={v} categories={categories} series={series} onCancel={() => setEditing("")} onSaved={(nv) => { replace(nv); setEditing(""); }} />
@@ -448,6 +479,20 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
           ))}
         </ul>
       )}
+      {!loading && lastPage > 1 && (
+        <nav className="pager" aria-label="صفحات الفيديوهات">
+          <button type="button" className="pager-btn" aria-label="الصفحة السابقة" disabled={cur === 1} onClick={() => goTo(cur - 1)}>›</button>
+          {pageList(cur, lastPage).map((n, i) =>
+            n === "gap" ? (
+              <span key={`g${i}`} className="pager-gap" aria-hidden="true">…</span>
+            ) : (
+              <button key={n} type="button" className={n === cur ? "pager-btn on" : "pager-btn"} aria-label={`صفحة ${n}`} aria-current={n === cur ? "page" : undefined} onClick={() => goTo(n)}>{n}</button>
+            ),
+          )}
+          <button type="button" className="pager-btn" aria-label="الصفحة التالية" disabled={cur === lastPage} onClick={() => goTo(cur + 1)}>‹</button>
+        </nav>
+      )}
+      {!loading && shown.length > 0 && <p className="hint pager-info">عرض {(cur - 1) * PAGE_SIZE + 1}–{Math.min(cur * PAGE_SIZE, shown.length)} من {shown.length}</p>}
     </div>
   );
 }

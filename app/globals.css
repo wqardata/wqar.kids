@@ -564,3 +564,12 @@ html, body { overflow-x: clip; }
 .skel-short { width: min(360px, 90%); aspect-ratio: 9 / 16; max-height: 70dvh; border-radius: 18px; margin-inline: auto; }
 .grid-end { height: 1px; }
 .seg button { color: var(--mute); }
+
+/* ---------- ترقيم صفحات لوحة التحكم ---------- */
+.pager { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin: 20px 0 6px; }
+.pager-btn { min-width: 40px; height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 1rem; cursor: pointer; }
+.pager-btn:hover:not(:disabled) { border-color: var(--accent); }
+.pager-btn.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.pager-btn:disabled { opacity: .4; cursor: default; }
+.pager-gap { color: var(--mute); padding: 0 4px; }
+.pager-info { text-align: center; }
