@@ -5,10 +5,17 @@
   --top: 56px; --nav-h: 62px; --side: 232px;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0f1a24; --surface: #172635; --ink: #e8f0f4; --mute: #93a8b6;
     --line: #243749; --accent: #2cc4a8; --accent-ink: #06231d; --focus: #f2b035;
   }
+}
+/* اختيار الزائر اليدوي للعرض (فاتح/داكن) يتغلّب على إعداد الجهاز */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1a24; --surface: #172635; --ink: #e8f0f4; --mute: #93a8b6;
+  --line: #243749; --accent: #2cc4a8; --accent-ink: #06231d; --focus: #f2b035;
 }
 * { box-sizing: border-box; margin: 0; }
 html { scroll-padding-top: calc(var(--top) + 12px); -webkit-text-size-adjust: 100%; }
@@ -168,7 +175,8 @@ a.group:hover { border-color: var(--accent); }
 .field input, .field select, .field textarea { width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); font: inherit; }
 .field-error { color: #b3261e; font-size: .85rem; margin-top: 6px; }
-@media (prefers-color-scheme: dark) { .field-error { color: #ff8a80; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .field-error { color: #ff8a80; } }
+:root[data-theme="dark"] .field-error { color: #ff8a80; }
 .hint { color: var(--mute); font-size: .82rem; min-height: 1.2em; }
 .addrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .addrow input { flex: 1; min-width: 140px; }
@@ -210,7 +218,8 @@ a.group:hover { border-color: var(--accent); }
 .badge { font-weight: 500; font-size: .75rem; padding: 1px 10px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
 .badge--off { background: var(--line); color: var(--ink); }
 .danger { color: #b3261e !important; }
-@media (prefers-color-scheme: dark) { .danger { color: #ff8a80 !important; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .danger { color: #ff8a80 !important; } }
+:root[data-theme="dark"] .danger { color: #ff8a80 !important; }
 .check { display: flex !important; grid-template-columns: none; align-items: center; gap: 10px; font-size: .9rem; }
 .check input { width: 20px; height: 20px; min-height: 0; padding: 0; accent-color: var(--accent); }
 .grid.grid--shorts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-inline: 16px; }
@@ -255,7 +264,8 @@ a.group:hover { border-color: var(--accent); }
 
 /* ---------- اسم الموقع (لون/حجم/خط من الإعدادات) + تحصين الهيدر على الجوال ---------- */
 .brand { --bc: var(--brand-l, var(--accent)); color: var(--bc); line-height: 1.2; flex: 0 1 auto; min-width: 0; }
-@media (prefers-color-scheme: dark) { .brand { --bc: var(--brand-d, var(--accent)); } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand { --bc: var(--brand-d, var(--accent)); } }
+:root[data-theme="dark"] .brand { --bc: var(--brand-d, var(--accent)); }
 .brand-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .search { min-width: 0; }
 .login, .logout { flex: none; }
@@ -305,7 +315,8 @@ html, body { overflow-x: clip; }
 .crow .hint { min-height: 0; margin: 0; }
 .colorrow code { font-size: .8rem; color: var(--mute); min-width: 4.5em; }
 .warn { color: #8a5200; font-size: .85rem; }
-@media (prefers-color-scheme: dark) { .warn { color: #f2b035; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .warn { color: #f2b035; } }
+:root[data-theme="dark"] .warn { color: #f2b035; }
 @media (min-width: 600px) { .cgrid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 420px) { .pv-row { grid-template-columns: 1fr; } }
 
@@ -415,13 +426,10 @@ html, body { overflow-x: clip; }
 
 /* ---------- طيّ القائمة الجانبية (الشاشات الكبيرة) ---------- */
 .side-toggle { display: none; }
-.acct-d { display: none !important; }
 .acct-m { display: grid; }
 @media (min-width: 900px) {
   .side-toggle { display: grid; place-items: center; flex: none; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--ink); cursor: pointer; }
   .side-toggle:hover { background: var(--surface); }
-  .logout.acct-d { display: grid !important; }
-  .acct-m { display: none !important; }
   html[data-side="mini"] { --side: 80px; }
   html[data-side="mini"] .side { padding-inline: 6px; overflow-x: hidden; }
   html[data-side="mini"] .side .navlink { flex-direction: column; justify-content: center; gap: 4px; padding: 10px 2px; font-size: .68rem; line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
@@ -462,3 +470,46 @@ html, body { overflow-x: clip; }
 .wb-row .addrow input { flex: 1; min-width: 120px; min-height: 44px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
 .wb-name { flex: 1; min-width: 100px; font-weight: 600; }
 .wb-row.off .wb-name { color: var(--mute); text-decoration: line-through; }
+
+/* ---------- مجموعاتي: صورة أبرز فيديو + تحرير ---------- */
+.series-tools { padding: 0 16px 12px; }
+@media (min-width: 600px) { .series-tools { padding-inline: 2px; } }
+.series-letter { position: absolute; inset: 0; display: grid; place-items: center; font-size: 3rem; font-weight: 700; color: #fff; }
+.nrow-lead { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.nrow-thumb { flex: none; width: 72px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: var(--line); display: block; }
+.nrow-cover { flex: 1 1 100%; }
+
+/* ---------- لون العرض (تلقائي / فاتح / داكن) داخل نافذة الشخص ---------- */
+.acct-mode { margin-top: 14px; }
+.acct-mode > span { display: block; font-size: .82rem; color: var(--mute); margin-bottom: 6px; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.seg button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 36px; border: 0; border-radius: 999px; background: none; color: var(--mute); font-size: .85rem; cursor: pointer; }
+.seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+/* ---------- المقاطع القصيرة: تمرير عمودي كشورتس يوتيوب ---------- */
+.main:has(.shorts-feed) { padding: 0; }
+.shorts-wrap { position: relative; }
+.shorts-feed {
+  --feed-h: calc(100dvh - var(--top) - var(--nav-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  position: relative; height: var(--feed-h); overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior-y: contain;
+  scrollbar-width: none; background: #000;
+}
+.shorts-feed::-webkit-scrollbar { display: none; }
+@media (min-width: 900px) { .shorts-feed { --feed-h: calc(100dvh - var(--top) - env(safe-area-inset-top, 0px)); background: var(--bg); } }
+.short-slide { position: relative; height: var(--feed-h); scroll-snap-align: start; scroll-snap-stop: always; display: grid; place-items: center; }
+.short-frame { position: relative; height: 100%; width: 100%; max-width: calc(var(--feed-h) * 9 / 16); background: #000; overflow: hidden; }
+@media (min-width: 900px) { .short-frame { height: calc(100% - 24px); border-radius: 16px; } }
+.short-frame iframe, .short-frame > img { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; }
+.short-frame > img { opacity: .55; }
+/* طبقة شفافة تلتقط السحب فوق مشغّل درايف (الإطار يبتلع اللمس)، وتترك شريط التحكم السفلي للمشغّل */
+.short-swipe { position: absolute; inset: 0 0 64px 0; z-index: 2; touch-action: pan-y; }
+.short-info { position: absolute; inset-inline: 0; top: 0; z-index: 3; padding: 12px 14px 28px; color: #fff; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0,0,0,.65), transparent); }
+.short-info h2 { font-size: .98rem; font-weight: 600; margin: 0; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.short-info small { opacity: .85; }
+.short-nav { position: absolute; inset-inline-end: 12px; top: 50%; transform: translateY(-50%); z-index: 4; display: none; flex-direction: column; gap: 10px; }
+@media (min-width: 900px) { .short-nav { display: flex; inset-inline-end: 24px; } }
+.short-nav button { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.short-nav button:disabled { opacity: .4; cursor: default; }
+.short-open { position: absolute; inset-inline-start: 12px; bottom: 76px; z-index: 4; padding: 6px 12px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff; font-size: .8rem; }
+.shorts-empty { padding: 32px 16px; }

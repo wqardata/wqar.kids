@@ -2,17 +2,24 @@
 import { useState } from "react";
 import Icon from "@/components/Icon";
 import { MENU_ICONS, more, nav, type IconName, type NavItem } from "@/lib/data";
-import { NAV_ALWAYS_SHOWN, saveSettings, useSettings, type NavOverrides } from "@/lib/settings";
+import { NAV_ALWAYS_SHOWN, NAV_MAIN_MAX, resolveNav, saveSettings, useSettings, type NavLayout, type NavOverrides } from "@/lib/settings";
 
-const GROUPS: { title: string; items: readonly NavItem[] }[] = [
-  { title: "القائمة الرئيسية (تظهر أيضًا في الشريط السفلي على الجوال)", items: nav },
-  { title: "قائمة المزيد", items: more },
-];
+const ALL: readonly NavItem[] = [...nav, ...more];
+const byHref = (h: string) => ALL.find((n) => n.href === h);
+type Section = "main" | "more";
+const TITLES: Record<Section, string> = {
+  main: `القائمة الرئيسية (تظهر أيضًا في الشريط السفلي على الجوال — حتى ${NAV_MAIN_MAX} عناصر)`,
+  more: "قائمة المزيد",
+};
 
 export default function MenuTab() {
   const { settings, update, ready } = useSettings();
   const [ov, setOv] = useState<NavOverrides>(settings.navItems);
   const [hid, setHid] = useState<string[]>(settings.navHidden);
+  const [lay, setLay] = useState<{ main: string[]; more: string[] }>(() => {
+    const r = resolveNav(settings.navLayout);
+    return { main: r.main.map((n) => n.href), more: r.more.map((n) => n.href) };
+  });
   const [open, setOpen] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -34,23 +41,50 @@ export default function MenuTab() {
       return rest;
     });
   };
+  /** تحريك عنصر لأعلى/أسفل داخل قسمه. */
+  const move = (sec: Section, i: number, dir: -1 | 1) => {
+    setDone(false);
+    setLay((l) => {
+      const j = i + dir;
+      if (j < 0 || j >= l[sec].length) return l;
+      const c = [...l[sec]];
+      [c[i], c[j]] = [c[j], c[i]];
+      return { ...l, [sec]: c };
+    });
+  };
+  /** نقل عنصر إلى القسم الآخر (يُضاف في آخره). */
+  const transfer = (sec: Section, href: string) => {
+    const to: Section = sec === "main" ? "more" : "main";
+    setDone(false);
+    setError("");
+    if (to === "main" && lay.main.length >= NAV_MAIN_MAX) return setError(`القائمة الرئيسية تتسع لـ ${NAV_MAIN_MAX} عناصر كحدّ أقصى (الشريط السفلي للجوال). انقل عنصرًا منها أولًا.`);
+    if (sec === "main" && lay.main.length <= 1) return;
+    setLay((l) => ({ [sec]: l[sec].filter((h) => h !== href), [to]: [...l[to], href] }) as NavLayout);
+  };
+
+  const isDefaultLayout = () => {
+    const eq = (a: string[], b: readonly NavItem[]) => a.length === b.length && a.every((h, i) => h === b[i].href);
+    return eq(lay.main, nav) && eq(lay.more, more);
+  };
 
   async function save() {
     setError("");
-    const all = [...nav, ...more];
-    if (all.some((n) => ov[n.href] && !ov[n.href].label.trim())) return setError("اسم عنصر القائمة لا يمكن أن يكون فارغًا.");
+    if (ALL.some((n) => ov[n.href] && !ov[n.href].label.trim())) return setError("اسم عنصر القائمة لا يمكن أن يكون فارغًا.");
     // نحفظ ما يختلف عن الافتراضي فقط.
     const clean: NavOverrides = {};
-    for (const n of all) {
+    for (const n of ALL) {
       const o = ov[n.href];
       if (o && (o.label.trim() !== n.label || o.icon !== n.icon)) clean[n.href] = { label: o.label.trim(), icon: o.icon };
     }
     setSaving(true);
     try {
-      const saved = await saveSettings({ ...settings, navItems: clean, navHidden: hid });
+      const navLayout: NavLayout = isDefaultLayout() ? { main: [], more: [] } : lay;
+      const saved = await saveSettings({ ...settings, navItems: clean, navHidden: hid, navLayout });
       update(saved);
       setOv(saved.navItems);
       setHid(saved.navHidden);
+      const r = resolveNav(saved.navLayout);
+      setLay({ main: r.main.map((n) => n.href), more: r.more.map((n) => n.href) });
       setDone(true);
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
@@ -63,19 +97,31 @@ export default function MenuTab() {
 
   return (
     <div className="panel menu-admin">
-      <p className="hint">غيّر اسم أي صفحة في القائمة وأيقونتها، أو أخفِها بإلغاء «إظهار». المسارات لا تتغيّر، فالروابط الحالية تبقى تعمل حتى للعناصر المخفية (تختفي من القائمة فقط). الرئيسية لا تُخفى.</p>
-      {GROUPS.map((g) => (
-        <section key={g.title}>
-          <h2>{g.title}</h2>
+      <p className="hint">
+        غيّر اسم أي صفحة وأيقونتها، أو أخفِها بإلغاء «إظهار». استخدم الأسهم لتحريك العنصر لأعلى أو أسفل، وزر النقل لإرساله إلى القسم الآخر. المسارات لا تتغيّر، فالروابط الحالية تبقى تعمل حتى للعناصر المخفية. الرئيسية تبقى ظاهرة وفي القسم الأول دائمًا.
+      </p>
+      {(["main", "more"] as const).map((sec) => (
+        <section key={sec}>
+          <h2>{TITLES[sec]}</h2>
+          {lay[sec].length === 0 && <p className="hint">لا عناصر في هذا القسم.</p>}
           <ul className="menu-list">
-            {g.items.map((n) => {
+            {lay[sec].map((href, i) => {
+              const n = byHref(href);
+              if (!n) return null;
               const c = cur(n);
               const changed = Boolean(ov[n.href]) && (c.label !== n.label || c.icon !== n.icon);
               const shown = !hid.includes(n.href);
               const locked = NAV_ALWAYS_SHOWN.includes(n.href);
+              const other = sec === "main" ? "المزيد" : "الرئيسية";
               return (
                 <li key={n.href} className="menu-row">
                   <div className="addrow">
+                    <button type="button" className="ibtn" aria-label={`رفع «${c.label}»`} title="رفع" disabled={i === 0} onClick={() => move(sec, i, -1)}>
+                      <Icon name="up" size={18} />
+                    </button>
+                    <button type="button" className="ibtn" aria-label={`خفض «${c.label}»`} title="خفض" disabled={i === lay[sec].length - 1} onClick={() => move(sec, i, 1)}>
+                      <Icon name="chevdown" size={18} />
+                    </button>
                     <button
                       type="button"
                       className={shown ? "ibtn on" : "ibtn"}
@@ -92,6 +138,9 @@ export default function MenuTab() {
                       <Icon name={c.icon} size={22} />
                     </button>
                     <input aria-label={`اسم ${n.label}`} value={c.label} maxLength={24} onChange={(e) => edit(n, { label: e.target.value })} />
+                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => transfer(sec, n.href)} disabled={locked} title={`نقل إلى ${other}`}>
+                      نقل إلى {other}
+                    </button>
                     <button type="button" className="btn btn--ghost btn--sm" onClick={() => reset(n)} disabled={!changed}>الافتراضي</button>
                   </div>
                   <small className="hint" dir="ltr">{n.href}</small>
@@ -114,7 +163,13 @@ export default function MenuTab() {
       {done && <p className="hint" role="status">تم حفظ القائمة ✓</p>}
       <div className="addrow">
         <button type="button" onClick={() => void save()} disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ القائمة"}</button>
-        <button type="button" className="btn btn--ghost" onClick={() => { setOv({}); setHid([]); setDone(false); }}>استعادة الكل</button>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          onClick={() => { setOv({}); setHid([]); setLay({ main: nav.map((n) => n.href), more: more.map((n) => n.href) }); setDone(false); }}
+        >
+          استعادة الكل
+        </button>
       </div>
     </div>
   );

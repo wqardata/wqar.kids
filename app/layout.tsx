@@ -3,6 +3,7 @@ import { Amiri, Cairo, Changa, Readex_Pro, Reem_Kufi, Tajawal } from "next/font/
 import { AuthProvider } from "@/lib/auth";
 import { SettingsProvider } from "@/lib/settings";
 import Shell from "@/components/Shell";
+import Splash from "@/components/Splash";
 import { getServerSettings, shortHash } from "@/lib/serverSettings";
 import { themeCss } from "@/lib/theme";
 import "./globals.css";
@@ -20,10 +21,12 @@ export async function generateMetadata(): Promise<Metadata> {
   const s = await getServerSettings();
   // الشعار المرفوع يصبح أيقونة التبويب؛ وإن لم يوجد شعار تُستخدم الأيقونة الافتراضية.
   const icon = s.logo ? `/api/logo?v=${shortHash(s.logo)}` : "/icons/icon-192.png";
+  // اسم التبويب مستقل عن اسم الموقع داخل الصفحات (فارغ = نفس اسم الموقع).
+  const tab = s.tabName || s.siteName;
   return {
-    title: { default: s.siteName, template: `%s | ${s.siteName}` },
+    title: { default: tab, template: `%s | ${tab}` },
     description: s.siteDescription,
-    applicationName: s.siteName,
+    applicationName: tab,
     icons: { icon, apple: icon },
   };
 }
@@ -50,7 +53,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           dangerouslySetInnerHTML={{
             __html:
-              'try{if(localStorage.getItem("side")==="mini")document.documentElement.setAttribute("data-side","mini");var c=document.getElementById("site-theme")?null:localStorage.getItem("site-theme-css");if(c){var s=document.createElement("style");s.id="site-theme";s.textContent=c;document.head.appendChild(s)}}catch(e){}',
+              'try{var m=localStorage.getItem("color-mode");if(m==="light"||m==="dark")document.documentElement.setAttribute("data-theme",m);if(localStorage.getItem("side")==="mini")document.documentElement.setAttribute("data-side","mini");var c=document.getElementById("site-theme")?null:localStorage.getItem("site-theme-css");if(c){var s=document.createElement("style");s.id="site-theme";s.textContent=c;document.head.appendChild(s)}}catch(e){}',
           }}
         />
       </head>
@@ -58,6 +61,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <a href="#main" className="skip">تخطَّ إلى المحتوى</a>
         <AuthProvider>
           <SettingsProvider initial={settings}>
+            <Splash />
             <Shell>{children}</Shell>
           </SettingsProvider>
         </AuthProvider>

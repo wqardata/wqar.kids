@@ -14,7 +14,7 @@ import WatchButtonsEditor from "./WatchButtonsEditor";
 import BehaviorPanel from "./BehaviorPanel";
 
 type Group = "settings" | "organize" | "content";
-type Sub = "settings" | "appearance" | "menu" | "members" | "videos" | "shorts" | "live" | "categories" | "series" | "reports";
+type Sub = "settings" | "appearance" | "menu" | "watch" | "members" | "videos" | "shorts" | "live" | "categories" | "series" | "reports";
 
 type SubTab = { id: Sub; label: string; ownerOnly?: boolean };
 const GROUPS: { id: Group; label: string; subs: SubTab[] }[] = [
@@ -25,6 +25,7 @@ const GROUPS: { id: Group; label: string; subs: SubTab[] }[] = [
     subs: [
       { id: "appearance", label: "المظهر" },
       { id: "menu", label: "القوائم" },
+      { id: "watch", label: "صفحة الفيديو" },
       { id: "members", label: "الأعضاء", ownerOnly: true },
     ],
   },
@@ -42,11 +43,11 @@ const GROUPS: { id: Group; label: string; subs: SubTab[] }[] = [
   },
 ];
 
-export default function AdminPanel() {
+export default function AdminPanel({ initial }: { initial?: "series" }) {
   const { user, loading, configured, canAdd, isOwner } = useAuth();
   const [group, setGroup] = useState<Group>("content");
   // يُتذكَّر آخر تبويب فرعي في كل مجموعة عند التنقل بينها.
-  const [subs, setSubs] = useState<Record<Group, Sub>>({ settings: "settings", organize: "appearance", content: "videos" });
+  const [subs, setSubs] = useState<Record<Group, Sub>>({ settings: "settings", organize: "appearance", content: initial === "series" ? "series" : "videos" });
 
   if (!configured) return <p className="note admin-note">لم يُضبط Firebase بعد — راجع README.</p>;
   if (loading) return <p className="note admin-note" role="status">جارٍ التحميل…</p>;
@@ -112,11 +113,11 @@ export default function AdminPanel() {
         {sub === "appearance" && (
           <div className="admin-stack">
             <AppearanceTab />
-            <WatchButtonsEditor />
             <BehaviorPanel />
           </div>
         )}
         {sub === "menu" && <MenuTab />}
+        {sub === "watch" && <WatchButtonsEditor />}
         {sub === "members" && isOwner && <MembersTab />}
         {sub === "videos" && <VideosTab />}
         {sub === "shorts" && <VideosTab shortsOnly />}

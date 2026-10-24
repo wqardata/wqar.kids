@@ -86,8 +86,13 @@ export default function SettingsTab() {
     <form className="auth-form panel" onSubmit={(e) => void onSubmit(e)}>
       <h2>معلومات الموقع الأساسية</h2>
       <div className="field">
-        <label htmlFor="st-name">اسم الموقع (يظهر في تبويب المتصفح والهيدر)</label>
+        <label htmlFor="st-name">اسم الموقع في الصفحات (الهيدر وصفحة الدعم…)</label>
         <input id="st-name" value={form.siteName} onChange={(e) => set("siteName", e.target.value)} maxLength={60} required />
+      </div>
+      <div className="field">
+        <label htmlFor="st-tab">اسم الموقع في تبويب المتصفح (فارغ = نفس الاسم أعلاه)</label>
+        <input id="st-tab" value={form.tabName} placeholder={form.siteName} onChange={(e) => set("tabName", e.target.value)} maxLength={60} />
+        <p className="hint">يظهر في عنوان التبويب وعند تثبيت الموقع على الجهاز، ولا يغيّر الاسم المعروض داخل الصفحات.</p>
       </div>
       <div className="field">
         <label htmlFor="st-desc">وصف الموقع</label>

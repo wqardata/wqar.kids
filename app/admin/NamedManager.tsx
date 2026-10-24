@@ -3,10 +3,10 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import Link from "next/link";
 import { addDoc, collection, deleteDoc, doc, getDocs, limit, query, serverTimestamp, updateDoc, where, writeBatch } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
-import { normalizeAr } from "@/lib/videos";
+import { normalizeAr, pickCover, toVideo, type VideoDoc } from "@/lib/videos";
 
 type Coll = "categories" | "series";
-type Item = { id: string; name: string; count: number };
+type Item = { id: string; name: string; count: number; coverVideoId: string; vids: VideoDoc[] };
 
 const COUNT_LIMIT = 1000;
 const BATCH = 400; // الحد الأقصى في Firestore 500 عملية لكل دفعة.
@@ -63,6 +63,7 @@ export default function NamedManager({ coll }: { coll: Coll }) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState("");
   const [editName, setEditName] = useState("");
+  const [editCover, setEditCover] = useState("");
   const [busy, setBusy] = useState("");
 
   const load = useCallback(async () => {
@@ -75,14 +76,24 @@ export default function NamedManager({ coll }: { coll: Coll }) {
         getDocs(query(collection(db, "videos"), limit(COUNT_LIMIT))),
       ]);
       const counts = new Map<string, number>();
+      const byId = new Map<string, VideoDoc[]>();
       for (const v of vids.docs) {
         const id = v.data()[t.idField];
-        if (typeof id === "string" && id) counts.set(id, (counts.get(id) ?? 0) + 1);
+        if (typeof id === "string" && id) {
+          counts.set(id, (counts.get(id) ?? 0) + 1);
+          if (coll === "series") byId.set(id, [...(byId.get(id) ?? []), toVideo(v.id, v.data())]);
+        }
       }
       setCapped(vids.size >= COUNT_LIMIT);
       setItems(
         list.docs
-          .map((d) => ({ id: d.id, name: String(d.data().name ?? ""), count: counts.get(d.id) ?? 0 }))
+          .map((d) => ({
+            id: d.id,
+            name: String(d.data().name ?? ""),
+            count: counts.get(d.id) ?? 0,
+            coverVideoId: typeof d.data().coverVideoId === "string" ? (d.data().coverVideoId as string) : "",
+            vids: byId.get(d.id) ?? [],
+          }))
           .sort((a, b) => a.name.localeCompare(b.name, "ar")),
       );
     } catch {
@@ -108,7 +119,7 @@ export default function NamedManager({ coll }: { coll: Coll }) {
     setAdding(true);
     try {
       const ref = await addDoc(collection(getDb(), coll), { name, createdAt: serverTimestamp() });
-      setItems((prev) => [...prev, { id: ref.id, name, count: 0 }].sort((a, b) => a.name.localeCompare(b.name, "ar")));
+      setItems((prev) => [...prev, { id: ref.id, name, count: 0, coverVideoId: "", vids: [] }].sort((a, b) => a.name.localeCompare(b.name, "ar")));
       setNewName("");
       setMsg(`تمت إضافة «${name}» ✓`);
     } catch {
@@ -121,6 +132,7 @@ export default function NamedManager({ coll }: { coll: Coll }) {
   function startEdit(i: Item) {
     setEditing(i.id);
     setEditName(i.name);
+    setEditCover(i.coverVideoId);
     setError("");
     setMsg("");
   }
@@ -136,12 +148,19 @@ export default function NamedManager({ coll }: { coll: Coll }) {
     setBusy(i.id);
     try {
       // نحفظ الاسم الجديد أولًا ثم نزامنه في الفيديوهات (لأنها تحمل نسخة من الاسم).
-      if (name !== i.name) await updateDoc(doc(getDb(), coll, i.id), { name, updatedAt: serverTimestamp() });
-      setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, name } : x)).sort((a, b) => a.name.localeCompare(b.name, "ar")));
+      const patch: Record<string, unknown> = {};
+      if (name !== i.name) patch.name = name;
+      if (coll === "series" && editCover !== i.coverVideoId) patch.coverVideoId = editCover;
+      if (Object.keys(patch).length) await updateDoc(doc(getDb(), coll, i.id), { ...patch, updatedAt: serverTimestamp() });
+      setItems((prev) =>
+        prev
+          .map((x) => (x.id === i.id ? { ...x, name, coverVideoId: coll === "series" ? editCover : x.coverVideoId } : x))
+          .sort((a, b) => a.name.localeCompare(b.name, "ar")),
+      );
       try {
-        const n = await patchVideos(t.idField, i.id, { [t.nameField]: name });
+        const n = name !== i.name ? await patchVideos(t.idField, i.id, { [t.nameField]: name }) : 0;
         setEditing("");
-        setMsg(n ? `تم تعديل الاسم وتحديث ${n} فيديو ✓` : "تم تعديل الاسم ✓");
+        setMsg(n ? `تم الحفظ وتحديث ${n} فيديو ✓` : "تم الحفظ ✓");
       } catch {
         setError("تغيّر الاسم لكن تعذّر تحديثه في بعض الفيديوهات. اضغط «تعديل» ثم «حفظ» مرة أخرى لإعادة المزامنة.");
       }
@@ -200,16 +219,34 @@ export default function NamedManager({ coll }: { coll: Coll }) {
                   <form className="addrow nrow-edit" onSubmit={(e) => void onRename(e, i)}>
                     <label htmlFor={`ed-${i.id}`} className="sr-only">الاسم الجديد</label>
                     <input id={`ed-${i.id}`} value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={80} autoFocus onKeyDown={(e) => e.key === "Escape" && setEditing("")} />
+                    {coll === "series" && (
+                      <div className="field nrow-cover">
+                        <label htmlFor={`cv-${i.id}`}>صورة المجموعة (من أي فيديو فيها)</label>
+                        <select id={`cv-${i.id}`} value={editCover} onChange={(e) => setEditCover(e.target.value)}>
+                          <option value="">تلقائي — الأكثر مشاهدة</option>
+                          {i.vids.filter((v) => !v.hidden).map((v) => (
+                            <option key={v.id} value={v.id}>{v.title}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <button type="submit" className="btn btn--sm" disabled={busy === i.id}>{busy === i.id ? "..." : "حفظ"}</button>
                     <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing("")}>إلغاء</button>
                   </form>
                 ) : (
                   <>
-                    <div className="nrow-info">
-                      <strong>{i.name}</strong>
-                      <small>
-                        {i.count}{capped && i.count > 0 ? "+" : ""} {coll === "series" ? "حلقة" : "فيديو"}
-                      </small>
+                    <div className="nrow-lead">
+                      {coll === "series" && (() => {
+                        const c = pickCover(i.vids, i.coverVideoId);
+                        // eslint-disable-next-line @next/next/no-img-element
+                        return c?.thumbnail ? <img src={c.thumbnail} alt="" className="nrow-thumb" referrerPolicy="no-referrer" loading="lazy" /> : <span className="nrow-thumb" aria-hidden="true" />;
+                      })()}
+                      <div className="nrow-info">
+                        <strong>{i.name}</strong>
+                        <small>
+                          {i.count}{capped && i.count > 0 ? "+" : ""} {coll === "series" ? "حلقة" : "فيديو"}
+                        </small>
+                      </div>
                     </div>
                     <div className="nrow-actions">
                       {coll === "series" && <Link href={`/series/${i.id}`} className="btn btn--ghost btn--sm">عرض</Link>}

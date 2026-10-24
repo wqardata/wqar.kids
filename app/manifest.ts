@@ -5,9 +5,10 @@ export const revalidate = 300;
 
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const s = await getServerSettings();
+  const tab = s.tabName || s.siteName;
   return {
-    name: s.siteName,
-    short_name: s.siteName.slice(0, 12),
+    name: tab,
+    short_name: tab.slice(0, 12),
     description: s.siteDescription,
     lang: "ar",
     dir: "rtl",
