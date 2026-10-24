@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import ClipPlayer from "@/components/ClipPlayer";
 import Icon from "@/components/Icon";
+import PlayLoader from "@/components/PlayLoader";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { recordView } from "@/lib/history";
 import { countView, toVideo, type VideoDoc } from "@/lib/videos";
@@ -33,6 +34,7 @@ export default function ShortsFeed() {
   const [active, setActive] = useState(0);
   // الشريحة التي فتحنا فيها المشغّل مؤقتًا للمس (تشغيل/إيقاف) بدل السحب.
   const [touchable, setTouchable] = useState(-1);
+  const [loadedKey, setLoadedKey] = useState("");
   const feedRef = useRef<HTMLDivElement>(null);
   const batch = useRef(0);
   const touchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -154,6 +156,7 @@ export default function ShortsFeed() {
                     title={`مشغّل الفيديو — ${v.title}`}
                     allow="autoplay; fullscreen"
                     referrerPolicy="no-referrer"
+                    onLoad={() => setLoadedKey(s.key)}
                   />
                 ) : (
                   near &&
@@ -162,6 +165,7 @@ export default function ShortsFeed() {
                     <img src={v.thumbnail} alt="" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />
                   )
                 )}
+                {i === active && !v.clip && <PlayLoader show={loadedKey !== s.key} />}
                 {i === active && !v.clip && touchable !== i && (
                   <div className="short-swipe" onPointerDown={onDown} onPointerUp={(e) => onUp(e, i)} />
                 )}

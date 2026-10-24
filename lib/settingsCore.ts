@@ -63,6 +63,87 @@ function cleanWatch(v: unknown): WatchButton[] {
   return out;
 }
 
+/** أماكن نافذة التثبيت. start/end منطقيان: في الواجهة العربية start = اليمين. */
+export const INSTALL_POS_DESKTOP = [
+  { id: "bottom-end", label: "أسفل اليسار" },
+  { id: "bottom-start", label: "أسفل اليمين" },
+  { id: "bottom-center", label: "أسفل الوسط" },
+  { id: "top-end", label: "أعلى اليسار" },
+  { id: "top-start", label: "أعلى اليمين" },
+  { id: "top-center", label: "أعلى الوسط" },
+  { id: "center", label: "منتصف الشاشة" },
+] as const;
+export type InstallPosDesktop = (typeof INSTALL_POS_DESKTOP)[number]["id"];
+export const INSTALL_POS_MOBILE = [
+  { id: "bottom", label: "أسفل الشاشة (فوق شريط التنقل)" },
+  { id: "top", label: "أعلى الشاشة (تحت الهيدر)" },
+  { id: "center", label: "منتصف الشاشة" },
+] as const;
+export type InstallPosMobile = (typeof INSTALL_POS_MOBILE)[number]["id"];
+
+/** إعدادات نافذة «ثبّت التطبيق». النصوص تقبل {name} فيُستبدل باسم الموقع. */
+export type InstallSettings = {
+  enabled: boolean;
+  mobile: boolean;
+  desktop: boolean;
+  posMobile: InstallPosMobile;
+  posDesktop: InstallPosDesktop;
+  /** ثوانٍ قبل ظهور النافذة (0 = فورًا). */
+  delaySec: number;
+  /** أيام الإخفاء بعد إغلاقها (0 = تظهر في كل زيارة). */
+  snoozeDays: number;
+  /** تظهر في الصفحة الرئيسية فقط. */
+  homeOnly: boolean;
+  title: string;
+  subtitle: string;
+  button: string;
+  /** رقم نسخة أيقونة التطبيق المرفوعة (0 = الأيقونة الافتراضية). الصور نفسها في settings/appicon. */
+  appIconV: number;
+  /** لون خلفية أيقونة التطبيق وشاشة فتحه (فارغ = لون الموقع الداكن). */
+  appIconBg: string;
+};
+
+export const DEFAULT_INSTALL: InstallSettings = {
+  enabled: true,
+  mobile: true,
+  desktop: true,
+  posMobile: "bottom",
+  posDesktop: "bottom-end",
+  delaySec: 0,
+  snoozeDays: 3,
+  homeOnly: false,
+  title: "ثبّت تطبيق {name}",
+  subtitle: "وصول أسرع، وتفتح في نافذة مستقلة كأي برنامج",
+  button: "تثبيت التطبيق",
+  appIconV: 0,
+  appIconBg: "",
+};
+
+function cleanInstall(v: unknown): InstallSettings {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const D = DEFAULT_INSTALL;
+  const text = (k: string, max: number, fb: string) => (typeof o[k] === "string" && (o[k] as string).trim() ? (o[k] as string).trim().slice(0, max) : fb);
+  const int = (k: string, lo: number, hi: number, fb: number) => {
+    const n = Number(o[k]);
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : fb;
+  };
+  return {
+    enabled: o.enabled !== false,
+    mobile: o.mobile !== false,
+    desktop: o.desktop !== false,
+    posMobile: INSTALL_POS_MOBILE.some((p) => p.id === o.posMobile) ? (o.posMobile as InstallPosMobile) : D.posMobile,
+    posDesktop: INSTALL_POS_DESKTOP.some((p) => p.id === o.posDesktop) ? (o.posDesktop as InstallPosDesktop) : D.posDesktop,
+    delaySec: int("delaySec", 0, 120, D.delaySec),
+    snoozeDays: int("snoozeDays", 0, 90, D.snoozeDays),
+    homeOnly: o.homeOnly === true,
+    title: text("title", 60, D.title),
+    subtitle: text("subtitle", 100, D.subtitle),
+    button: text("button", 30, D.button),
+    appIconV: int("appIconV", 0, Number.MAX_SAFE_INTEGER, 0),
+    appIconBg: typeof o.appIconBg === "string" && HEX.test(o.appIconBg) ? o.appIconBg : "",
+  };
+}
+
 export type SupportLink = { label: string; href: string };
 export type SiteSettings = {
   /** اسم الموقع كما يظهر داخل الصفحات (الهيدر، الدعم…). */
@@ -96,6 +177,8 @@ export type SiteSettings = {
   splash: boolean;
   /** تشغيل الفيديو تلقائيًا عند فتح صفحته (قدر ما يسمح المتصفح والمشغّل). */
   autoplay: boolean;
+  /** نافذة تثبيت التطبيق على الهاتف والكمبيوتر. */
+  install: InstallSettings;
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -120,6 +203,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   watchButtons: DEFAULT_WATCH_BUTTONS,
   splash: true,
   autoplay: true,
+  install: DEFAULT_INSTALL,
 };
 
 export const LOGO_MIN = 20;
@@ -239,6 +323,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     watchButtons: cleanWatch(d.watchButtons),
     splash: d.splash !== false,
     autoplay: d.autoplay !== false,
+    install: cleanInstall(d.install),
   };
 }
 

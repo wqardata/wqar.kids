@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import DrivePlayer from "@/components/DrivePlayer";
+import PlayLoader from "@/components/PlayLoader";
 import type { VideoDoc } from "@/lib/videos";
 
 type Props = {
@@ -19,6 +20,7 @@ export default function ClipPlayer({ driveId, title, clip, active = true }: Prop
   const ref = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [ready, setReady] = useState(false);
   const [muted, setMuted] = useState(false);
 
   const begin = useCallback(async () => {
@@ -89,6 +91,7 @@ export default function ClipPlayer({ driveId, title, clip, active = true }: Prop
           e.currentTarget.currentTime = clip.start;
           void e.currentTarget.play().catch(() => {});
         }}
+        onCanPlay={() => setReady(true)}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onError={() => setFailed(true)}
@@ -98,7 +101,8 @@ export default function ClipPlayer({ driveId, title, clip, active = true }: Prop
           else v.pause();
         }}
       />
-      {!playing && active && <span className="clip-state" aria-hidden="true">▶</span>}
+      <PlayLoader show={!ready && !playing} />
+      {!playing && ready && active && <span className="clip-state" aria-hidden="true">▶</span>}
       {muted && playing && (
         <button
           type="button"

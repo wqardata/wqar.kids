@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import DrivePlayer from "@/components/DrivePlayer";
+import PlayLoader from "@/components/PlayLoader";
 
 type Props = {
   driveId: string;
@@ -26,6 +27,7 @@ export default function LivePlayer({ driveId, title, offset, volume, muted, onVo
   const [startAt] = useState(offset);
   const [failed, setFailed] = useState(false);
   const [blocked, setBlocked] = useState(false); // المتصفح منع التشغيل بالصوت
+  const [ready, setReady] = useState(false);
 
   const sync = useCallback(() => {
     const v = ref.current;
@@ -93,8 +95,11 @@ export default function LivePlayer({ driveId, title, offset, volume, muted, onVo
           const v = e.currentTarget;
           if (!v.ended && document.visibilityState === "visible") void v.play().catch(() => {});
         }}
+        onCanPlay={() => setReady(true)}
+        onPlaying={() => setReady(true)}
         onError={() => setFailed(true)}
       />
+      <PlayLoader show={!ready} />
       {blocked && (
         <button type="button" className="live-unmute" onClick={() => { setBlocked(false); onVolume(volume || 1, false); }}>
           🔊 اضغط لتشغيل الصوت
