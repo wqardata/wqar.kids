@@ -51,6 +51,7 @@ function EditForm({ video, categories, series, onSaved, onCancel }: {
   const [episode, setEpisode] = useState(video.episode?.toString() ?? "");
   const [isShort, setIsShort] = useState(video.isShort);
   const [hidden, setHidden] = useState(video.hidden);
+  const [skipTo, setSkipTo] = useState(video.skipTo?.toString() ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   // الصورة المصغّرة: إبقاء الحالية، أو لقطة عشوائية بعد الثانية 10، أو صورة درايف الافتراضية.
@@ -94,6 +95,7 @@ function EditForm({ video, categories, series, onSaved, onCancel }: {
         episode: ser ? num(episode) : null,
         isShort,
         hidden,
+        skipTo: skipTo.trim() && Number(skipTo) >= 1 ? Math.min(Math.floor(Number(skipTo)), 36000) : null,
       };
       await updateDoc(doc(getDb(), "videos", video.id), { ...patch, updatedAt: serverTimestamp() });
       if (thumbMode === "drive") void deleteThumb(video.id); // لم تعد اللقطة المحفوظة مستعملة
@@ -113,6 +115,11 @@ function EditForm({ video, categories, series, onSaved, onCancel }: {
       <div className="field">
         <label htmlFor={`d-${video.id}`}>الوصف</label>
         <textarea id={`d-${video.id}`} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} />
+      </div>
+      <div className="field">
+        <label htmlFor={`sk-${video.id}`}>زر «تخطي» — ثانية نهاية المقدمة أو الإعلان (اتركه فارغًا لإخفاء الزر)</label>
+        <input id={`sk-${video.id}`} type="number" inputMode="numeric" min={1} max={36000} dir="ltr" placeholder="مثال: 45" value={skipTo} onChange={(e) => setSkipTo(e.target.value)} />
+        <p className="hint">يظهر الزر فوق المشغّل في بداية الفيديو، وعند الضغط عليه يبدأ التشغيل من هذه الثانية.</p>
       </div>
       <div className="field">
         <span id={`th-${video.id}`}>الصورة المصغّرة</span>

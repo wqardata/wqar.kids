@@ -159,8 +159,9 @@ export default function SettingsTab() {
   if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
 
   return (
-    <form className="auth-form panel" onSubmit={(e) => void onSubmit(e)}>
-      <h2>معلومات الموقع الأساسية</h2>
+    <form className="admin-stack" onSubmit={(e) => void onSubmit(e)}>
+      <section className="panel auth-form" aria-labelledby="st-h-info">
+        <h2 id="st-h-info">معلومات الموقع</h2>
       <div className="field">
         <label htmlFor="st-name">اسم الموقع في الصفحات (الهيدر وصفحة الدعم…)</label>
         <input id="st-name" value={form.siteName} onChange={(e) => set("siteName", e.target.value)} maxLength={60} required />
@@ -175,7 +176,10 @@ export default function SettingsTab() {
         <input id="st-desc" value={form.siteDescription} onChange={(e) => set("siteDescription", e.target.value)} maxLength={160} />
       </div>
 
-      <h2>الشعار (يظهر في الهيدر وكأيقونة للتبويب)</h2>
+      </section>
+
+      <section className="panel auth-form" aria-labelledby="st-h-logo">
+        <h2 id="st-h-logo">الشعار (يظهر في الهيدر وكأيقونة للتبويب)</h2>
       <div className="logo-box">
         <div className="logo-preview" aria-label="معاينة الهيدر">
           <span className="brand" style={brandStyle(form)}><BrandMark s={form} /></span>
@@ -201,7 +205,10 @@ export default function SettingsTab() {
         <p className="hint">يُفضَّل شعار بخلفية شفافة (PNG أو SVG). يُصغَّر تلقائيًا ويظهر في الهيدر بعد الحفظ.</p>
       </div>
 
-      <h2>مظهر اسم الموقع</h2>
+      </section>
+
+      <section className="panel auth-form" aria-labelledby="st-h-look">
+        <h2 id="st-h-look">مظهر الموقع (اسم الموقع)</h2>
       <div className="field">
         <label htmlFor="st-font">الخط</label>
         <select id="st-font" value={form.brandFont} onChange={(e) => set("brandFont", e.target.value as BrandFontId)}>
@@ -232,7 +239,10 @@ export default function SettingsTab() {
       </div>
       <p className="hint">الموقع يتبدّل بين الفاتح والداكن حسب إعداد جهاز الزائر، لذا اختر لونًا واضحًا في كل وضع.</p>
 
-      <h2>الصفحات</h2>
+      </section>
+
+      <section className="panel auth-form" aria-labelledby="st-h-pages">
+        <h2 id="st-h-pages">الصفحات وروابط الدعم</h2>
       <div className="field">
         <label htmlFor="st-mail">بريد استقبال «تواصل معنا» (فارغ = تعطيل النموذج)</label>
         <input id="st-mail" type="email" dir="ltr" value={form.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} maxLength={120} />
@@ -255,7 +265,10 @@ export default function SettingsTab() {
           onClick={() => set("supportLinks", [...form.supportLinks, { label: "", href: "" }])}>＋ إضافة رابط</button>
       </fieldset>
 
-      <h2>نافذة تثبيت التطبيق</h2>
+      </section>
+
+      <section className="panel auth-form" aria-labelledby="st-h-app">
+        <h2 id="st-h-app">نافذة التطبيق</h2>
       <label className="check"><input type="checkbox" checked={form.install.enabled} onChange={(e) => setInstall("enabled", e.target.checked)} /> إظهار نافذة «ثبّت التطبيق» للزوار</label>
       {form.install.enabled && (
         <>
@@ -330,9 +343,13 @@ export default function SettingsTab() {
         </div>
       </div>
 
+      </section>
+
       {error && <p className="field-error" role="alert">{error}</p>}
       {done && <p className="hint" role="status">تم حفظ الإعدادات ✓</p>}
-      <button type="submit" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ الإعدادات"}</button>
+      <div className="addrow">
+        <button type="submit" className="btn" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ الإعدادات"}</button>
+      </div>
     </form>
   );
 }

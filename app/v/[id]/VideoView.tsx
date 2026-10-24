@@ -54,7 +54,7 @@ export default function VideoView({ id }: { id: string }) {
             <div className="clip-box"><ClipPlayer driveId={video.driveId} title={video.title} clip={video.clip} active={settings.autoplay} /></div>
           </div>
         ) : (
-          <DrivePlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} />
+          <DrivePlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} skipTo={video.skipTo ?? undefined} />
         )}
         {video.hidden && <p className="meta">⚠ هذا الفيديو مخفي عن الزوار (تراه لأنك مشرف).</p>}
         <h1>{video.title}</h1>

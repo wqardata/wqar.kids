@@ -12,13 +12,15 @@ import ReportsTab from "./ReportsTab";
 import MembersTab from "./MembersTab";
 import WatchButtonsEditor from "./WatchButtonsEditor";
 import BehaviorPanel from "./BehaviorPanel";
+import AdhanTab from "./AdhanTab";
 
-type Group = "settings" | "organize" | "content";
-type Sub = "settings" | "appearance" | "menu" | "watch" | "members" | "videos" | "shorts" | "live" | "categories" | "series" | "reports";
+type Group = "settings" | "adhan" | "organize" | "content";
+type Sub = "settings" | "appearance" | "menu" | "watch" | "adhan" | "members" | "videos" | "shorts" | "live" | "categories" | "series" | "reports";
 
 type SubTab = { id: Sub; label: string; ownerOnly?: boolean };
 const GROUPS: { id: Group; label: string; subs: SubTab[] }[] = [
   { id: "settings", label: "الإعدادات", subs: [{ id: "settings", label: "إعدادات الموقع" }] },
+  { id: "adhan", label: "الأذان", subs: [{ id: "adhan", label: "إعدادات الأذان" }] },
   {
     id: "organize",
     label: "التنظيم",
@@ -47,7 +49,7 @@ export default function AdminPanel({ initial }: { initial?: "series" }) {
   const { user, loading, configured, canAdd, isOwner } = useAuth();
   const [group, setGroup] = useState<Group>("content");
   // يُتذكَّر آخر تبويب فرعي في كل مجموعة عند التنقل بينها.
-  const [subs, setSubs] = useState<Record<Group, Sub>>({ settings: "settings", organize: "appearance", content: initial === "series" ? "series" : "videos" });
+  const [subs, setSubs] = useState<Record<Group, Sub>>({ settings: "settings", adhan: "adhan", organize: "appearance", content: initial === "series" ? "series" : "videos" });
 
   if (!configured) return <p className="note admin-note">لم يُضبط Firebase بعد — راجع README.</p>;
   if (loading) return <p className="note admin-note" role="status">جارٍ التحميل…</p>;
@@ -116,6 +118,7 @@ export default function AdminPanel({ initial }: { initial?: "series" }) {
             <BehaviorPanel />
           </div>
         )}
+        {sub === "adhan" && <AdhanTab />}
         {sub === "menu" && <MenuTab />}
         {sub === "watch" && <WatchButtonsEditor />}
         {sub === "members" && isOwner && <MembersTab />}

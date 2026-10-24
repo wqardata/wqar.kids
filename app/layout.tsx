@@ -5,6 +5,7 @@ import { SettingsProvider } from "@/lib/settings";
 import Shell from "@/components/Shell";
 import InstallPrompt from "@/components/InstallPrompt";
 import Splash from "@/components/Splash";
+import AdhanPopup from "@/components/AdhanPopup";
 import { getServerSettings, shortHash } from "@/lib/serverSettings";
 import { themeCss } from "@/lib/theme";
 import "./globals.css";
@@ -72,6 +73,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Splash />
             <Shell>{children}</Shell>
             <InstallPrompt />
+            <AdhanPopup />
           </SettingsProvider>
         </AuthProvider>
       </body>
