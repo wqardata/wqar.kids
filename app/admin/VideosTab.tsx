@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { driveThumbnail } from "@/lib/drive";
 import { getDb } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
+import { openGrabber } from "@/lib/frameGrab";
 import { deleteThumb, saveThumb } from "@/lib/thumbs";
 import { useRandomFrame } from "@/lib/useRandomFrame";
 import { toVideo, useNamedList, type VideoDoc } from "@/lib/videos";
@@ -163,6 +164,8 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
   const [editing, setEditing] = useState("");
   const [busy, setBusy] = useState("");
   const [tick, setTick] = useState(0);
+  const { user } = useAuth();
+  const [probe, setProbe] = useState("");
 
   useEffect(() => {
     let off = false;
@@ -208,6 +211,32 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
     }
   }
 
+  /** يقرأ مدد الفيديوهات الناقصة (تظهر على الصور المصغّرة) ويحفظها في مستند كل فيديو. */
+  async function fetchDurations() {
+    if (!user) return;
+    const missing = items.filter((v) => v.driveId && !v.duration);
+    if (missing.length === 0) return;
+    setError("");
+    let failed = 0;
+    for (let n = 0; n < missing.length; n++) {
+      const v = missing[n];
+      setProbe(`جارٍ قراءة المدة ${n + 1} من ${missing.length}…`);
+      try {
+        const token = await user.getIdToken();
+        const g = await openGrabber(`/api/drive-video?id=${encodeURIComponent(v.driveId)}&token=${encodeURIComponent(token)}`);
+        const d = Math.round(g.duration);
+        g.dispose();
+        if (d <= 0) throw new Error("no duration");
+        await updateDoc(doc(getDb(), "videos", v.id), { duration: d }).catch(() => {});
+        setItems((prev) => prev.map((x) => (x.id === v.id ? { ...x, duration: d } : x)));
+      } catch {
+        failed++;
+      }
+    }
+    setProbe("");
+    if (failed) setError(`تعذّرت قراءة مدة ${failed} فيديو (صيغة غير مدعومة في المتصفح أو الملف غير مشارك).`);
+  }
+
   async function remove(v: VideoDoc) {
     if (!window.confirm(`حذف «${v.title}» نهائيًا؟ لا يمكن التراجع. (ملف درايف نفسه لن يُحذف)`)) return;
     setBusy(v.id);
@@ -232,6 +261,13 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
         <input id="admin-q" type="search" placeholder={shortsOnly ? "ابحث في المقاطع القصيرة" : "ابحث في الفيديوهات"} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
+      {!loading && items.some((v) => v.driveId && !v.duration) && (
+        <div className="addrow">
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => void fetchDurations()} disabled={Boolean(probe)}>
+            {probe || `جلب مدد ${items.filter((v) => v.driveId && !v.duration).length} فيديو (لتظهر على الصور)`}
+          </button>
+        </div>
+      )}
       {error && <p className="field-error" role="alert">{error}</p>}
       {loading ? (
         <p className="empty-note" role="status">جارٍ التحميل…</p>
