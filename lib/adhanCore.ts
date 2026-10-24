@@ -73,6 +73,12 @@ export type AdhanSettings = {
   imageUrl: string;
   /** إظهار زر إغلاق للزائر. */
   closable: boolean;
+  /** تنبيه قبل الأذان: فقاعة زجاجية تظهر قبل موعد كل صلاة بعدد الدقائق المحدَّد لها. */
+  remind: boolean;
+  /** دقائق التنبيه لكل صلاة (0 = بلا تنبيه لتلك الصلاة). */
+  remindMin: Record<PrayerId, number>;
+  /** نص التنبيه. {prayer} اسم الصلاة، {min} الدقائق المتبقية. */
+  remindText: string;
 };
 
 export const DEFAULT_ADHAN: AdhanSettings = {
@@ -91,6 +97,9 @@ export const DEFAULT_ADHAN: AdhanSettings = {
   text: "حان الآن موعد أذان {prayer} — حيّ على الصلاة",
   imageUrl: "",
   closable: true,
+  remind: true,
+  remindMin: { fajr: 5, dhuhr: 5, asr: 5, maghrib: 5, isha: 5 },
+  remindText: "اقتربت صلاة {prayer} — بعد {min} دقيقة",
 };
 
 /** يقبل http/https أو مسارًا داخل الموقع يبدأ بـ / (لا //). */
@@ -115,14 +124,17 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fb;
   };
   const rec = (x: unknown) => (x && typeof x === "object" ? (x as Record<string, unknown>) : {});
-  const pr = rec(o.prayers), ad = rec(o.adjust);
+  const pr = rec(o.prayers), ad = rec(o.adjust), rm = rec(o.remindMin);
   const prayers = { ...D.prayers };
   const adjust = { ...D.adjust };
+  const remindMin = { ...D.remindMin };
   for (const p of PRAYERS) {
     prayers[p.id] = pr[p.id] !== false;
     adjust[p.id] = Math.round(num(ad[p.id], -30, 30, 0));
+    remindMin[p.id] = Math.round(num(rm[p.id], 0, 60, D.remindMin[p.id]));
   }
   const text = typeof o.text === "string" && o.text.trim() ? o.text.trim().slice(0, 120) : D.text;
+  const remindText = typeof o.remindText === "string" && o.remindText.trim() ? o.remindText.trim().slice(0, 120) : D.remindText;
   return {
     enabled: o.enabled !== false,
     locationMode: o.locationMode === "custom" || o.locationMode === "city" ? o.locationMode : "auto",
@@ -139,6 +151,9 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     text,
     imageUrl: cleanMediaUrl(o.imageUrl),
     closable: o.closable !== false,
+    remind: o.remind !== false,
+    remindMin,
+    remindText,
   };
 }
 

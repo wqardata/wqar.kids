@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import AdhanCard from "@/components/AdhanCard";
+import AdhanRemind from "@/components/AdhanRemind";
 import { configuredCoords } from "@/lib/adhanCore";
 import { slotsAround, type Slot } from "@/lib/prayer";
 import { useSettings } from "@/lib/settings";
@@ -9,6 +10,7 @@ import { approxFromTimezone } from "@/lib/tzLocation";
 const POS_KEY = "adhan-pos";
 const DENIED_KEY = "adhan-geo-denied";
 const doneKey = (s: Slot) => `adhan-done:${s.id}:${s.at.getTime()}`;
+const remindKey = (s: Slot) => `adhan-remind-done:${s.id}:${s.at.getTime()}`;
 /** نحاول تشغيل الصوت تلقائيًا فقط إن فُتحت الصفحة خلال هذه المدة من الأذان. */
 const AUTOPLAY_WINDOW_MS = 90_000;
 
@@ -60,11 +62,11 @@ export default function AdhanPopup() {
   if (!cfg.enabled) return null;
   const windowMs = cfg.countdownMin * 60_000;
   const active = [...slots].reverse().find((s) => s.at.getTime() <= now && now - s.at.getTime() < windowMs && cfg.prayers[s.id]);
-  if (!active) return null;
+  if (!active) return <Reminder slots={slots} now={now} />;
   const key = doneKey(active);
   let dismissed = closed === key;
   try { dismissed = dismissed || localStorage.getItem(key) === "1"; } catch { /* لا بأس */ }
-  if (dismissed) return null;
+  if (dismissed) return <Reminder slots={slots} now={now} />;
 
   const close = () => {
     setClosed(key);
@@ -81,4 +83,27 @@ export default function AdhanPopup() {
       />
     </div>
   );
+}
+
+/** تنبيه «اقتربت صلاة …» قبل الموعد بالدقائق المضبوطة لكل صلاة. */
+function Reminder({ slots, now }: { slots: Slot[]; now: number }) {
+  const { settings } = useSettings();
+  const cfg = settings.adhan;
+  const [closed, setClosed] = useState("");
+  if (!cfg.remind) return null;
+  const next = slots.find((s) => {
+    const left = s.at.getTime() - now;
+    const min = cfg.remindMin[s.id];
+    return cfg.prayers[s.id] && min > 0 && left > 0 && left <= min * 60_000;
+  });
+  if (!next) return null;
+  const key = remindKey(next);
+  let dismissed = closed === key;
+  try { dismissed = dismissed || localStorage.getItem(key) === "1"; } catch { /* لا بأس */ }
+  if (dismissed) return null;
+  const close = () => {
+    setClosed(key);
+    try { localStorage.setItem(key, "1"); } catch { /* لا بأس */ }
+  };
+  return <AdhanRemind text={cfg.remindText} prayerLabel={next.label} minutes={Math.max(1, Math.ceil((next.at.getTime() - now) / 60_000))} onClose={close} />;
 }
