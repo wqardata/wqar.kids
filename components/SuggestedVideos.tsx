@@ -7,7 +7,7 @@ import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { SkeletonSuggest } from "@/components/Skeleton";
 import { toVideo, type VideoDoc } from "@/lib/videos";
 
-/** فيديوهات مقترحة: نفس السلسلة أولًا، ثم نفس التصنيف، ثم الأحدث. القائمة تتمرّر باستقلالية على الشاشات الكبيرة. */
+/** فيديوهات مقترحة (10): أول 4 مرتبطة بالفيديو الحالي والباقي عشوائي. القائمة تتمرّر باستقلالية على الشاشات الكبيرة. */
 export default function SuggestedVideos({ current }: { current: VideoDoc }) {
   const [items, setItems] = useState<VideoDoc[]>([]);
   const [ready, setReady] = useState(!isFirebaseConfigured);
@@ -25,7 +25,15 @@ export default function SuggestedVideos({ current }: { current: VideoDoc }) {
           .map((d) => toVideo(d.id, d.data()))
           .filter((v) => v.id !== current.id && !v.hidden && !v.isShort);
         // الفرز مستقر: عند تساوي النقاط يبقى الترتيب من الأحدث.
-        setItems(list.map((v, i) => ({ v, i })).sort((a, b) => score(b.v) - score(a.v) || a.i - b.i).map((x) => x.v).slice(0, 30));
+        // 10 فيديوهات: أول 4 الأقرب للفيديو الحالي (نفس السلسلة ثم التصنيف ثم الأحدث)، والـ6 الباقية عشوائية من البقية.
+        const ranked = list.map((v, i) => ({ v, i })).sort((a, b) => score(b.v) - score(a.v) || a.i - b.i).map((x) => x.v);
+        const related = ranked.slice(0, 4);
+        const rest = ranked.slice(4);
+        for (let i = rest.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [rest[i], rest[j]] = [rest[j], rest[i]];
+        }
+        setItems([...related, ...rest.slice(0, 6)]);
       })
       .catch(() => {})
       .finally(() => !off && setReady(true));

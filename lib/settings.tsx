@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type CSSProper
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDb, getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 import { THEME_CACHE_KEY, THEME_STYLE_ID, effectiveColors, themeCss, type Theme } from "./theme";
-import { BRAND_FONTS, DEFAULT_SETTINGS, merge, type SiteSettings } from "./settingsCore";
+import { BRAND_FONTS, DEFAULT_SETTINGS, glassCss, merge, type SiteSettings } from "./settingsCore";
 
 export * from "./settingsCore";
 
@@ -55,6 +55,18 @@ export function applyTheme(theme: Theme, persist = true) {
   }
 }
 
+/** يكتب متغيرات الزجاجية في <style id="site-glass"> (يُستعمل للمعاينة الحيّة ولتحديث القيمة بعد تحميل الإعدادات). */
+export function applyGlass(level: number) {
+  if (typeof document === "undefined") return;
+  let el = document.getElementById("site-glass") as HTMLStyleElement | null;
+  if (!el) {
+    el = document.createElement("style");
+    el.id = "site-glass";
+    document.head.appendChild(el);
+  }
+  el.textContent = glassCss(level);
+}
+
 type Ctx = { settings: SiteSettings; update: (s: SiteSettings) => void; ready: boolean };
 const SettingsCtx = createContext<Ctx | null>(null);
 
@@ -85,6 +97,11 @@ export function SettingsProvider({ children, initial }: { children: ReactNode; i
   useEffect(() => {
     if (themeKnown) applyTheme(settings.theme);
   }, [settings.theme, themeKnown]);
+
+  // الزجاجية: الخادم كتبها في HTML الأول؛ هنا نزامنها مع آخر قيمة محفوظة.
+  useEffect(() => {
+    if (ready) applyGlass(settings.glass);
+  }, [settings.glass, ready]);
 
   const value = useMemo<Ctx>(() => ({ settings, update: setSettings, ready }), [settings, ready]);
   return <SettingsCtx.Provider value={value}>{children}</SettingsCtx.Provider>;

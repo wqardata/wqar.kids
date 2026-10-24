@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { addDoc, collection, doc, documentId, getDocs, increment, limit, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, doc, documentId, getDocs, increment, limit, orderBy, query, serverTimestamp, startAfter, updateDoc, where, type QueryDocumentSnapshot } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
 
 export type Named = { id: string; name: string; /** فيديو الغلاف المختار للسلسلة (فارغ = تلقائي). */ coverVideoId?: string };
@@ -154,6 +154,60 @@ export function useAllVideos() {
 }
 
 /**
+ * كل الفيديوهات الظاهرة (غير المخفية) بلا حد 200، على دفعات من 500، مع تخزين مؤقت دقيقتين داخل الجلسة.
+ * يُستعمل لحساب عدد حلقات كل مجموعة وصورتها؛ الحد القديم كان يُسقط المجموعات التي خرجت فيديوهاتها من آخر 200.
+ */
+const ALL_PAGE = 500;
+const ALL_MAX_PAGES = 40; // حماية: 20 ألف فيديو كحد أقصى
+let allCache: { at: number; videos: VideoDoc[] } | null = null;
+let allInflight: Promise<VideoDoc[]> | null = null;
+
+async function fetchEveryVideo(): Promise<VideoDoc[]> {
+  if (allCache && Date.now() - allCache.at < 120_000) return allCache.videos;
+  if (allInflight) return allInflight;
+  allInflight = (async () => {
+    const out: VideoDoc[] = [];
+    let last: QueryDocumentSnapshot | undefined;
+    for (let n = 0; n < ALL_MAX_PAGES; n++) {
+      const col = collection(getDb(), "videos");
+      const snap = await getDocs(last ? query(col, orderBy(documentId()), startAfter(last), limit(ALL_PAGE)) : query(col, orderBy(documentId()), limit(ALL_PAGE)));
+      for (const d of snap.docs) out.push(toVideo(d.id, d.data()));
+      if (snap.size < ALL_PAGE) break;
+      last = snap.docs[snap.docs.length - 1];
+    }
+    const videos = out.filter((v) => !v.hidden);
+    allCache = { at: Date.now(), videos };
+    return videos;
+  })().finally(() => {
+    allInflight = null;
+  });
+  return allInflight;
+}
+
+/** الفيديوهات الظاهرة مجمّعة حسب معرّف السلسلة (كلها، لا آخر 200 فقط). */
+export function useVideosBySeries() {
+  const [bySeries, setBySeries] = useState<Map<string, VideoDoc[]>>(new Map());
+  const [ready, setReady] = useState(!isFirebaseConfigured);
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    let off = false;
+    fetchEveryVideo()
+      .then((all) => {
+        if (off) return;
+        const m = new Map<string, VideoDoc[]>();
+        for (const v of all) if (v.seriesId) m.set(v.seriesId, [...(m.get(v.seriesId) ?? []), v]);
+        setBySeries(m);
+      })
+      .catch(() => {})
+      .finally(() => !off && setReady(true));
+    return () => {
+      off = true;
+    };
+  }, []);
+  return { bySeries, ready };
+}
+
+/**
  * يجلب فيديوهات بمعرّفاتها (للسجل). يحافظ على ترتيب المعرّفات ويتجاهل المحذوف والمخفي.
  * Firestore يحدّ استعلام «in» بـ 30 معرّفًا، فنقسّم على دفعات.
  */
@@ -191,5 +245,9 @@ export function useVideosByIds(ids: readonly string[]) {
 /** صورة المجموعة: الفيديو الذي اختاره المشرف، وإلا الأكثر مشاهدة (ثم الأحدث). تتجاهل المخفي. */
 export function pickCover(list: readonly VideoDoc[], coverId = ""): VideoDoc | undefined {
   const usable = list.filter((v) => !v.hidden);
-  return usable.find((v) => v.id === coverId) ?? [...usable].sort((a, b) => b.views - a.views || (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
+  // تلقائيًا: نفضّل الفيديو الذي له صورة مصغّرة، ثم الأكثر مشاهدة، ثم الأحدث.
+  return (
+    usable.find((v) => v.id === coverId) ??
+    [...usable].sort((a, b) => Number(Boolean(b.thumbnail)) - Number(Boolean(a.thumbnail)) || b.views - a.views || (b.createdAt ?? 0) - (a.createdAt ?? 0))[0]
+  );
 }

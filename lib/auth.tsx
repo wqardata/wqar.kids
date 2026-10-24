@@ -48,32 +48,52 @@ type AuthState = {
 const Ctx = createContext<AuthState | null>(null);
 
 // يمنع إنشاء سجل العضو مرتين متزامنتين (عند التسجيل يُستدعى من مكانين).
+// الفشل لا يبقى في الذاكرة: كان فشل المحاولة الأولى (مثلًا لحظة إنشاء الحساب) يُخزَّن 5 ثوانٍ فتفشل المحاولة الثانية معه بلا إعادة،
+// فيُنشأ الحساب في Firebase Authentication دون سجل عضو في Firestore.
 const inflight = new Map<string, Promise<void>>();
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** ينشئ سجل العضو عند أول دخول (دور «مشاهد» وصورة رمزية افتراضية = أيقونة شخص)، أو يحدّث آخر دخول. */
+async function createOrTouch(u: User): Promise<void> {
+  const ref = doc(getDb(), "users", u.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      email: (u.email ?? "").toLowerCase(),
+      name: (u.displayName ?? "").trim().slice(0, 60),
+      avatar: DEFAULT_AVATAR,
+      role: "viewer",
+      banned: false,
+      createdAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
+    });
+  } else {
+    await updateDoc(ref, { lastLoginAt: serverTimestamp(), email: (u.email ?? "").toLowerCase() });
+  }
+}
+
+/** ينشئ سجل العضو عند أول دخول (دور «مشاهد» وصورة رمزية افتراضية = أيقونة شخص)، أو يحدّث آخر دخول. يعيد المحاولة 3 مرات. */
 function ensureProfile(u: User): Promise<void> {
   const running = inflight.get(u.uid);
   if (running) return running;
   const p = (async () => {
-    const ref = doc(getDb(), "users", u.uid);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      await setDoc(ref, {
-        email: (u.email ?? "").toLowerCase(),
-        name: (u.displayName ?? "").trim().slice(0, 60),
-        avatar: DEFAULT_AVATAR,
-        role: "viewer",
-        banned: false,
-        createdAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp(),
-      });
-    } else {
-      await updateDoc(ref, { lastLoginAt: serverTimestamp(), email: (u.email ?? "").toLowerCase() });
+    await u.getIdToken().catch(() => ""); // يتأكد أن رمز الدخول جاهز قبل أول كتابة في Firestore
+    let last: unknown;
+    for (let i = 0; i < 3; i++) {
+      try {
+        await createOrTouch(u);
+        return;
+      } catch (e) {
+        last = e;
+        await sleep(500 * (i + 1));
+      }
     }
-  })().finally(() => {
-    setTimeout(() => inflight.delete(u.uid), 5000);
-  });
+    throw last;
+  })();
   inflight.set(u.uid, p);
+  p.then(
+    () => void setTimeout(() => inflight.delete(u.uid), 5000),
+    () => void inflight.delete(u.uid),
+  );
   return p;
 }
 
@@ -111,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfileLoading(false);
         if (!snap.exists()) {
           setProfile(null);
+          void ensureProfile(user).catch(() => {}); // السجل غائب (فشل إنشاؤه سابقًا): نحاول مرة أخرى
           return;
         }
         const p = toProfile(snap.id, snap.data());
@@ -169,7 +190,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (clean) await updateProfile(cred.user, { displayName: clean }).catch(() => {});
         await sendEmailVerification(cred.user).catch(() => {});
         // يضمن وجود السجل ثم يكتب الاسم فيه (قد يكون السجل أُنشئ قبل ضبط الاسم).
-        await ensureProfile(cred.user).catch(() => {});
+        try {
+          await ensureProfile(cred.user);
+        } catch {
+          // الحساب أُنشئ في Firebase Authentication لكن تعذّر حفظ سجل العضو (غالبًا قواعد Firestore لم تُحدَّث أو لا تسمح بإنشاء users).
+          throw Object.assign(new Error("profile-failed"), { code: "app/profile-failed" });
+        }
         if (clean) await updateDoc(doc(getDb(), "users", cred.user.uid), { name: clean }).catch(() => {});
       },
       resetPassword: async (email) => {

@@ -145,6 +145,88 @@ function cleanInstall(v: unknown): InstallSettings {
   };
 }
 
+/** نصوص صفحة التسجيل والدخول (/login) التي يعدّلها المشرف من تبويب «التسجيل». يقبل {name} = اسم الموقع. */
+export type SignupTexts = {
+  title: string;
+  noteSignin: string;
+  noteSignup: string;
+  noteReset: string;
+  google: string;
+  or: string;
+  nameLabel: string;
+  emailLabel: string;
+  passwordLabel: string;
+  submitSignin: string;
+  submitSignup: string;
+  submitReset: string;
+  toSignup: string;
+  toSignin: string;
+  forgot: string;
+  resetDone: string;
+};
+
+export const DEFAULT_SIGNUP: SignupTexts = {
+  title: "تسجيل الدخول أو إنشاء حساب",
+  noteSignin: "سجّل الدخول، أو أنشئ حسابًا جديدًا للمشاهدة.",
+  noteSignup: "أنشئ حسابًا مجانيًا للمشاهدة. رفع الفيديوهات وإدارة الموقع للمشرف فقط.",
+  noteReset: "اكتب بريدك لنرسل لك رابط إعادة تعيين كلمة المرور.",
+  google: "المتابعة باستخدام جوجل",
+  or: "أو بالبريد الإلكتروني",
+  nameLabel: "الاسم (اختياري)",
+  emailLabel: "البريد الإلكتروني",
+  passwordLabel: "كلمة المرور",
+  submitSignin: "تسجيل الدخول",
+  submitSignup: "إنشاء حساب",
+  submitReset: "إرسال الرابط",
+  toSignup: "ليس لديك حساب؟ أنشئ حسابًا",
+  toSignin: "لديك حساب؟ سجّل الدخول",
+  forgot: "نسيت كلمة المرور؟",
+  resetDone: "إن كان البريد مسجّلًا فسيصلك رابط لإعادة تعيين كلمة المرور. تفقّد أيضًا البريد المزعج.",
+};
+
+/** حقول التعديل في تبويب «التسجيل»، مجمّعة بحسب مكانها في الصفحة. */
+export const SIGNUP_FIELDS: { group: string; items: { key: keyof SignupTexts; label: string; max: number; long?: boolean }[] }[] = [
+  { group: "العنوان والنصوص التعريفية", items: [
+    { key: "title", label: "عنوان الصفحة", max: 80 },
+    { key: "noteSignin", label: "نص تسجيل الدخول", max: 200, long: true },
+    { key: "noteSignup", label: "نص إنشاء حساب جديد", max: 200, long: true },
+    { key: "noteReset", label: "نص استعادة كلمة المرور", max: 200, long: true },
+  ] },
+  { group: "الحقول والأزرار", items: [
+    { key: "google", label: "زر جوجل", max: 40 },
+    { key: "or", label: "الفاصل فوق نموذج البريد", max: 40 },
+    { key: "nameLabel", label: "عنوان خانة الاسم", max: 40 },
+    { key: "emailLabel", label: "عنوان خانة البريد", max: 40 },
+    { key: "passwordLabel", label: "عنوان خانة كلمة المرور", max: 40 },
+    { key: "submitSignin", label: "زر الدخول", max: 30 },
+    { key: "submitSignup", label: "زر إنشاء الحساب", max: 30 },
+    { key: "submitReset", label: "زر إرسال رابط الاستعادة", max: 30 },
+  ] },
+  { group: "روابط التنقل والرسائل", items: [
+    { key: "toSignup", label: "رابط «إنشاء حساب»", max: 60 },
+    { key: "toSignin", label: "رابط «لديك حساب»", max: 60 },
+    { key: "forgot", label: "رابط «نسيت كلمة المرور»", max: 60 },
+    { key: "resetDone", label: "رسالة بعد إرسال رابط الاستعادة", max: 200, long: true },
+  ] },
+];
+
+/** يعوّض {name} في نص التسجيل باسم الموقع. */
+export function signupText(t: string, siteName: string): string {
+  return t.replace(/\{name\}/g, siteName);
+}
+
+export function cleanSignup(v: unknown): SignupTexts {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const out = { ...DEFAULT_SIGNUP };
+  for (const g of SIGNUP_FIELDS) {
+    for (const f of g.items) {
+      const x = o[f.key];
+      if (typeof x === "string" && x.trim()) out[f.key] = x.trim().slice(0, f.max);
+    }
+  }
+  return out;
+}
+
 export type SupportLink = { label: string; href: string };
 export type SiteSettings = {
   /** اسم الموقع كما يظهر داخل الصفحات (الهيدر، الدعم…). */
@@ -178,10 +260,16 @@ export type SiteSettings = {
   splash: boolean;
   /** تشغيل الفيديو تلقائيًا عند فتح صفحته (قدر ما يسمح المتصفح والمشغّل). */
   autoplay: boolean;
+  /** زر «تخطي» على كل فيديو: ثواني المقدمة الافتراضية (0 = بلا زر). يتجاوزها حقل الفيديو نفسه. */
+  skipDefaultSec: number;
   /** نافذة تثبيت التطبيق على الهاتف والكمبيوتر. */
   install: InstallSettings;
   /** نافذة الأذان في أوقات الصلوات. */
   adhan: AdhanSettings;
+  /** قوة زجاجية الترويسة والنوافذ: 0 = معتمة تمامًا، 100 = أقصى شفافية وتمويه. */
+  glass: number;
+  /** نصوص صفحة التسجيل والدخول. */
+  signup: SignupTexts;
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -206,9 +294,25 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   watchButtons: DEFAULT_WATCH_BUTTONS,
   splash: true,
   autoplay: true,
+  skipDefaultSec: 30,
   install: DEFAULT_INSTALL,
   adhan: DEFAULT_ADHAN,
+  glass: 60,
+  signup: DEFAULT_SIGNUP,
 };
+
+export const GLASS_MIN = 0;
+export const GLASS_MAX = 100;
+
+/** يحوّل قوة الزجاجية (0–100) إلى متغيرات CSS تستعملها الترويسة والقوائم والنوافذ (انظر globals.css). */
+export function glassCss(level: number): string {
+  const g = Math.min(GLASS_MAX, Math.max(GLASS_MIN, Math.round(Number.isFinite(level) ? level : DEFAULT_SETTINGS.glass)));
+  const a = Math.round(100 - g * 0.8); // نسبة لون الخلفية المتبقية: 100% (معتم) ← 20% (شفاف)
+  const a2 = Math.min(100, a + 8); // القوائم والنوافذ أكثر كثافة قليلًا كي يبقى نصها واضحًا
+  const b = Math.round(g * 0.32); // التمويه بالبكسل: 0 ← 32
+  const sat = 100 + Math.round(g * 0.8); // تشبّع الألوان خلف الزجاج: 100% ← 180%
+  return `html:root{--glass-a:${a}%;--glass-a2:${a2}%;--glass-b:${b}px;--glass-s:${sat}%}`;
+}
 
 export const LOGO_MIN = 20;
 export const LOGO_MAX = 44;
@@ -327,8 +431,11 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     watchButtons: cleanWatch(d.watchButtons),
     splash: d.splash !== false,
     autoplay: d.autoplay !== false,
+    skipDefaultSec: typeof d.skipDefaultSec === "number" && Number.isFinite(d.skipDefaultSec) ? Math.min(600, Math.max(0, Math.round(d.skipDefaultSec))) : DEFAULT_SETTINGS.skipDefaultSec,
     install: cleanInstall(d.install),
     adhan: cleanAdhan(d.adhan),
+    glass: typeof d.glass === "number" && Number.isFinite(d.glass) ? Math.min(GLASS_MAX, Math.max(GLASS_MIN, Math.round(d.glass))) : DEFAULT_SETTINGS.glass,
+    signup: cleanSignup(d.signup),
   };
 }
 

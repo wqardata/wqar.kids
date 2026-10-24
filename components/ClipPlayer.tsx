@@ -64,7 +64,7 @@ export default function ClipPlayer({ driveId, title, clip, active = true }: Prop
     return (
       <div className="clip-fallback" style={{ "--cx": clip.x } as CSSProperties}>
         <div className="clip-fallback-inner">
-          <DrivePlayer driveId={driveId} title={title} hue={160} autoplay={active} startAt={clip.start} />
+          <DrivePlayer driveId={driveId} title={title} hue={160} autoplay={active} startAt={clip.start} skipTo={0} />
         </div>
       </div>
     );

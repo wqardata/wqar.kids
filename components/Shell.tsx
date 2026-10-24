@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import type { NavItem } from "@/lib/data";
 import BrandMark from "./BrandMark";
 import Avatar from "./Avatar";
+import NotificationBell from "./NotificationBell";
 import { brandStyle, resolveNav, useSettings } from "@/lib/settings";
 import { applyColorMode, readColorMode, type ColorMode } from "@/lib/colorMode";
 
@@ -148,15 +149,19 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                 <Icon name="gear" size={20} />
               </Link>
             )}
+            <NotificationBell />
             {/* نافذة فيها حسابي ولون العرض (والقسم الثاني من القائمة على الجوال). */}
             <button type="button" className="logout acct-m" aria-label="الحساب والمزيد" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={openMenu}>
               <Avatar id={profile?.avatar} size={36} />
             </button>
           </>
         ) : (
+          <>
+          <NotificationBell />
           <button type="button" className="login login--icon" aria-label="تسجيل الدخول" aria-haspopup="dialog" aria-expanded={menuOpen} title="تسجيل الدخول" onClick={openMenu}>
             <Icon name="user" size={20} />
           </button>
+          </>
         )}
       </header>
 

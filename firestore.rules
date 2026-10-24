@@ -32,7 +32,7 @@ service cloud.firestore {
     match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
     match /series/{id}     { allow read: if true; allow write: if isAdmin(); }
     match /settings/{id}   { allow read: if true; allow write: if isAdmin(); }
-    // قائمة البث المباشر (مستند واحد: live/current).
+    // البث المباشر: live/current (العام) + live/day0…day6 (أيام الأسبوع) + live/config (النمط). القواعد نفسها تكفي، لا تحتاج تحديثًا.
     match /live/{id}       { allow read: if true; allow write: if isAdmin(); }
 
     // بلاغات الزوار: أي شخص (مسجَّل أو غير مسجَّل) يُنشئ بلاغًا بحقول محدودة الحجم؛ القراءة والإدارة للمشرف فقط.
@@ -45,6 +45,20 @@ service cloud.firestore {
         && request.resource.data.status == 'open'
         && request.resource.data.size() <= 8;
       allow read, update, delete: if isAdmin();
+    }
+
+    // إشعارات الإدارة للأعضاء: المشرف يكتب ويحذف ويقرأ الكل؛ العضو المسجَّل يقرأ فئتي «all» و«viewers» فقط
+    // (فئة «admins» للمشرفين). الزائر غير المسجَّل لا يقرأ شيئًا.
+    match /notifications/{id} {
+      allow read: if request.auth != null
+        && (isAdmin() || resource.data.audience in ['all', 'viewers']);
+      allow create: if isAdmin()
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 80
+        && request.resource.data.body is string && request.resource.data.body.size() <= 500
+        && request.resource.data.link is string && request.resource.data.link.size() <= 300
+        && request.resource.data.audience in ['all', 'viewers', 'admins']
+        && request.resource.data.size() <= 6;
+      allow delete: if isAdmin();
     }
 
     // الصور المصغّرة الملتقطة من الفيديو (JPEG بصيغة base64). القراءة عامة لأن /api/thumb يخدمها للزوار.

@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import MosqueArt from "@/components/MosqueArt";
 import type { AdhanSettings } from "@/lib/adhanCore";
 
 export function fmtClock(sec: number): string {
@@ -55,12 +54,8 @@ export default function AdhanCard({ cfg, prayerLabel, remainingSec, playAudio, o
       {cfg.closable && (
         <button type="button" className="adhan-close" onClick={onClose} aria-label="إغلاق">✕</button>
       )}
-      {cfg.imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="adhan-art" src={cfg.imageUrl} alt="مسجد" />
-      ) : (
-        <MosqueArt className="adhan-art" />
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="adhan-art" src={cfg.imageUrl || "/images/mosque.svg"} alt="مسجد" width={400} height={280} />
       <p id="adhan-text" className="adhan-text">{text}</p>
       <div className="adhan-timer" role="timer" aria-live="off" aria-label="الوقت المتبقي">{fmtClock(remainingSec)}</div>
       {cfg.audioUrl && (

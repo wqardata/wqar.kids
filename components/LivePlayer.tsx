@@ -68,7 +68,7 @@ export default function LivePlayer({ driveId, title, offset, volume, muted, onVo
   if (failed) {
     return (
       <div className="live-frame">
-        <DrivePlayer driveId={driveId} title={title} hue={160} autoplay startAt={startAt} />
+        <DrivePlayer driveId={driveId} title={title} hue={160} autoplay startAt={startAt} skipTo={0} />
         <div className="live-shield" aria-hidden="true" />
       </div>
     );

@@ -2,6 +2,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import Icon from "@/components/Icon";
 import PlayLoader from "@/components/PlayLoader";
+import { useSettings } from "@/lib/settings";
 
 // معرّفات درايف تتكوّن من حروف وأرقام و _ و - فقط؛ نرفض غير ذلك لأمان الرابط.
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,}$/;
@@ -13,11 +14,13 @@ type Props = {
   autoplay?: boolean;
   /** ثوانٍ: بدء التشغيل من هذه اللحظة (للبث المباشر). */
   startAt?: number;
-  /** ثوانٍ: نهاية المقدمة/الإعلان. إن وُجدت يظهر زر «تخطي» في بداية الفيديو. */
+  /** ثوانٍ: نهاية المقدمة/الإعلان. غير محدّدة = الافتراضي من الإعدادات، و0 = بلا زر. */
   skipTo?: number;
 };
 
-export default function DrivePlayer({ driveId, title, hue, autoplay = false, startAt = 0, skipTo = 0 }: Props) {
+export default function DrivePlayer({ driveId, title, hue, autoplay = false, startAt = 0, skipTo: skipProp }: Props) {
+  const { settings } = useSettings();
+  const skipTo = skipProp ?? settings.skipDefaultSec;
   const [loaded, setLoaded] = useState(false);
   const [seek, setSeek] = useState(0); // بعد الضغط على «تخطي»: الثانية التي يبدأ منها المشغّل
   const [expired, setExpired] = useState(false); // انتهت مدة المقدمة فيُخفى الزر
@@ -43,7 +46,7 @@ export default function DrivePlayer({ driveId, title, hue, autoplay = false, sta
     if (autoplay || seek) q.set("autoplay", "1");
     if (from >= 1) q.set("t", String(Math.floor(from)));
     const qs = q.toString();
-    const showSkip = skipTo > 0 && loaded && !seek && !expired;
+    const showSkip = skipTo > 0 && !seek && !expired;
     return (
       <div className="player player--frame">
         <iframe
