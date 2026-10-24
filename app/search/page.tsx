@@ -12,7 +12,7 @@ export default async function SearchPage({ searchParams }: Props) {
   return (
     <>
       <h1 className="page-title">{q ? `نتائج البحث عن «${q}»` : "البحث"}</h1>
-      {q ? <SearchResults q={q} /> : <p className="empty-note">اكتب اسم مسلسل أو فيديو في شريط البحث بالأعلى.</p>}
+      {q ? <SearchResults q={q} /> : <p className="empty-note">اكتب اسم مجموعة أو فيديو في شريط البحث بالأعلى.</p>}
     </>
   );
 }

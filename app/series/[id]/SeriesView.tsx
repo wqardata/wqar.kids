@@ -4,7 +4,7 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import VideoGrid from "@/components/VideoGrid";
 import { SkeletonGrid } from "@/components/Skeleton";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
-import { toVideo, type VideoDoc } from "@/lib/videos";
+import { compareInSeries, toVideo, type VideoDoc } from "@/lib/videos";
 
 export default function SeriesView({ id }: { id: string }) {
   const [name, setName] = useState("");
@@ -25,7 +25,7 @@ export default function SeriesView({ id }: { id: string }) {
           snap.docs
             .map((d) => toVideo(d.id, d.data()))
             .filter((v) => !v.hidden)
-            .sort((a, b) => (a.season ?? 0) - (b.season ?? 0) || (a.episode ?? 0) - (b.episode ?? 0) || (a.createdAt ?? 0) - (b.createdAt ?? 0)),
+            .sort(compareInSeries),
         );
         setState("ok");
       })

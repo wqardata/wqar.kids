@@ -42,7 +42,7 @@ const GROUPS: { id: Group; label: string; subs: SubTab[] }[] = [
       { id: "shorts", label: "المقاطع القصيرة" },
       { id: "live", label: "البث المباشر" },
       { id: "categories", label: "التصنيفات" },
-      { id: "series", label: "السلاسل" },
+      { id: "series", label: "المجموعات" },
       { id: "reports", label: "البلاغات" },
     ],
   },

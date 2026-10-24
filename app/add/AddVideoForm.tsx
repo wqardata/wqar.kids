@@ -241,14 +241,14 @@ export default function AddVideoForm() {
       />
 
       <CreatableSelect
-        label="السلسلة (اختياري)"
+        label="المجموعة (اختياري)"
         items={series.items}
         value={seriesId}
         onChange={setSeriesId}
         onCreate={series.create}
-        placeholder="بدون سلسلة"
-        newLabel="إضافة سلسلة جديدة…"
-        newPlaceholder="اسم السلسلة الجديدة"
+        placeholder="بدون مجموعة"
+        newLabel="إضافة مجموعة جديدة…"
+        newPlaceholder="اسم المجموعة الجديدة"
         disabled={series.loading}
       />
 

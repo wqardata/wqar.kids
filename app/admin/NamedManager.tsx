@@ -4,6 +4,7 @@ import Link from "next/link";
 import { addDoc, collection, deleteDoc, doc, getDocs, limit, query, serverTimestamp, updateDoc, where, writeBatch } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { normalizeAr, pickCover, toVideo, type VideoDoc } from "@/lib/videos";
+import SeriesOrder from "./SeriesOrder";
 
 type Coll = "categories" | "series";
 type Item = { id: string; name: string; count: number; coverVideoId: string; vids: VideoDoc[] };
@@ -24,14 +25,14 @@ const TEXT = {
     detachNote: "ستصبح فيديوهاته «بدون تصنيف».",
   },
   series: {
-    title: "السلاسل",
-    one: "سلسلة",
-    placeholder: "اسم السلسلة الجديدة",
-    empty: "لا توجد سلاسل بعد. أضف أول سلسلة من الأعلى.",
+    title: "المجموعات",
+    one: "مجموعة",
+    placeholder: "اسم المجموعة الجديدة",
+    empty: "لا توجد مجموعات بعد. أضف أول مجموعة من الأعلى.",
     idField: "seriesId",
     nameField: "seriesName",
-    detach: { seriesId: "", seriesName: "", season: null, episode: null } as Record<string, unknown>,
-    detachNote: "ستصبح حلقاتها فيديوهات «بدون سلسلة» (ويُمسح رقم الموسم والحلقة).",
+    detach: { seriesId: "", seriesName: "", season: null, episode: null, seriesOrder: null } as Record<string, unknown>,
+    detachNote: "ستصبح حلقاتها فيديوهات «بدون مجموعة» (ويُمسح رقم الموسم والحلقة).",
   },
 } as const;
 
@@ -65,6 +66,7 @@ export default function NamedManager({ coll }: { coll: Coll }) {
   const [editName, setEditName] = useState("");
   const [editCover, setEditCover] = useState("");
   const [busy, setBusy] = useState("");
+  const [ordering, setOrdering] = useState(""); // المجموعة المفتوح ترتيب حلقاتها
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,7 +116,7 @@ export default function NamedManager({ coll }: { coll: Coll }) {
     const name = clean(newName);
     setMsg("");
     setError("");
-    if (!name) return setError(`اكتب اسم ${t.one === "تصنيف" ? "التصنيف" : "السلسلة"} أولًا.`);
+    if (!name) return setError(`اكتب اسم ${t.one === "تصنيف" ? "التصنيف" : "المجموعة"} أولًا.`);
     if (taken.has(normalizeAr(name))) return setError("يوجد عنصر بهذا الاسم مسبقًا.");
     setAdding(true);
     try {
@@ -250,9 +252,19 @@ export default function NamedManager({ coll }: { coll: Coll }) {
                     </div>
                     <div className="nrow-actions">
                       {coll === "series" && <Link href={`/series/${i.id}`} className="btn btn--ghost btn--sm">عرض</Link>}
+                      {coll === "series" && (
+                        <button type="button" className="btn btn--ghost btn--sm" aria-expanded={ordering === i.id} onClick={() => setOrdering(ordering === i.id ? "" : i.id)} disabled={busy === i.id || i.count < 2}>
+                          ترتيب الحلقات
+                        </button>
+                      )}
                       <button type="button" className="btn btn--ghost btn--sm" onClick={() => startEdit(i)} disabled={busy === i.id}>تعديل</button>
                       <button type="button" className="btn btn--ghost btn--sm danger" onClick={() => void onDelete(i)} disabled={busy === i.id}>حذف</button>
                     </div>
+                    {coll === "series" && ordering === i.id && (
+                      <div className="nrow-order">
+                        <SeriesOrder seriesId={i.id} onClose={() => setOrdering("")} />
+                      </div>
+                    )}
                   </>
                 )}
               </li>

@@ -54,7 +54,7 @@ function Preview({ theme, mode }: { theme: Theme; mode: Mode }) {
       </div>
       <div className="pv-card" style={{ background: c.surface, borderColor: c.line }}>
         <h4 style={{ fontFamily: fontCss(theme.headingFont, theme.bodyFont) }}>عنوان فيديو تجريبي</h4>
-        <p style={{ color: c.mute }}>التصنيف • السلسلة</p>
+        <p style={{ color: c.mute }}>التصنيف • المجموعة</p>
         <span className="pv-pill" style={{ background: c.accent, color: c.accentInk }}>زر تجريبي</span>
       </div>
       <small className="pv-label" style={{ color: c.mute }}>{MODE_LABEL[mode]}</small>

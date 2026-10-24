@@ -25,7 +25,7 @@ export default function NotificationsTab() {
       const snap = await getDocs(query(collection(getDb(), "notifications"), limit(100)));
       setItems(snap.docs.map((d) => toNotice(d.id, d.data())).sort((a, b) => b.at - a.at));
     } catch {
-      setError("تعذّر تحميل الإشعارات. تأكد أنك لصقت firestore.rules المحدّث (فيه notifications) ثم Publish.");
+      setError("تعذّر تحميل الإشعارات. الصق firestore.rules المحدّث (قسم notifications فيه فئة guests) في Firebase ثم Publish، وتأكد أن بريدك في isOwner() وموثَّق.");
     } finally {
       setLoading(false);
     }
@@ -109,7 +109,7 @@ export default function NotificationsTab() {
         <div className="addrow">
           <button type="submit" className="btn" disabled={sending || !title.trim()}>{sending ? "جارٍ الإرسال…" : "إرسال الإشعار"}</button>
         </div>
-        <p className="hint">يرى الأعضاء المسجَّلون آخر {NOTICE_SHOW} إشعارًا من فئتهم، ويظهر عدّاد على الجرس لما لم يفتحوه بعد. الزائر غير المسجَّل يرى رسالة طلب التسجيل فقط. بلاغات الزوار الجديدة تظهر للمشرفين فقط على جرسهم تلقائيًا.</p>
+        <p className="hint">يرى الأعضاء المسجَّلون آخر {NOTICE_SHOW} إشعارًا من فئتهم، ويظهر عدّاد على الجرس لما لم يفتحوه بعد. الزائر غير المسجَّل يرى إشعارات فئة «غير المسجَّلين» فقط، ثم رسالة طلب التسجيل. بلاغات الزوار الجديدة تظهر للمشرفين فقط على جرسهم تلقائيًا.</p>
       </form>
 
       <div className="panel">
