@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Amiri, Cairo, Changa, Readex_Pro, Reem_Kufi, Tajawal } from "next/font/google";
 import { AuthProvider } from "@/lib/auth";
 import { SettingsProvider } from "@/lib/settings";
+import { glassCss } from "@/lib/settingsCore";
 import Shell from "@/components/Shell";
 import InstallPrompt from "@/components/InstallPrompt";
 import Splash from "@/components/Splash";
@@ -51,6 +52,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         {/* ثيم الموقع من الخادم داخل HTML نفسه (بلا وميض). النسخة المحلية احتياط إن تعذّر وصول الخادم لـ Firestore. */}
+        {/* زجاجية الترويسة والنوافذ (من إعدادات الموقع) */}
+        <style id="site-glass" dangerouslySetInnerHTML={{ __html: glassCss(settings.glass) }} />
         {themeStyle && <style id="site-theme" dangerouslySetInnerHTML={{ __html: themeStyle }} />}
         {/* يلتقط حدث التثبيت مبكرًا (قد يصل قبل تحميل React) ليستعمله مكوّن InstallPrompt */}
         <script

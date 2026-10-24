@@ -135,8 +135,9 @@ export default function AppearanceTab() {
   if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
 
   return (
-    <form className="auth-form panel panel--wide" onSubmit={(e) => void onSubmit(e)}>
-      <h2>ألوان جاهزة</h2>
+    <form className="admin-stack" onSubmit={(e) => void onSubmit(e)}>
+      <section className="panel panel--wide auth-form" aria-labelledby="ap-h-presets">
+      <h2 id="ap-h-presets">ألوان جاهزة ومعاينة</h2>
       <p className="hint">اختر لوحة جاهزة ثم عدّل أي لون بعدها. المعاينة تظهر مباشرة على هذه الصفحة ولا تُحفظ حتى تضغط «حفظ».</p>
       <div className="addrow">
         {PRESETS.map((p) => (
@@ -156,9 +157,13 @@ export default function AppearanceTab() {
         <Preview theme={theme} mode="dark" />
       </div>
 
+      </section>
+
       {(["light", "dark"] as Mode[]).map((mode) => (
-        <fieldset key={mode} className="cset">
-          <legend>{MODE_LABEL[mode]}</legend>
+        <section key={mode} className="panel panel--wide auth-form" aria-labelledby={`ap-h-${mode}`}>
+        <h2 id={`ap-h-${mode}`}>ألوان {MODE_LABEL[mode]}</h2>
+        <fieldset className="cset">
+          <legend className="sr-only">{MODE_LABEL[mode]}</legend>
           <div className="cgrid">
             {COLOR_KEYS.map((k) => (
               <ColorRow key={k} k={k} mode={mode} theme={theme} onChange={(v) => setColor(mode, k, v)} />
@@ -170,10 +175,12 @@ export default function AppearanceTab() {
             </p>
           ))}
         </fieldset>
+        {mode === "dark" && <p className="hint">الموقع يتبدّل بين الفاتح والداكن حسب إعداد جهاز الزائر، لذا اضبط الوضعين.</p>}
+        </section>
       ))}
-      <p className="hint">الموقع يتبدّل بين الفاتح والداكن حسب إعداد جهاز الزائر، لذا اضبط الوضعين.</p>
 
-      <h2>الخطوط والحجم</h2>
+      <section className="panel panel--wide auth-form" aria-labelledby="ap-h-fonts">
+      <h2 id="ap-h-fonts">الخطوط والحجم</h2>
       <div className="two">
         <div className="field">
           <label htmlFor="ap-body">خط النصوص</label>
@@ -199,10 +206,12 @@ export default function AppearanceTab() {
         <p className="hint">يكبّر أو يصغّر كل نصوص الموقع معًا. خط اسم الموقع وحجمه ولونه من «إعدادات الموقع».</p>
       </div>
 
+      </section>
+
       {error && <p className="field-error" role="alert">{error}</p>}
       {done && <p className="hint" role="status">تم حفظ المظهر ✓ — يظهر للزوار فورًا.</p>}
       <div className="addrow">
-        <button type="submit" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ المظهر"}</button>
+        <button type="submit" className="btn" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ المظهر"}</button>
         <button type="button" className="btn btn--ghost" onClick={() => edit(() => DEFAULT_THEME)}>استعادة الافتراضي</button>
       </div>
     </form>

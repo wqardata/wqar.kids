@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { cancelGoogleSuggestion, suggestGoogleAccount } from "@/lib/googleAccounts";
 import { generateStrongPassword } from "@/lib/password";
+import { signupText, useSettings, type SignupTexts } from "@/lib/settings";
 
 function GoogleLogo() {
   return (
@@ -16,7 +17,7 @@ function GoogleLogo() {
   );
 }
 
-type Mode = "signin" | "signup" | "reset";
+export type Mode = "signin" | "signup" | "reset";
 
 function message(e: unknown): string {
   const code = (e as { code?: string }).code ?? "unknown";
@@ -45,13 +46,25 @@ function message(e: unknown): string {
       return "متصفحك لا يدعم الدخول هنا (تصفح خاص أو متصفح داخل تطبيق). افتح الرابط في Chrome أو Safari.";
     case "auth/operation-not-allowed":
       return "التسجيل بالبريد وكلمة المرور غير مفعّل في Firebase بعد (Authentication ← Sign-in method ← Email/Password).";
+    case "app/profile-failed":
+    case "permission-denied":
+    case "firestore/permission-denied":
+      return "أُنشئ حسابك لكن تعذّر حفظ ملفك في الموقع (صلاحيات Firestore). تأكد أن firestore.rules المحدّث منشور (قسم users)، ثم سجّل الخروج والدخول من جديد.";
     default:
       return `تعذّرت العملية. حاول مرة أخرى. (${code})`;
   }
 }
 
-export default function LoginPanel({ initialMode = "signin" }: { initialMode?: Mode }) {
-  const { user, loading, configured, canAdd, banned, signIn, signOut, signInEmail, signUpEmail, resetPassword } = useAuth();
+/**
+ * `preview`: معاينة لوحة التحكم — تعرض الصفحة بالنصوص المعطاة (قبل حفظها) دون أي تفاعل أو تحويل أو اتصال بالحساب.
+ */
+export default function LoginPanel({ initialMode = "signin", preview }: { initialMode?: Mode; preview?: SignupTexts }) {
+  const { settings } = useSettings();
+  const T = preview ?? settings.signup;
+  const tx = (t: string) => signupText(t, settings.siteName);
+  const { user: realUser, loading, configured: realConfigured, canAdd, banned, signIn, signOut, signInEmail, signUpEmail, resetPassword } = useAuth();
+  const user = preview ? null : realUser;
+  const configured = preview ? true : realConfigured;
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [name, setName] = useState("");
@@ -68,9 +81,10 @@ export default function LoginPanel({ initialMode = "signin" }: { initialMode?: M
   const askedAccount = useRef(false);
 
   // بعد الدخول (وبعد تحميل صلاحياته): المشرف يذهب للوحة التحكم، وأي مشاهد آخر للرئيسية.
+  // (لا نحوّل أثناء تنفيذ التسجيل نفسه، كي يكتمل حفظ سجل العضو قبل مغادرة الصفحة.)
   useEffect(() => {
-    if (user && !loading) router.replace(canAdd ? "/admin" : "/");
-  }, [user, loading, canAdd, router]);
+    if (user && !loading && !busy && !error) router.replace(canAdd ? "/admin" : "/");
+  }, [user, loading, busy, error, canAdd, router]);
 
   function switchMode(m: Mode) {
     setMode(m);
@@ -136,63 +150,62 @@ export default function LoginPanel({ initialMode = "signin" }: { initialMode?: M
       else if (mode === "signup") await signUpEmail(name, email, password);
       else {
         await resetPassword(email);
-        setInfo("إن كان البريد مسجّلًا فسيصلك رابط لإعادة تعيين كلمة المرور. تفقّد أيضًا البريد المزعج.");
+        setInfo(tx(T.resetDone));
       }
     });
   }
 
   if (!configured) {
     return (
+      <>
+      <h1>{tx(T.title)}</h1>
       <p className="note" role="status">
         لم يُضبط Firebase بعد. انسخ <code>.env.example</code> إلى <code>.env.local</code> واملأ القيم (التفاصيل في README).
       </p>
+      </>
     );
   }
 
   if (user) {
     return (
       <div>
-        <p className="note" role="status">جارٍ تحويلك… ({user.email})</p>
+        <h1>{tx(T.title)}</h1>
+        {error ? <p className="field-error" role="alert">{error}</p> : <p className="note" role="status">جارٍ تحويلك… ({user.email})</p>}
         <button type="button" className="btn btn--ghost" onClick={() => void signOut()}>تسجيل الخروج</button>
       </div>
     );
   }
 
   return (
-    <div>
-      <p className="note">
-        {mode === "signup"
-          ? "أنشئ حسابًا مجانيًا للمشاهدة. رفع الفيديوهات وإدارة الموقع للمشرف فقط."
-          : mode === "reset"
-            ? "اكتب بريدك لنرسل لك رابط إعادة تعيين كلمة المرور."
-            : "سجّل الدخول، أو أنشئ حسابًا جديدًا للمشاهدة."}
-      </p>
+    <div {...(preview ? { inert: true } : {})}>
+      <h1>{tx(T.title)}</h1>
+      <p className="note">{tx(mode === "signup" ? T.noteSignup : mode === "reset" ? T.noteReset : T.noteSignin)}</p>
 
       {mode !== "reset" && (
         <>
           <button type="button" className="gbtn" onClick={() => void run(signIn)} disabled={busy || loading}>
             <GoogleLogo />
-            <span>{busy ? "جارٍ الاتصال…" : "المتابعة باستخدام جوجل"}</span>
+            <span>{busy ? "جارٍ الاتصال…" : tx(T.google)}</span>
           </button>
-          <p className="or" aria-hidden="true"><span>أو بالبريد الإلكتروني</span></p>
+          <p className="or" aria-hidden="true"><span>{tx(T.or)}</span></p>
         </>
       )}
 
       <form className="auth-form" onSubmit={onSubmit}>
         {mode === "signup" && (
           <label>
-            الاسم (اختياري)
+            {tx(T.nameLabel)}
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" />
           </label>
         )}
         <label>
-          البريد الإلكتروني
+          {tx(T.emailLabel)}
           <input type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} onFocus={onEmailFocus} required autoComplete={mode === "signup" ? "email" : "username"} />
         </label>
         {mode !== "reset" && (
           <>
             <label>
-              كلمة المرور
+              {tx(T.passwordLabel)}
               <input
                 type={showPw ? "text" : "password"}
                 dir="ltr"
@@ -236,19 +249,19 @@ export default function LoginPanel({ initialMode = "signin" }: { initialMode?: M
         {error && <p className="field-error" role="alert">{error}</p>}
         {info && <p className="hint" role="status">{info}</p>}
         <button type="submit" disabled={busy || loading}>
-          {busy ? "جارٍ التنفيذ…" : mode === "signin" ? "تسجيل الدخول" : mode === "signup" ? "إنشاء حساب" : "إرسال الرابط"}
+          {busy ? "جارٍ التنفيذ…" : tx(mode === "signin" ? T.submitSignin : mode === "signup" ? T.submitSignup : T.submitReset)}
         </button>
       </form>
 
       <p className="switch">
         {mode === "signin" && (
           <>
-            <button type="button" className="linkbtn" onClick={() => switchMode("signup")}>ليس لديك حساب؟ أنشئ حسابًا</button>
-            <button type="button" className="linkbtn" onClick={() => switchMode("reset")}>نسيت كلمة المرور؟</button>
+            <button type="button" className="linkbtn" onClick={() => switchMode("signup")}>{tx(T.toSignup)}</button>
+            <button type="button" className="linkbtn" onClick={() => switchMode("reset")}>{tx(T.forgot)}</button>
           </>
         )}
         {mode !== "signin" && (
-          <button type="button" className="linkbtn" onClick={() => switchMode("signin")}>لديك حساب؟ سجّل الدخول</button>
+          <button type="button" className="linkbtn" onClick={() => switchMode("signin")}>{tx(T.toSignin)}</button>
         )}
       </p>
     </div>

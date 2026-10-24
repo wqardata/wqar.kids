@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import LivePlayer from "@/components/LivePlayer";
+import LiveStage, { LiveIdle } from "@/components/LiveStage";
 import PlayLoader from "@/components/PlayLoader";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
-import { formatClock } from "@/lib/format";
-import { EMPTY_LIVE, formatTotal, nowPlaying, parseLive, type LiveDoc } from "@/lib/live";
+import { DAY_NAMES, EMPTY_STREAMS, effectiveStart, isRunning, nextDayWithStream, nowPlaying, parseStreams, pickStream, type LiveStreams } from "@/lib/live";
 import { useSettings } from "@/lib/settings";
 
 function useNow(active: boolean) {
@@ -39,65 +39,66 @@ function useVolume() {
 
 export default function LiveSection() {
   const { settings } = useSettings();
-  const [live, setLive] = useState<LiveDoc>(EMPTY_LIVE);
+  const [streams, setStreams] = useState<LiveStreams>(EMPTY_STREAMS);
   const [ready, setReady] = useState(!isFirebaseConfigured);
 
+  // مستند واحد لكل بث (العام + أيام الأسبوع) + الإعداد: نستمع لكل المجموعة.
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     return onSnapshot(
-      doc(getDb(), "live", "current"),
+      collection(getDb(), "live"),
       (snap) => {
-        setLive(parseLive(snap.exists() ? snap.data() : undefined));
+        setStreams(parseStreams(snap.docs.map((d) => ({ id: d.id, data: d.data() }))));
         setReady(true);
       },
       () => setReady(true),
     );
   }, []);
 
-  const running = live.active && live.startedAt !== null && live.items.length > 0;
-  const now = useNow(running);
+  // نحدّث الوقت كل ثانية ما دام هناك بث فعّال في أي يوم (ليتبدّل البث عند منتصف الليل أيضًا).
+  const anyRunning = isRunning(streams.current) || streams.days.some(isRunning);
+  const now = useNow(anyRunning);
+  const { live, day: today } = pickStream(streams, now);
+  const running = isRunning(live);
   const [vol, setVol] = useVolume();
 
   if (!ready) return <div className="live-view" aria-busy="true"><div className="live-frame live-frame--wait"><PlayLoader show /></div></div>;
 
+  const texts = streams.config.texts;
+  const tz = streams.config.tz;
   if (running) {
-    const np = nowPlaying(live.items, live.startedAt as number, now, live.loop);
-    if (np.state === "playing") {
-      const cur = live.items[np.index];
-      const next = live.items[(np.index + 1) % live.items.length];
-      const hasNext = live.loop || np.index + 1 < live.items.length;
+    const startAt = effectiveStart(live, now, tz) as number;
+    const np = nowPlaying(live.items, startAt, now, live.loop);
+    if (np.state === "playing" || np.state === "waiting") {
+      const cur = np.state === "playing" ? live.items[np.index] : null;
       return (
-        <div className="live-view">
-          <p className="live-badge" role="status">● بث مباشر{live.title ? ` — ${live.title}` : ""}</p>
-          <LivePlayer key={`${np.index}-${cur.videoId}`} driveId={cur.driveId} title={cur.title} offset={np.offset} volume={vol.volume} muted={vol.muted} onVolume={setVol} />
-          <h2 className="live-now">{cur.title}</h2>
-          <p className="live-meta">
-            مضى {formatClock(np.offset)} من {formatClock(cur.duration)} • المقطع {np.index + 1} من {live.items.length}
-            {hasNext && ` • التالي: ${next.title} بعد ${formatClock(np.remaining)}`}
-          </p>
-          <h3 className="live-h">جدول البث ({formatTotal(live.items.reduce((n, i) => n + i.duration, 0))})</h3>
-          <ol className="live-queue">
-            {live.items.map((it, i) => (
-              <li key={`${it.videoId}-${i}`} aria-current={i === np.index ? "true" : undefined} className={i === np.index ? "on" : undefined}>
-                <span>{it.title}</span>
-                <small>{formatClock(it.duration)}</small>
-              </li>
-            ))}
-          </ol>
-        </div>
+        <LiveStage
+          texts={texts}
+          title={live.title}
+          items={live.items}
+          loop={live.loop}
+          np={np}
+          startAt={startAt}
+          now={now}
+          tz={tz}
+          player={cur && np.state === "playing" ? <LivePlayer key={`${np.index}-${cur.videoId}`} driveId={cur.driveId} title={cur.title} offset={np.offset} volume={vol.volume} muted={vol.muted} onVolume={setVol} /> : null}
+        />
       );
     }
     if (np.state === "ended") {
-      return <p>انتهى البث. تابعنا لمعرفة موعد البث القادم.</p>;
+      return <p>{texts.ended}</p>;
     }
   }
 
-  return settings.liveUrl ? (
-    <>
-      <p>يوجد بث الآن.</p>
-      <a className="btn" href={settings.liveUrl} target="_blank" rel="noopener noreferrer">شاهد البث</a>
-    </>
-  ) : (
-    <p>لا يوجد بث مباشر حاليًا. تابعنا لمعرفة موعد البث القادم.</p>
-  );
+  if (settings.liveUrl) {
+    return (
+      <>
+        <p>يوجد بث الآن.</p>
+        <a className="btn" href={settings.liveUrl} target="_blank" rel="noopener noreferrer">شاهد البث</a>
+      </>
+    );
+  }
+  // في وضع أيام الأسبوع نذكر أقرب يوم له بث.
+  const next = streams.config.mode === "weekly" ? nextDayWithStream(streams, today) : null;
+  return <LiveIdle texts={texts} weekly={streams.config.mode === "weekly"} nextDay={next !== null ? DAY_NAMES[next] : null} />;
 }

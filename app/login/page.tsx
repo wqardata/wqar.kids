@@ -7,7 +7,6 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   const { mode } = await searchParams;
   return (
     <div className="auth">
-      <h1>تسجيل الدخول أو إنشاء حساب</h1>
       <LoginPanel initialMode={mode === "signup" ? "signup" : "signin"} />
     </div>
   );

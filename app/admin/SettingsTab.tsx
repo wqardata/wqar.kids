@@ -1,11 +1,11 @@
 "use client";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import BrandMark from "@/components/BrandMark";
 import InstallCard, { installIconSrc } from "@/components/InstallCard";
 import { getDb } from "@/lib/firebase";
-import { INSTALL_POS_DESKTOP, INSTALL_POS_MOBILE, type InstallPosDesktop, type InstallPosMobile, type InstallSettings } from "@/lib/settingsCore";
-import { BRAND_FONTS, BRAND_SIZE_MAX, BRAND_SIZE_MIN, brandStyle, cleanUrl, LOGO_MAX, LOGO_MIN, saveSettings, useSettings, type BrandFontId, type SiteSettings } from "@/lib/settings";
+import { GLASS_MAX, GLASS_MIN, INSTALL_POS_DESKTOP, INSTALL_POS_MOBILE, type InstallPosDesktop, type InstallPosMobile, type InstallSettings } from "@/lib/settingsCore";
+import { applyGlass, BRAND_FONTS, BRAND_SIZE_MAX, BRAND_SIZE_MIN, brandStyle, cleanUrl, LOGO_MAX, LOGO_MIN, saveSettings, useSettings, type BrandFontId, type SiteSettings } from "@/lib/settings";
 
 /** يصغّر الصورة (حتى 512px) ويحوّلها إلى data: URL صغير؛ إعادة الرسم تزيل أي سكربت من SVG. */
 async function fileToLogo(file: File): Promise<string> {
@@ -77,6 +77,14 @@ export default function SettingsTab() {
   // أيقونة التطبيق المختارة ولم تُحفظ بعد (تُحفظ في settings/appicon عند الضغط على «حفظ»).
   const [pendingIcon, setPendingIcon] = useState<PendingIcon>(null);
   const iconImg = useRef<HTMLImageElement | null>(null);
+
+  // معاينة حيّة للزجاجية على الموقع نفسه أثناء تحريك المربع؛ إن لم تُحفظ تعود القيمة المحفوظة عند مغادرة التبويب.
+  const savedGlass = useRef(settings.glass);
+  savedGlass.current = settings.glass;
+  useEffect(() => {
+    applyGlass(form.glass);
+  }, [form.glass]);
+  useEffect(() => () => applyGlass(savedGlass.current), []);
 
   const setInstall = <K extends keyof InstallSettings>(k: K, v: InstallSettings[K]) => {
     setDone(false);
@@ -239,6 +247,25 @@ export default function SettingsTab() {
       </div>
       <p className="hint">الموقع يتبدّل بين الفاتح والداكن حسب إعداد جهاز الزائر، لذا اختر لونًا واضحًا في كل وضع.</p>
 
+      </section>
+
+      <section className="panel auth-form" aria-labelledby="st-h-glass">
+        <h2 id="st-h-glass">الزجاجية</h2>
+        <p className="hint">تتحكم في مظهر الترويسة العلوية والشريط السفلي والقائمة الجانبية ونوافذ التثبيت والحساب: كلما زادت القيمة صارت أكثر شفافية وتمويهًا.</p>
+        <div className="field">
+          <label htmlFor="st-glass">
+            قوة الزجاجية: {form.glass}%{form.glass === 0 ? " (معتمة)" : form.glass === 60 ? " (الافتراضي)" : form.glass === GLASS_MAX ? " (أقصى)" : ""}
+          </label>
+          <input id="st-glass" type="range" min={GLASS_MIN} max={GLASS_MAX} step={1} value={form.glass} onChange={(e) => set("glass", Number(e.target.value))} />
+        </div>
+        <div className="addrow">
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => set("glass", 60)} disabled={form.glass === 60}>الافتراضي</button>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => set("glass", 0)} disabled={form.glass === 0}>بلا زجاجية</button>
+        </div>
+        <div className="glass-prev" aria-hidden="true">
+          <div className="glass-prev-card"><strong>معاينة الزجاج</strong><br /><small>هكذا تبدو الترويسة والنوافذ فوق المحتوى</small></div>
+        </div>
+        <p className="hint">المعاينة تظهر مباشرة على الموقع نفسه (انظر الترويسة فوق)، ولا تُحفظ حتى تضغط «حفظ الإعدادات».</p>
       </section>
 
       <section className="panel auth-form" aria-labelledby="st-h-pages">

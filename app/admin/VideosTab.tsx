@@ -117,7 +117,7 @@ function EditForm({ video, categories, series, onSaved, onCancel }: {
         <textarea id={`d-${video.id}`} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} />
       </div>
       <div className="field">
-        <label htmlFor={`sk-${video.id}`}>زر «تخطي» — ثانية نهاية المقدمة أو الإعلان (اتركه فارغًا لإخفاء الزر)</label>
+        <label htmlFor={`sk-${video.id}`}>زر «تخطي» — ثانية نهاية مقدمة هذا الفيديو (فارغ = المدة الافتراضية من الإعدادات)</label>
         <input id={`sk-${video.id}`} type="number" inputMode="numeric" min={1} max={36000} dir="ltr" placeholder="مثال: 45" value={skipTo} onChange={(e) => setSkipTo(e.target.value)} />
         <p className="hint">يظهر الزر فوق المشغّل في بداية الفيديو، وعند الضغط عليه يبدأ التشغيل من هذه الثانية.</p>
       </div>

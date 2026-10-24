@@ -146,7 +146,7 @@ export default function AdhanTab() {
           <input id="ad-count" type="range" min={1} max={60} value={form.countdownMin} onChange={(e) => set("countdownMin", Number(e.target.value))} />
         </div>
         <div className="field">
-          <label htmlFor="ad-img">رابط صورة المسجد (فارغ = المسجد الكرتوني المدمج)</label>
+          <label htmlFor="ad-img">رابط صورة المسجد (فارغ = المسجد الكرتوني الافتراضي /images/mosque.svg)</label>
           <input id="ad-img" dir="ltr" placeholder="https://… أو /images/mosque.png" value={form.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} maxLength={400} />
         </div>
       </section>

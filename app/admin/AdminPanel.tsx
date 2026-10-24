@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import VideosTab from "./VideosTab";
 import SettingsTab from "./SettingsTab";
+import SignupTab from "./SignupTab";
 import AppearanceTab from "./AppearanceTab";
 import NamedManager from "./NamedManager";
 import LiveTab from "./LiveTab";
@@ -13,14 +14,16 @@ import MembersTab from "./MembersTab";
 import WatchButtonsEditor from "./WatchButtonsEditor";
 import BehaviorPanel from "./BehaviorPanel";
 import AdhanTab from "./AdhanTab";
+import NotificationsTab from "./NotificationsTab";
 
-type Group = "settings" | "adhan" | "organize" | "content";
-type Sub = "settings" | "appearance" | "menu" | "watch" | "adhan" | "members" | "videos" | "shorts" | "live" | "categories" | "series" | "reports";
+type Group = "settings" | "adhan" | "notifications" | "organize" | "content";
+type Sub = "settings" | "signup" | "appearance" | "menu" | "watch" | "adhan" | "notifications" | "members" | "videos" | "shorts" | "live" | "categories" | "series" | "reports";
 
 type SubTab = { id: Sub; label: string; ownerOnly?: boolean };
 const GROUPS: { id: Group; label: string; subs: SubTab[] }[] = [
-  { id: "settings", label: "الإعدادات", subs: [{ id: "settings", label: "إعدادات الموقع" }] },
+  { id: "settings", label: "الإعدادات", subs: [{ id: "settings", label: "إعدادات الموقع" }, { id: "signup", label: "التسجيل" }] },
   { id: "adhan", label: "الأذان", subs: [{ id: "adhan", label: "إعدادات الأذان" }] },
+  { id: "notifications", label: "الإشعارات", subs: [{ id: "notifications", label: "إدارة الإشعارات" }] },
   {
     id: "organize",
     label: "التنظيم",
@@ -45,11 +48,11 @@ const GROUPS: { id: Group; label: string; subs: SubTab[] }[] = [
   },
 ];
 
-export default function AdminPanel({ initial }: { initial?: "series" }) {
+export default function AdminPanel({ initial }: { initial?: "series" | "reports" }) {
   const { user, loading, configured, canAdd, isOwner } = useAuth();
   const [group, setGroup] = useState<Group>("content");
   // يُتذكَّر آخر تبويب فرعي في كل مجموعة عند التنقل بينها.
-  const [subs, setSubs] = useState<Record<Group, Sub>>({ settings: "settings", adhan: "adhan", organize: "appearance", content: initial === "series" ? "series" : "videos" });
+  const [subs, setSubs] = useState<Record<Group, Sub>>({ settings: "settings", adhan: "adhan", notifications: "notifications", organize: "appearance", content: initial === "series" ? "series" : initial === "reports" ? "reports" : "videos" });
 
   if (!configured) return <p className="note admin-note">لم يُضبط Firebase بعد — راجع README.</p>;
   if (loading) return <p className="note admin-note" role="status">جارٍ التحميل…</p>;
@@ -112,6 +115,7 @@ export default function AdminPanel({ initial }: { initial?: "series" }) {
 
       <div id="admin-panel" role="tabpanel" aria-labelledby={visibleSubs.length > 1 ? `tab-${sub}` : `group-${group}`}>
         {sub === "settings" && <SettingsTab />}
+        {sub === "signup" && <SignupTab />}
         {sub === "appearance" && (
           <div className="admin-stack">
             <AppearanceTab />
@@ -119,6 +123,7 @@ export default function AdminPanel({ initial }: { initial?: "series" }) {
           </div>
         )}
         {sub === "adhan" && <AdhanTab />}
+        {sub === "notifications" && <NotificationsTab />}
         {sub === "menu" && <MenuTab />}
         {sub === "watch" && <WatchButtonsEditor />}
         {sub === "members" && isOwner && <MembersTab />}

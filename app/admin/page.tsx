@@ -5,5 +5,5 @@ export const metadata: Metadata = { title: "لوحة التحكم", robots: { in
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ go?: string }> }) {
   const { go } = await searchParams;
-  return <AdminPanel initial={go === "series" ? "series" : undefined} />;
+  return <AdminPanel initial={go === "series" ? "series" : go === "reports" ? "reports" : undefined} />;
 }
