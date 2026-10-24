@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { formatClock } from "@/lib/format";
+import { SkeletonGrid, SkelCards } from "@/components/Skeleton";
+import { usePaged } from "@/lib/usePaged";
 import { pickCover, useAllVideos, useNamedList } from "@/lib/videos";
 
 /** مجموعاتي: بطاقة لكل مجموعة بصورة أبرز فيديو فيها (المختار من لوحة التحكم، وإلا الأكثر مشاهدة). */
@@ -9,8 +11,9 @@ export default function SeriesList() {
   const series = useNamedList("series");
   const { videos, ready } = useAllVideos();
   const { canAdd } = useAuth();
+  const { gridRef, sentinelRef, visible, pending } = usePaged(series.items.length);
 
-  if (series.loading || !ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
+  if (series.loading || !ready) return <SkeletonGrid />;
   return (
     <>
       {canAdd && (
@@ -21,8 +24,9 @@ export default function SeriesList() {
       {series.items.length === 0 ? (
         <p className="empty-note">لا توجد مجموعات بعد.</p>
       ) : (
-        <ul className="grid">
-          {series.items.map((s, i) => {
+        <>
+        <ul ref={gridRef} className="grid">
+          {series.items.slice(0, visible).map((s, i) => {
             const mine = videos.filter((v) => v.seriesId === s.id);
             const cover = pickCover(mine, s.coverVideoId);
             return (
@@ -42,7 +46,10 @@ export default function SeriesList() {
               </li>
             );
           })}
+          {pending > 0 && <SkelCards n={pending} />}
         </ul>
+        <div ref={sentinelRef} className="grid-end" aria-hidden="true" />
+        </>
       )}
     </>
   );

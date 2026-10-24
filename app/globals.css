@@ -433,7 +433,7 @@ html, body { overflow-x: clip; }
   html[data-side="mini"] { --side: 80px; }
   html[data-side="mini"] .side { padding-inline: 6px; overflow-x: hidden; }
   html[data-side="mini"] .side .navlink { flex-direction: column; justify-content: center; gap: 4px; padding: 10px 2px; font-size: .68rem; line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
-  html[data-side="mini"] .side .side-more { display: none; }
+  html[data-side="mini"] .side .side-more { display: block; }
 }
 
 /* ---------- نافذة الشخص: تسجيل جديد / دخول (+ القسم الثاني من القائمة على الجوال) ---------- */
@@ -545,3 +545,22 @@ html, body { overflow-x: clip; }
 .install-steps { font-size: .9rem; color: var(--mute); line-height: 1.8; }
 @keyframes install-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .install { animation: none; } }
+
+/* ---------- ظل التحميل (هياكل) ---------- */
+.skel { position: relative; overflow: hidden; background: var(--line); border-radius: 10px; }
+.skel::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); animation: skel-sweep 1.4s infinite; }
+:root[data-theme="dark"] .skel::after { background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .skel::after { background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent); } }
+@keyframes skel-sweep { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .skel::after { animation: none; } }
+.skel-card .thumb.skel { background: var(--line); border-radius: 14px; }
+.skel-card .skel-line { margin: 10px 14px 0; }
+.skel-line { height: 14px; width: 80%; }
+.skel-line--s { width: 45%; height: 11px; margin-top: 8px; }
+.skel-line--title { height: 22px; width: 70%; margin-top: 14px; }
+.skel-player { aspect-ratio: 16 / 9; border-radius: 14px; }
+.skel-row { height: 64px; border-radius: 14px; }
+.skel-short { width: min(360px, 90%); aspect-ratio: 9 / 16; max-height: 70dvh; border-radius: 18px; margin-inline: auto; }
+.grid-end { height: 1px; }
+.seg button { color: var(--mute); }

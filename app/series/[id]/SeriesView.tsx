@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import VideoGrid from "@/components/VideoGrid";
+import { SkeletonGrid } from "@/components/Skeleton";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { toVideo, type VideoDoc } from "@/lib/videos";
 
@@ -34,7 +35,7 @@ export default function SeriesView({ id }: { id: string }) {
     };
   }, [id]);
 
-  if (state === "loading") return <p className="empty-note" role="status">جارٍ التحميل…</p>;
+  if (state === "loading") return <SkeletonGrid />;
   if (state === "missing") return <p className="empty-note">لم يُعثر على هذه المجموعة.</p>;
   return (
     <>

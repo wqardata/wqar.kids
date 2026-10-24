@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import DrivePlayer from "@/components/DrivePlayer";
 import SuggestedVideos from "@/components/SuggestedVideos";
+import { SkeletonWatch } from "@/components/Skeleton";
 import WatchActions from "@/components/WatchActions";
 import { useAuth } from "@/lib/auth";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
@@ -39,7 +40,7 @@ export default function VideoView({ id }: { id: string }) {
     };
   }, [id]);
 
-  if (state === "loading" || (video?.hidden && authLoading)) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
+  if (state === "loading" || (video?.hidden && authLoading)) return <SkeletonWatch />;
   if (state === "missing" || !video || (video.hidden && !canAdd)) return <p className="empty-note">لم يُعثر على هذا الفيديو.</p>;
 
   const parts = [video.categoryName, video.seriesName && `${video.seriesName}${video.season ? ` • م${video.season}` : ""}${video.episode ? ` • ح${video.episode}` : ""}`].filter(Boolean);

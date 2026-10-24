@@ -57,7 +57,7 @@ export default function LiveSection() {
   const now = useNow(running);
   const [vol, setVol] = useVolume();
 
-  if (!ready) return <p role="status">جارٍ التحميل…</p>;
+  if (!ready) return <div className="live-view" role="status" aria-busy="true" aria-label="جارٍ التحميل"><div className="skel skel-player" /><div className="skel skel-line skel-line--title" /></div>;
 
   if (running) {
     const np = nowPlaying(live.items, live.startedAt as number, now, live.loop);

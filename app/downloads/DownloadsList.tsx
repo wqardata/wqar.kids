@@ -1,10 +1,11 @@
 "use client";
 import { DRIVE_ID } from "@/lib/drive";
+import { SkeletonRows } from "@/components/Skeleton";
 import { useAllVideos } from "@/lib/videos";
 
 export default function DownloadsList() {
   const { videos, ready } = useAllVideos();
-  if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
+  if (!ready) return <SkeletonRows />;
   const items = videos.filter((v) => DRIVE_ID.test(v.driveId));
   if (items.length === 0) return <p className="empty-note">لا توجد فيديوهات متاحة للتنزيل بعد.</p>;
   return (

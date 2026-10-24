@@ -4,6 +4,8 @@ import Icon from "@/components/Icon";
 import { clearHistory, removeFromHistory, useHistory } from "@/lib/history";
 import { formatClock } from "@/lib/format";
 import { useVideosByIds } from "@/lib/videos";
+import { SkeletonGrid, SkelCards } from "@/components/Skeleton";
+import { usePaged } from "@/lib/usePaged";
 
 function ago(at: number): string {
   const m = Math.floor((Date.now() - at) / 60000);
@@ -17,7 +19,8 @@ function ago(at: number): string {
 export default function HistoryList() {
   const entries = useHistory();
   const { videos, ready } = useVideosByIds(entries.map((e) => e.id));
-  if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
+  const { gridRef, sentinelRef, visible, pending } = usePaged(videos.length);
+  if (!ready) return <SkeletonGrid />;
   if (entries.length === 0) return <p className="empty-note">لا يوجد سجل بعد. ستظهر هنا الفيديوهات التي تشاهدها.</p>;
   const at = new Map(entries.map((e) => [e.id, e.at]));
 
@@ -34,8 +37,8 @@ export default function HistoryList() {
           مسح السجل
         </button>
       </div>
-      <ul className="grid">
-        {videos.map((v, i) => (
+      <ul ref={gridRef} className="grid">
+        {videos.slice(0, visible).map((v, i) => (
           <li key={v.id} className="history-item">
             <Link href={`/v/${v.id}`} className="card">
               <div className="thumb" style={{ ["--h" as string]: (i * 47) % 360 }}>
@@ -56,7 +59,9 @@ export default function HistoryList() {
             </div>
           </li>
         ))}
+        {pending > 0 && <SkelCards n={pending} />}
       </ul>
+      <div ref={sentinelRef} className="grid-end" aria-hidden="true" />
       {videos.length === 0 && <p className="empty-note">الفيديوهات في سجلك لم تعد متاحة.</p>}
     </>
   );
