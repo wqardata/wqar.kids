@@ -42,6 +42,24 @@ export function parseEmbeddedFolder(html: string): PublicItem[] {
   return items;
 }
 
+/** اسم المجلد العام من عنوان صفحة العرض المضمّن (null إن تعذّر). */
+export async function folderNamePublic(folderId: string): Promise<string | null> {
+  if (!DRIVE_ID.test(folderId)) return null;
+  try {
+    const r = await fetch(`https://drive.google.com/embeddedfolderview?id=${encodeURIComponent(folderId)}`, {
+      cache: "no-store",
+      headers: { "accept-language": "ar,en;q=0.8", "user-agent": "Mozilla/5.0 (compatible; VideoSite/1.0)" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) return null;
+    const m = (await r.text()).match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const t = m ? decodeEntities(m[1]).trim() : "";
+    return t && !/^(google drive|drive|sign in)/i.test(t) ? t.slice(0, 100) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** يجلب محتويات المجلد العام. null = تعذّر (خاص، غير موجود، أو غيّر جوجل الصفحة). */
 export async function listFolderPublic(folderId: string): Promise<PublicItem[] | null> {
   if (!DRIVE_ID.test(folderId)) return null;
