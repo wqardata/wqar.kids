@@ -10,10 +10,10 @@ import Avatar from "./Avatar";
 import { brandStyle, resolveNav, useSettings } from "@/lib/settings";
 import { applyColorMode, readColorMode, type ColorMode } from "@/lib/colorMode";
 
-const MODES: { id: ColorMode; label: string }[] = [
-  { id: "auto", label: "تلقائي" },
-  { id: "light", label: "فاتح" },
-  { id: "dark", label: "داكن" },
+const MODES: { id: ColorMode; label: string; icon: NavItem["icon"] }[] = [
+  { id: "auto", label: "تلقائي (حسب الجهاز)", icon: "auto" },
+  { id: "light", label: "فاتح", icon: "sun" },
+  { id: "dark", label: "داكن", icon: "moon" },
 ];
 
 const SIDE_KEY = "side";
@@ -194,8 +194,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               <span>لون العرض</span>
               <div className="seg">
                 {MODES.map((m) => (
-                  <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => chooseMode(m.id)}>
-                    {m.label}
+                  <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} aria-label={m.label} title={m.label} onClick={() => chooseMode(m.id)}>
+                    <Icon name={m.icon} size={20} />
                   </button>
                 ))}
               </div>

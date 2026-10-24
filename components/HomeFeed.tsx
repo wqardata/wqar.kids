@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { SkeletonGrid } from "@/components/Skeleton";
 import VideoGrid from "@/components/VideoGrid";
 import { useAllVideos, type VideoDoc } from "@/lib/videos";
 
@@ -58,7 +59,7 @@ export default function HomeFeed({ emptyNote }: { emptyNote?: string }) {
           ))}
         </div>
       )}
-      {items.length > 0 ? <VideoGrid items={items} /> : ready && emptyNote ? <p className="empty-note">{emptyNote}</p> : null}
+      {!ready ? <SkeletonGrid /> : items.length > 0 ? <VideoGrid items={items} /> : emptyNote ? <p className="empty-note">{emptyNote}</p> : null}
     </section>
   );
 }

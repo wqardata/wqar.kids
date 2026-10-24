@@ -131,7 +131,7 @@ export default function ShortsFeed() {
     touchTimer.current = setTimeout(() => setTouchable(-1), 4000);
   }
 
-  if (!ready) return <p className="empty-note shorts-empty" role="status">جارٍ التحميل…</p>;
+  if (!ready) return <div className="shorts-empty" role="status" aria-busy="true" aria-label="جارٍ التحميل"><div className="skel skel-short" /></div>;
   if (slides.length === 0) return <p className="empty-note shorts-empty">لا توجد مقاطع قصيرة بعد.</p>;
 
   return (

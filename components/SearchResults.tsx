@@ -1,5 +1,6 @@
 "use client";
 import { useMemo } from "react";
+import { SkeletonGrid } from "@/components/Skeleton";
 import VideoGrid from "@/components/VideoGrid";
 import { normalizeAr, useAllVideos } from "@/lib/videos";
 
@@ -14,7 +15,7 @@ export default function SearchResults({ q }: { q: string }) {
     });
   }, [videos, q]);
 
-  if (!ready) return <p className="empty-note" role="status">جارٍ البحث…</p>;
+  if (!ready) return <SkeletonGrid />;
   if (results.length === 0) return <p className="empty-note">لا توجد نتائج مطابقة. جرّب كلمة أقصر أو اسم المسلسل.</p>;
   return <VideoGrid items={results} />;
 }

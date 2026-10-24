@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
+import { SkeletonGrid } from "@/components/Skeleton";
 import VideoGrid from "@/components/VideoGrid";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { toVideo, type VideoDoc } from "@/lib/videos";
@@ -26,6 +27,7 @@ export default function AddedVideos({ mode = "home", emptyNote, showHeading = mo
     };
   }, [mode]);
 
+  if (!ready) return <SkeletonGrid shorts={mode === "shorts"} n={mode === "shorts" ? 10 : 8} />;
   if (items.length === 0) return ready && emptyNote ? <p className="empty-note">{emptyNote}</p> : null;
   return (
     <section aria-labelledby={showHeading ? "added-title" : undefined}>

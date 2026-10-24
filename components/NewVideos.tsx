@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonGrid } from "@/components/Skeleton";
 import VideoGrid from "@/components/VideoGrid";
 import { useAllVideos } from "@/lib/videos";
 
@@ -8,6 +9,7 @@ export default function NewVideos() {
   const regular = videos.filter((v) => !v.isShort).slice(0, 60);
   const shorts = videos.filter((v) => v.isShort).slice(0, 20);
 
+  if (!ready) return <SkeletonGrid />;
   if (videos.length === 0) return ready ? <p className="empty-note">لا توجد فيديوهات بعد.</p> : null;
   return (
     <>

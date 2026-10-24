@@ -4,6 +4,7 @@ import { formatClock } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
+import { SkeletonSuggest } from "@/components/Skeleton";
 import { toVideo, type VideoDoc } from "@/lib/videos";
 
 /** فيديوهات مقترحة: نفس السلسلة أولًا، ثم نفس التصنيف، ثم الأحدث. القائمة تتمرّر باستقلالية على الشاشات الكبيرة. */
@@ -37,7 +38,7 @@ export default function SuggestedVideos({ current }: { current: VideoDoc }) {
     <aside className="suggest" aria-labelledby="sug-title">
       <h2 id="sug-title">فيديوهات مقترحة</h2>
       {!ready ? (
-        <p className="empty-note" role="status">جارٍ التحميل…</p>
+        <SkeletonSuggest />
       ) : items.length === 0 ? (
         <p className="empty-note">لا توجد فيديوهات أخرى بعد.</p>
       ) : (
