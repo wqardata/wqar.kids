@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
+import ClipPlayer from "@/components/ClipPlayer";
 import DrivePlayer from "@/components/DrivePlayer";
 import SuggestedVideos from "@/components/SuggestedVideos";
 import { SkeletonWatch } from "@/components/Skeleton";
@@ -48,7 +49,13 @@ export default function VideoView({ id }: { id: string }) {
   return (
     <div className="watch">
       <article>
-        <DrivePlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} />
+        {video.clip ? (
+          <div className="clip-watch">
+            <div className="clip-box"><ClipPlayer driveId={video.driveId} title={video.title} clip={video.clip} active={settings.autoplay} /></div>
+          </div>
+        ) : (
+          <DrivePlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} />
+        )}
         {video.hidden && <p className="meta">⚠ هذا الفيديو مخفي عن الزوار (تراه لأنك مشرف).</p>}
         <h1>{video.title}</h1>
         {parts.length > 0 && <p className="meta">{parts.join(" • ")}</p>}

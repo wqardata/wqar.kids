@@ -211,7 +211,15 @@ a.group:hover { border-color: var(--accent); }
 .arow-info strong { font-weight: 600; overflow-wrap: anywhere; }
 .arow-info small { color: var(--mute); }
 .arow-info a:hover strong { color: var(--accent); }
-.arow-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.arow-actions { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; gap: 6px; align-items: center; }
+/* أزرار أيقونات متراصة في صف واحد */
+.iconbtn { display: inline-grid; place-items: center; flex: none; width: 38px; height: 38px; padding: 0; margin: 0; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.iconbtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.iconbtn.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.iconbtn.on:hover:not(:disabled) { color: var(--accent-ink); }
+.iconbtn:disabled { opacity: .5; cursor: default; }
+.iconbtn.danger:hover:not(:disabled) { border-color: currentColor; color: inherit; }
 .arow-form { grid-column: 1 / -1; margin-top: 0; }
 .arow-form .btn { margin-top: 0; }
 .badges { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -226,7 +234,7 @@ a.group:hover { border-color: var(--accent); }
 .grid--shorts .thumb { aspect-ratio: 9 / 16; }
 @media (min-width: 700px) {
   .arow { grid-template-columns: 140px 1fr auto; }
-  .arow-actions { grid-column: auto; flex-direction: column; align-items: stretch; }
+  .arow-actions { grid-column: auto; }
 }
 @media (min-width: 900px) { .grid.grid--shorts { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
@@ -573,3 +581,30 @@ html, body { overflow-x: clip; }
 .pager-btn:disabled { opacity: .4; cursor: default; }
 .pager-gap { color: var(--mute); padding: 0 4px; }
 .pager-info { text-align: center; }
+
+/* ---------- المقاطع المقتطعة (شورتس طولية من فيديو أطول) ---------- */
+.clip-player { position: absolute; inset: 0; background: #000; }
+.clip-player video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; cursor: pointer; touch-action: pan-y; }
+.clip-state { position: absolute; inset: 0; display: grid; place-items: center; font-size: 3rem; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.6); pointer-events: none; }
+.clip-unmute { position: absolute; z-index: 4; inset-inline: 0; bottom: 84px; margin-inline: auto; width: max-content; max-width: 90%; padding: 8px 16px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.4); background: rgba(0,0,0,.7); color: #fff; font-size: .9rem; cursor: pointer; }
+/* احتياطي: مشغّل درايف 16:9 مقصوص بإطار طولي عند الموضع --cx */
+.clip-fallback { position: absolute; inset: 0; overflow: hidden; container-type: size; background: #000; }
+.clip-fallback-inner { position: absolute; top: 0; height: 100cqh; width: calc(100cqh * 16 / 9); left: calc((100cqw - 100cqh * 16 / 9) * var(--cx, .5)); }
+.clip-fallback-inner .player { position: absolute; inset: 0; aspect-ratio: auto; height: 100%; border-radius: 0; }
+.clip-watch { display: grid; justify-items: center; padding: 0 16px; }
+.clip-watch .clip-box { position: relative; width: min(100%, 360px); aspect-ratio: 9 / 16; border-radius: 16px; overflow: hidden; background: #000; }
+
+/* ---------- محرر الاقتصاص ---------- */
+.clip-ed { grid-column: 1 / -1; display: grid; gap: 12px; }
+.clip-ed h3 { font-size: 1rem; }
+.clip-stage { display: grid; gap: 12px; }
+@media (min-width: 760px) { .clip-stage { grid-template-columns: minmax(0, 1fr) 180px; align-items: start; } }
+.clip-src { position: relative; background: #000; border-radius: 12px; overflow: hidden; touch-action: none; user-select: none; }
+.clip-src video { display: block; width: 100%; max-height: 52vh; background: #000; }
+.clip-win { position: absolute; top: 0; bottom: 0; border: 2px solid var(--accent); box-shadow: 0 0 0 9999px rgba(0,0,0,.55); cursor: ew-resize; touch-action: none; }
+.clip-prev { width: 180px; max-width: 100%; aspect-ratio: 9 / 16; border-radius: 12px; background: #000; display: block; margin-inline: auto; }
+.clip-times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.clip-times .field { margin: 0; }
+.clip-range { width: 100%; accent-color: var(--accent); }
+.clip-len { color: var(--mute); font-size: .9rem; }

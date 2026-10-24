@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { collection, deleteDoc, doc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
 import CreatableSelect from "@/components/CreatableSelect";
+import Icon from "@/components/Icon";
 import { useAuth } from "@/lib/auth";
 import { driveThumbnail } from "@/lib/drive";
 import { getDb } from "@/lib/firebase";
@@ -11,6 +12,7 @@ import { openGrabber } from "@/lib/frameGrab";
 import { deleteThumb, saveThumb } from "@/lib/thumbs";
 import { useRandomFrame } from "@/lib/useRandomFrame";
 import { toVideo, useNamedList, type VideoDoc } from "@/lib/videos";
+import ClipEditor from "./ClipEditor";
 import ShortForm from "./ShortForm";
 
 type NamedList = ReturnType<typeof useNamedList>;
@@ -176,6 +178,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState("");
+  const [clipping, setClipping] = useState("");
   const [busy, setBusy] = useState("");
   const [tick, setTick] = useState(0);
   const [page, setPage] = useState(1);
@@ -448,7 +451,14 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
         <ul className="alist">
           {pageItems.map((v) => (
             <li key={v.id} className="arow">
-              {editing === v.id ? (
+              {clipping === v.id ? (
+                <ClipEditor
+                  video={v}
+                  categories={categories}
+                  onCancel={() => setClipping("")}
+                  onCreated={() => { setClipping(""); setBulkMsg("تم نشر المقطع الطولي في قسم «قصيرة» ✓"); setTick((t) => t + 1); }}
+                />
+              ) : editing === v.id ? (
                 <EditForm video={v} categories={categories} series={series} onCancel={() => setEditing("")} onSaved={(nv) => { replace(nv); setEditing(""); }} />
               ) : (
                 <>
@@ -463,15 +473,28 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
                     <Link href={`/v/${v.id}`}><strong>{v.title}</strong></Link>
                     <small>{[v.categoryName, v.seriesName].filter(Boolean).join(" • ") || "بدون تصنيف"}{v.duration ? ` • ${formatClock(v.duration)}` : ""}</small>
                     <span className="badges">
-                      {v.isShort && <b className="badge">قصير</b>}
+                      {v.isShort && <b className="badge">{v.clip ? "مقتطع" : "قصير"}</b>}
                       {v.hidden && <b className="badge badge--off">مخفي</b>}
                     </span>
                   </div>
-                  <div className="arow-actions">
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing(v.id)} disabled={busy === v.id}>تعديل</button>
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => void patch(v, { hidden: !v.hidden })} disabled={busy === v.id}>{v.hidden ? "إظهار" : "إخفاء"}</button>
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => void patch(v, { isShort: !v.isShort })} disabled={busy === v.id}>{v.isShort ? "إلغاء «قصير»" : "اجعله قصيرًا"}</button>
-                    <button type="button" className="btn btn--ghost btn--sm danger" onClick={() => void remove(v)} disabled={busy === v.id}>حذف</button>
+                  <div className="arow-actions" role="group" aria-label={`إجراءات ${v.title}`}>
+                    <button type="button" className="iconbtn" title="تعديل" aria-label="تعديل" onClick={() => setEditing(v.id)} disabled={busy === v.id}>
+                      <Icon name="edit" size={18} />
+                    </button>
+                    <button type="button" className="iconbtn" title={v.hidden ? "إظهار للزوار" : "إخفاء عن الزوار"} aria-label={v.hidden ? "إظهار" : "إخفاء"} onClick={() => void patch(v, { hidden: !v.hidden })} disabled={busy === v.id}>
+                      <Icon name={v.hidden ? "eye" : "eyeoff"} size={18} />
+                    </button>
+                    <button type="button" className={v.isShort ? "iconbtn on" : "iconbtn"} title={v.isShort ? "إلغاء «قصير»" : "اجعله قصيرًا"} aria-label={v.isShort ? "إلغاء «قصير»" : "اجعله قصيرًا"} aria-pressed={v.isShort} onClick={() => void patch(v, { isShort: !v.isShort })} disabled={busy === v.id}>
+                      <Icon name="bolt" size={18} />
+                    </button>
+                    {v.driveId && !v.clip && (
+                      <button type="button" className="iconbtn" title="اقتصاص مقطع طولي (شورتس)" aria-label="اقتصاص مقطع طولي" onClick={() => setClipping(v.id)} disabled={busy === v.id}>
+                        <Icon name="scissors" size={18} />
+                      </button>
+                    )}
+                    <button type="button" className="iconbtn danger" title="حذف" aria-label="حذف" onClick={() => void remove(v)} disabled={busy === v.id}>
+                      <Icon name="trash" size={18} />
+                    </button>
                   </div>
                 </>
               )}

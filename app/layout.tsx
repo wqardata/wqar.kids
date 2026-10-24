@@ -51,6 +51,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         {/* ثيم الموقع من الخادم داخل HTML نفسه (بلا وميض). النسخة المحلية احتياط إن تعذّر وصول الخادم لـ Firestore. */}
         {themeStyle && <style id="site-theme" dangerouslySetInnerHTML={{ __html: themeStyle }} />}
+        {/* يلتقط حدث التثبيت مبكرًا (قد يصل قبل تحميل React) ليستعمله مكوّن InstallPrompt */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'window.__bip=null;window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__bip=e;window.dispatchEvent(new Event("bip-ready"))});',
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html:
