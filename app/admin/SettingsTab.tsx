@@ -1,6 +1,10 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import BrandMark from "@/components/BrandMark";
+import InstallCard, { installIconSrc } from "@/components/InstallCard";
+import { getDb } from "@/lib/firebase";
+import { INSTALL_POS_DESKTOP, INSTALL_POS_MOBILE, type InstallPosDesktop, type InstallPosMobile, type InstallSettings } from "@/lib/settingsCore";
 import { BRAND_FONTS, BRAND_SIZE_MAX, BRAND_SIZE_MIN, brandStyle, cleanUrl, LOGO_MAX, LOGO_MIN, saveSettings, useSettings, type BrandFontId, type SiteSettings } from "@/lib/settings";
 
 /** يصغّر الصورة (حتى 512px) ويحوّلها إلى data: URL صغير؛ إعادة الرسم تزيل أي سكربت من SVG. */
@@ -32,12 +36,77 @@ async function fileToLogo(file: File): Promise<string> {
   }
 }
 
+const ICON_PAD = 0.64; // حجم الشعار داخل الأيقونة (هامش آمن لقصّ الأيقونات الدائرية)
+const ICON_BG_DEFAULT = "#0f1a24";
+
+/** يرسم الشعار في مربع PNG بلون خلفية، بحجم size. */
+function makeIcon(img: HTMLImageElement, size: number, bg: string): string {
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext("2d");
+  if (!ctx) throw new Error("canvas");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, size, size);
+  const w0 = img.naturalWidth || 512, h0 = img.naturalHeight || 512;
+  const k = (size * ICON_PAD) / Math.max(w0, h0);
+  const w = w0 * k, h = h0 * k;
+  ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+  return c.toDataURL("image/png");
+}
+
+function loadImage(file: File): Promise<HTMLImageElement> {
+  if (!file.type.startsWith("image/")) return Promise.reject(new Error("اختر ملف صورة (PNG أو SVG أو JPG أو WebP)."));
+  const url = URL.createObjectURL(file);
+  return new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image();
+    i.onload = () => { URL.revokeObjectURL(url); res(i); };
+    i.onerror = () => { URL.revokeObjectURL(url); rej(new Error("تعذّر قراءة الصورة.")); };
+    i.src = url;
+  });
+}
+
+type PendingIcon = { png192: string; png512: string } | null;
+
 export default function SettingsTab() {
   const { settings, update, ready } = useSettings();
   const [form, setForm] = useState<SiteSettings>(settings);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  // أيقونة التطبيق المختارة ولم تُحفظ بعد (تُحفظ في settings/appicon عند الضغط على «حفظ»).
+  const [pendingIcon, setPendingIcon] = useState<PendingIcon>(null);
+  const iconImg = useRef<HTMLImageElement | null>(null);
+
+  const setInstall = <K extends keyof InstallSettings>(k: K, v: InstallSettings[K]) => {
+    setDone(false);
+    setForm((f) => ({ ...f, install: { ...f.install, [k]: v } }));
+  };
+  const iconBg = form.install.appIconBg || ICON_BG_DEFAULT;
+
+  function buildIcon(img: HTMLImageElement, bg: string) {
+    const png512 = makeIcon(img, 512, bg);
+    if (png512.length > 330_000) throw new Error("الصورة معقّدة جدًا؛ جرّب شعارًا أبسط.");
+    setPendingIcon({ png192: makeIcon(img, 192, bg), png512 });
+  }
+  async function onAppIcon(file: File | undefined) {
+    if (!file) return;
+    setError("");
+    try {
+      const img = await loadImage(file);
+      iconImg.current = img;
+      buildIcon(img, iconBg);
+      setDone(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذّر قراءة الصورة.");
+    }
+  }
+  function onIconBg(v: string) {
+    setInstall("appIconBg", v);
+    if (iconImg.current) {
+      try { buildIcon(iconImg.current, v); } catch { /* تبقى الأيقونة السابقة */ }
+    }
+  }
 
   const set = <K extends keyof SiteSettings>(k: K, v: SiteSettings[K]) => {
     setDone(false);
@@ -69,9 +138,16 @@ export default function SettingsTab() {
     }
     setSaving(true);
     try {
-      const saved = await saveSettings(form);
+      let toSave = form;
+      if (pendingIcon) {
+        await setDoc(doc(getDb(), "settings", "appicon"), { ...pendingIcon, bg: iconBg, updatedAt: serverTimestamp() });
+        toSave = { ...form, install: { ...form.install, appIconV: Date.now() } };
+      }
+      const saved = await saveSettings(toSave);
       update(saved);
       setForm(saved);
+      setPendingIcon(null);
+      iconImg.current = null;
       setDone(true);
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
@@ -178,6 +254,81 @@ export default function SettingsTab() {
         <button type="button" className="btn btn--ghost btn--sm" disabled={form.supportLinks.length >= 10}
           onClick={() => set("supportLinks", [...form.supportLinks, { label: "", href: "" }])}>＋ إضافة رابط</button>
       </fieldset>
+
+      <h2>نافذة تثبيت التطبيق</h2>
+      <label className="check"><input type="checkbox" checked={form.install.enabled} onChange={(e) => setInstall("enabled", e.target.checked)} /> إظهار نافذة «ثبّت التطبيق» للزوار</label>
+      {form.install.enabled && (
+        <>
+          <div className="two">
+            <label className="check"><input type="checkbox" checked={form.install.mobile} onChange={(e) => setInstall("mobile", e.target.checked)} /> على الهاتف والتابلت</label>
+            <label className="check"><input type="checkbox" checked={form.install.desktop} onChange={(e) => setInstall("desktop", e.target.checked)} /> على الكمبيوتر</label>
+          </div>
+          <div className="two">
+            <div className="field">
+              <label htmlFor="in-pm">مكانها على الهاتف</label>
+              <select id="in-pm" value={form.install.posMobile} onChange={(e) => setInstall("posMobile", e.target.value as InstallPosMobile)}>
+                {INSTALL_POS_MOBILE.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="in-pd">مكانها على الكمبيوتر</label>
+              <select id="in-pd" value={form.install.posDesktop} onChange={(e) => setInstall("posDesktop", e.target.value as InstallPosDesktop)}>
+                {INSTALL_POS_DESKTOP.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="two">
+            <div className="field">
+              <label htmlFor="in-delay">تظهر بعد: {form.install.delaySec === 0 ? "فورًا" : `${form.install.delaySec} ثانية`}</label>
+              <input id="in-delay" type="range" min={0} max={120} step={1} value={form.install.delaySec} onChange={(e) => setInstall("delaySec", Number(e.target.value))} />
+            </div>
+            <div className="field">
+              <label htmlFor="in-snooze">بعد إغلاقها تعود بعد: {form.install.snoozeDays === 0 ? "في كل زيارة" : `${form.install.snoozeDays} يوم`}</label>
+              <input id="in-snooze" type="range" min={0} max={30} step={1} value={form.install.snoozeDays} onChange={(e) => setInstall("snoozeDays", Number(e.target.value))} />
+            </div>
+          </div>
+          <label className="check"><input type="checkbox" checked={form.install.homeOnly} onChange={(e) => setInstall("homeOnly", e.target.checked)} /> تظهر في الصفحة الرئيسية فقط</label>
+          <div className="field">
+            <label htmlFor="in-title">العنوان</label>
+            <input id="in-title" value={form.install.title} onChange={(e) => setInstall("title", e.target.value)} maxLength={60} />
+          </div>
+          <div className="field">
+            <label htmlFor="in-sub">النص الفرعي</label>
+            <input id="in-sub" value={form.install.subtitle} onChange={(e) => setInstall("subtitle", e.target.value)} maxLength={100} />
+          </div>
+          <div className="field">
+            <label htmlFor="in-btn">نص زر التثبيت</label>
+            <input id="in-btn" value={form.install.button} onChange={(e) => setInstall("button", e.target.value)} maxLength={30} />
+            <p className="hint">اكتب {"{name}"} في أي نص ليُستبدل باسم الموقع.</p>
+          </div>
+        </>
+      )}
+      <div className="field">
+        <span>أيقونة التطبيق عند تثبيته (على الهاتف والكمبيوتر)</span>
+        <div className="addrow">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="appicon-prev" src={pendingIcon?.png192 || installIconSrc(form.install)} alt="" width={64} height={64} />
+          <label className="btn btn--ghost btn--sm filebtn">
+            رفع أيقونة
+            <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void onAppIcon(e.target.files?.[0]); e.target.value = ""; }} />
+          </label>
+          {(pendingIcon || form.install.appIconV > 0) && (
+            <button type="button" className="btn btn--ghost btn--sm danger" onClick={() => { setPendingIcon(null); iconImg.current = null; setInstall("appIconV", 0); }}>استعادة الافتراضية</button>
+          )}
+        </div>
+        <div className="colorrow">
+          <label htmlFor="in-bg">لون خلفية الأيقونة وشاشة فتح التطبيق</label>
+          <input id="in-bg" type="color" value={iconBg} onChange={(e) => onIconBg(e.target.value)} />
+          {form.install.appIconBg && <button type="button" className="btn btn--ghost btn--sm" onClick={() => onIconBg("")}>افتراضي</button>}
+        </div>
+        <p className="hint">ارفع شعارًا مربعًا (يفضَّل PNG بخلفية شفافة)؛ يوضع داخل مربع بلون الخلفية. لتغيير لون الخلفية لأيقونة محفوظة سابقًا أعد رفع الصورة. تظهر الأيقونة الجديدة بعد الحفظ، وتحتاج إعادة تثبيت التطبيق ليتحدّث على الأجهزة التي ثبّتته.</p>
+      </div>
+      <div className="field">
+        <span>معاينة النافذة</span>
+        <div className="install install--preview">
+          <InstallCard install={form.install} name={form.tabName || form.siteName} iconSrc={pendingIcon?.png192} canPrompt onClose={() => {}} />
+        </div>
+      </div>
 
       {error && <p className="field-error" role="alert">{error}</p>}
       {done && <p className="hint" role="status">تم حفظ الإعدادات ✓</p>}

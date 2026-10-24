@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: tab, template: `%s | ${tab}` },
     description: s.siteDescription,
     applicationName: tab,
-    icons: { icon, apple: icon },
+    icons: { icon, apple: s.install.appIconV > 0 ? `/api/app-icon?s=192&v=${s.install.appIconV}` : icon },
   };
 }
 

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import LivePlayer from "@/components/LivePlayer";
+import PlayLoader from "@/components/PlayLoader";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
 import { EMPTY_LIVE, formatTotal, nowPlaying, parseLive, type LiveDoc } from "@/lib/live";
@@ -57,7 +58,7 @@ export default function LiveSection() {
   const now = useNow(running);
   const [vol, setVol] = useVolume();
 
-  if (!ready) return <div className="live-view" role="status" aria-busy="true" aria-label="جارٍ التحميل"><div className="skel skel-player" /><div className="skel skel-line skel-line--title" /></div>;
+  if (!ready) return <div className="live-view" aria-busy="true"><div className="live-frame live-frame--wait"><PlayLoader show /></div></div>;
 
   if (running) {
     const np = nowPlaying(live.items, live.startedAt as number, now, live.loop);

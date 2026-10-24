@@ -18,6 +18,7 @@ import ShortForm from "./ShortForm";
 type NamedList = ReturnType<typeof useNamedList>;
 
 const PAGE_SIZE = 50;
+const NONE = "__none"; // قيمة «بدون» في مرشحات التصنيف والسلسلة
 
 /** أرقام الصفحات: الأولى والأخيرة وما حول الحالية، وبينها «…». */
 function pageList(cur: number, last: number): (number | "gap")[] {
@@ -177,6 +178,10 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
+  // التصفية: التصنيف والسلسلة ("" = الكل، NONE = بدون) والظهور.
+  const [fCat, setFCat] = useState("");
+  const [fSer, setFSer] = useState("");
+  const [fVis, setFVis] = useState<"all" | "visible" | "hidden">("all");
   const [editing, setEditing] = useState("");
   const [clipping, setClipping] = useState("");
   const [busy, setBusy] = useState("");
@@ -214,17 +219,20 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
     const terms = norm(q).split(/\s+/).filter(Boolean);
     return items
       .filter((v) => (shortsOnly ? v.isShort : true))
+      .filter((v) => (fCat === "" ? true : fCat === NONE ? !v.categoryId : v.categoryId === fCat))
+      .filter((v) => (fSer === "" ? true : fSer === NONE ? !v.seriesId : v.seriesId === fSer))
+      .filter((v) => (fVis === "all" ? true : fVis === "hidden" ? v.hidden : !v.hidden))
       .filter((v) => {
         const hay = norm(`${v.title} ${v.seriesName} ${v.categoryName}`);
         return terms.every((t) => hay.includes(t));
       });
-  }, [items, q, shortsOnly]);
+  }, [items, q, shortsOnly, fCat, fSer, fVis]);
 
   const lastPage = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
   const cur = Math.min(page, lastPage);
   const pageItems = useMemo(() => shown.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE), [shown, cur]);
   // البحث يعيدنا للصفحة الأولى.
-  useEffect(() => setPage(1), [q, shortsOnly]);
+  useEffect(() => setPage(1), [q, shortsOnly, fCat, fSer, fVis]);
   const goTo = (n: number) => {
     setPage(Math.min(lastPage, Math.max(1, n)));
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -393,6 +401,36 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
         <input id="admin-q" type="search" placeholder={shortsOnly ? "ابحث في المقاطع القصيرة" : "ابحث في الفيديوهات"} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
+
+      <div className="admin-filters" role="group" aria-label="تصفية الفيديوهات">
+        <div className="field">
+          <label htmlFor="f-cat">التصنيف</label>
+          <select id="f-cat" value={fCat} onChange={(e) => setFCat(e.target.value)}>
+            <option value="">كل التصنيفات</option>
+            <option value={NONE}>بدون تصنيف</option>
+            {categories.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="f-ser">السلسلة</label>
+          <select id="f-ser" value={fSer} onChange={(e) => setFSer(e.target.value)}>
+            <option value="">كل السلاسل</option>
+            <option value={NONE}>بدون سلسلة</option>
+            {series.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="f-vis">الظهور</label>
+          <select id="f-vis" value={fVis} onChange={(e) => setFVis(e.target.value as "all" | "visible" | "hidden")}>
+            <option value="all">الكل</option>
+            <option value="visible">المعروض للزوار</option>
+            <option value="hidden">المخفي</option>
+          </select>
+        </div>
+        {(fCat || fSer || fVis !== "all") && (
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => { setFCat(""); setFSer(""); setFVis("all"); }}>مسح التصفية</button>
+        )}
+      </div>
       {!loading && items.some((v) => v.driveId && !v.duration) && (
         <div className="addrow">
           <button type="button" className="btn btn--ghost btn--sm" onClick={() => void fetchDurations()} disabled={Boolean(probe)}>
