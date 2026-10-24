@@ -6,6 +6,7 @@ import Icon from "./Icon";
 import { useAuth } from "@/lib/auth";
 import { readSeen, timeAgo, useNotifications, useOpenReports, writeSeen, type Notice } from "@/lib/notifications";
 
+const GUEST = "guest"; // مفتاح «آخر ما رآه» للزائر غير المسجَّل
 const cap = (n: number) => (n > 9 ? "9+" : String(n));
 
 function NoticeLink({ n }: { n: Notice }) {
@@ -19,14 +20,14 @@ function NoticeLink({ n }: { n: Notice }) {
 
 /**
  * جرس الإشعارات في الترويسة (للجميع):
- *  - الزائر غير المسجَّل: رقم 1 دائمًا، وعند الضغط رسالة «الرجاء التسجيل…».
+ *  - الزائر غير المسجَّل: إشعارات فئة «غير المسجَّلين» إن وُجدت، ورقم 1 دائمًا لرسالة «الرجاء التسجيل…».
  *  - العضو المسجَّل: إشعارات الإدارة بحسب فئته، والعدّاد لغير المقروء.
  *  - المشرف: يُضاف إلى العدّاد والقائمة عدد البلاغات الجديدة.
  */
 export default function NotificationBell() {
   const { user, loading, canAdd } = useAuth();
   const uid = user?.uid ?? null;
-  const { items, failed } = useNotifications(uid, canAdd);
+  const { items, failed } = useNotifications(uid, canAdd, !loading);
   const reports = useOpenReports(canAdd);
   const [open, setOpen] = useState(false);
   const [seen, setSeen] = useState(0);
@@ -35,21 +36,20 @@ export default function NotificationBell() {
   const pop = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setSeen(uid ? readSeen(uid) : 0);
+    setSeen(readSeen(uid ?? GUEST));
   }, [uid]);
 
   const unread = items.filter((n) => n.at > seen).length;
-  const total = uid ? unread + (canAdd ? reports.count : 0) : 1;
+  // الزائر: إشعاراته غير المقروءة + 1 لرسالة التسجيل التي تبقى ظاهرة دائمًا.
+  const total = uid ? unread + (canAdd ? reports.count : 0) : unread + 1;
 
   function toggle() {
     if (open) return close();
     setMark(seen);
-    if (uid) {
-      const latest = items.reduce((m, n) => Math.max(m, n.at), seen);
-      writeSeen(uid, latest);
-      setSeen(latest);
-      if (canAdd) reports.refresh();
-    }
+    const latest = items.reduce((m, n) => Math.max(m, n.at), seen);
+    writeSeen(uid ?? GUEST, latest);
+    setSeen(latest);
+    if (uid && canAdd) reports.refresh();
     setOpen(true);
   }
   function close() {
@@ -71,7 +71,7 @@ export default function NotificationBell() {
   }, [open]);
 
   const showBadge = !loading && total > 0;
-  const label = loading ? "الإشعارات" : uid ? (total > 0 ? `الإشعارات (${total} جديد)` : "الإشعارات") : "الإشعارات (1)";
+  const label = loading ? "الإشعارات" : total > 0 ? `الإشعارات (${total} جديد)` : "الإشعارات";
 
   return (
     <>
@@ -88,7 +88,30 @@ export default function NotificationBell() {
                 <strong>الإشعارات</strong>
                 <button type="button" className="acct-close notif-x" aria-label="إغلاق" onClick={close}><Icon name="close" size={20} /></button>
               </div>
-              {!uid ? (
+              {(uid || items.length > 0) && (
+              <ul className="notif-list">
+                {uid && canAdd && reports.count > 0 && (
+                  <li>
+                    <Link href="/admin?go=reports" className="notif-item notif-item--report new">
+                      <strong>{reports.count} بلاغ جديد بانتظار المراجعة</strong>
+                      <small>للمشرفين فقط — اضغط للانتقال إلى البلاغات</small>
+                    </Link>
+                  </li>
+                )}
+                {items.map((n) => (
+                  <li key={n.id} className={n.at > mark ? "notif-item new" : "notif-item"}>
+                    <strong>{n.title}</strong>
+                    {n.body && <p>{n.body}</p>}
+                    <small>{timeAgo(n.at)}</small>
+                    <NoticeLink n={n} />
+                  </li>
+                ))}
+                {items.length === 0 && uid && !(canAdd && reports.count > 0) && (
+                  <li className="empty-note">{failed ? "تعذّر تحميل الإشعارات حاليًا." : "لا توجد إشعارات حاليًا."}</li>
+                )}
+              </ul>
+              )}
+              {!uid && (
                 <div className="notif-guest">
                   <p>الرجاء التسجيل لتفعيل جميع المميزات</p>
                   <div className="acct-actions">
@@ -96,28 +119,6 @@ export default function NotificationBell() {
                     <Link href="/login?mode=signin" className="acct-btn">تسجيل دخول</Link>
                   </div>
                 </div>
-              ) : (
-                <ul className="notif-list">
-                  {canAdd && reports.count > 0 && (
-                    <li>
-                      <Link href="/admin?go=reports" className="notif-item notif-item--report new">
-                        <strong>{reports.count} بلاغ جديد بانتظار المراجعة</strong>
-                        <small>للمشرفين فقط — اضغط للانتقال إلى البلاغات</small>
-                      </Link>
-                    </li>
-                  )}
-                  {items.map((n) => (
-                    <li key={n.id} className={n.at > mark ? "notif-item new" : "notif-item"}>
-                      <strong>{n.title}</strong>
-                      {n.body && <p>{n.body}</p>}
-                      <small>{timeAgo(n.at)}</small>
-                      <NoticeLink n={n} />
-                    </li>
-                  ))}
-                  {items.length === 0 && !(canAdd && reports.count > 0) && (
-                    <li className="empty-note">{failed ? "تعذّر تحميل الإشعارات حاليًا." : "لا توجد إشعارات حاليًا."}</li>
-                  )}
-                </ul>
               )}
             </div>
           </div>,

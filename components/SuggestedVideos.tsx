@@ -25,7 +25,7 @@ export default function SuggestedVideos({ current }: { current: VideoDoc }) {
           .map((d) => toVideo(d.id, d.data()))
           .filter((v) => v.id !== current.id && !v.hidden && !v.isShort);
         // الفرز مستقر: عند تساوي النقاط يبقى الترتيب من الأحدث.
-        // 10 فيديوهات: أول 4 الأقرب للفيديو الحالي (نفس السلسلة ثم التصنيف ثم الأحدث)، والـ6 الباقية عشوائية من البقية.
+        // 10 فيديوهات: أول 4 الأقرب للفيديو الحالي (نفس المجموعة ثم التصنيف ثم الأحدث)، والـ6 الباقية عشوائية من البقية.
         const ranked = list.map((v, i) => ({ v, i })).sort((a, b) => score(b.v) - score(a.v) || a.i - b.i).map((x) => x.v);
         const related = ranked.slice(0, 4);
         const rest = ranked.slice(4);

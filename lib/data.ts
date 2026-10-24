@@ -2,7 +2,7 @@
 export const SITE_NAME = "موقعي";
 export const SITE_DESCRIPTION = "مشاهدة آمنة بلا إعلانات";
 
-// بيانات الحلقات/السلاسل التجريبية أدناه مخفية افتراضيًا. اجعلها true فقط لتجربة التصميم.
+// بيانات الحلقات/المجموعات التجريبية أدناه مخفية افتراضيًا. اجعلها true فقط لتجربة التصميم.
 export const SHOW_DEMO_DATA = false;
 
 export type IconName =

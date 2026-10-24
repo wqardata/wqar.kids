@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Icon from "@/components/Icon";
 import PlayLoader from "@/components/PlayLoader";
 import { useSettings } from "@/lib/settings";
@@ -14,31 +14,66 @@ type Props = {
   autoplay?: boolean;
   /** ثوانٍ: بدء التشغيل من هذه اللحظة (للبث المباشر). */
   startAt?: number;
-  /** ثوانٍ: نهاية المقدمة/الإعلان. غير محدّدة = الافتراضي من الإعدادات، و0 = بلا زر. */
+  /** ثوانٍ: نهاية المقدمة/الإعلان معًا (للتوافق القديم). غير محدّدة = الافتراضي من الإعدادات، و0 = بلا زر. */
   skipTo?: number;
+  /** ثوانٍ: مدة الإعلان في بداية الفيديو (زر «تخطي الإعلان»). */
+  adSec?: number;
+  /** ثوانٍ: مدة المقدمة بعد الإعلان (زر «تخطي المقدمة»). */
+  introSec?: number;
 };
 
-export default function DrivePlayer({ driveId, title, hue, autoplay = false, startAt = 0, skipTo: skipProp }: Props) {
+type Stage = { label: string; end: number };
+
+export default function DrivePlayer({ driveId, title, hue, autoplay = false, startAt = 0, skipTo: skipProp, adSec, introSec }: Props) {
   const { settings } = useSettings();
-  const skipTo = skipProp ?? settings.skipDefaultSec;
   const [loaded, setLoaded] = useState(false);
   const [seek, setSeek] = useState(0); // بعد الضغط على «تخطي»: الثانية التي يبدأ منها المشغّل
-  const [expired, setExpired] = useState(false); // انتهت مدة المقدمة فيُخفى الزر
+  const [, setTick] = useState(0);
+  const loadedAt = useRef(0);
+
+  // مراحل زر التخطي: الإعلان (إن وُجد) ثم المقدمة. مدة كل مرحلة تأتي من الكشف التلقائي أو من تعديل المشرف.
+  // إن لم تُحدَّد مدة الإعلان ولا المقدمة نعود للمدة الافتراضية من الإعدادات كزر «تخطي» واحد.
+  const stages = useMemo<Stage[]>(() => {
+    const out: Stage[] = [];
+    if (adSec === undefined && introSec === undefined) {
+      const t = skipProp ?? settings.skipDefaultSec;
+      if (t > 0) out.push({ label: "تخطي", end: t });
+      return out;
+    }
+    const ad = adSec && adSec > 0 ? adSec : 0;
+    const intro = introSec && introSec > 0 ? introSec : 0;
+    if (ad) out.push({ label: "تخطي الإعلان", end: ad });
+    if (intro) out.push({ label: "تخطي المقدمة", end: ad + intro });
+    return out;
+  }, [adSec, introSec, skipProp, settings.skipDefaultSec]);
+
+  // نقدّر موضع التشغيل من لحظة تحميل المشغّل (لا نستطيع قراءة وقت التشغيل من داخل مشغّل درايف).
+  const markLoaded = () => {
+    loadedAt.current = Date.now();
+    setLoaded(true);
+  };
+
   // احتياط: إن لم يصل حدث التحميل (حظر أو بطء) نُخفي الشاشة بعد مدة كي لا تحجب المشغّل.
   useEffect(() => {
     setLoaded(false);
     setSeek(0);
-    setExpired(false);
-    const t = setTimeout(() => setLoaded(true), 15_000);
+    const t = setTimeout(() => {
+      loadedAt.current = Date.now();
+      setLoaded(true);
+    }, 15_000);
     return () => clearTimeout(t);
   }, [driveId]);
 
-  // يظهر الزر من لحظة تحميل المشغّل حتى تمضي مدة المقدمة (لا نستطيع قراءة وقت التشغيل من داخل مشغّل درايف).
+  const position = loaded ? seek + (Date.now() - loadedAt.current) / 1000 : seek;
+  const stage = loaded ? stages.find((st) => st.end > seek && st.end > position) : undefined;
+
+  // نعيد الرسم كل نصف ثانية ما دام هناك زر قادم أو ظاهر.
+  const pending = stages.some((st) => st.end > seek);
   useEffect(() => {
-    if (!loaded || !skipTo || seek || expired) return;
-    const t = setTimeout(() => setExpired(true), skipTo * 1000);
-    return () => clearTimeout(t);
-  }, [loaded, skipTo, seek, expired]);
+    if (!loaded || !pending) return;
+    const id = setInterval(() => setTick((n) => n + 1), 500);
+    return () => clearInterval(id);
+  }, [loaded, pending, seek]);
 
   if (driveId && DRIVE_ID.test(driveId)) {
     const from = seek || startAt;
@@ -46,7 +81,6 @@ export default function DrivePlayer({ driveId, title, hue, autoplay = false, sta
     if (autoplay || seek) q.set("autoplay", "1");
     if (from >= 1) q.set("t", String(Math.floor(from)));
     const qs = q.toString();
-    const showSkip = skipTo > 0 && !seek && !expired;
     return (
       <div className="player player--frame">
         <iframe
@@ -56,19 +90,19 @@ export default function DrivePlayer({ driveId, title, hue, autoplay = false, sta
           allowFullScreen
           loading={autoplay ? "eager" : "lazy"}
           referrerPolicy="no-referrer"
-          onLoad={() => setLoaded(true)}
+          onLoad={markLoaded}
         />
         <PlayLoader show={!loaded} />
-        {showSkip && (
+        {stage && (
           <button
             type="button"
             className="skip-btn"
             onClick={() => {
               setLoaded(false);
-              setSeek(skipTo);
+              setSeek(stage.end);
             }}
           >
-            تخطي <Icon name="play" size={16} />
+            {stage.label} <Icon name="play" size={16} />
           </button>
         )}
       </div>

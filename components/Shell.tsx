@@ -136,7 +136,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             type="search"
             id="site-q"
             name="q"
-            placeholder="ابحث عن مسلسل أو حلقة"
+            placeholder="ابحث عن مجموعة أو حلقة"
             aria-label="بحث"
             enterKeyHint="search"
             autoComplete="off"

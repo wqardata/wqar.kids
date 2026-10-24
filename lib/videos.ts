@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { addDoc, collection, doc, documentId, getDocs, increment, limit, orderBy, query, serverTimestamp, startAfter, updateDoc, where, type QueryDocumentSnapshot } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
 
-export type Named = { id: string; name: string; /** فيديو الغلاف المختار للسلسلة (فارغ = تلقائي). */ coverVideoId?: string };
+export type Named = { id: string; name: string; /** فيديو الغلاف المختار للمجموعة (فارغ = تلقائي). */ coverVideoId?: string };
 
 export type VideoDoc = {
   id: string;
@@ -23,8 +23,16 @@ export type VideoDoc = {
   duration: number | null;
   /** مقطع مقتطع من فيديو أطول: يُشغَّل جزء منه فقط بإطار طولي (null = فيديو كامل). x = موضع القص الأفقي 0–1. */
   clip: { start: number; end: number; x: number } | null;
-  /** ثوانٍ: نهاية المقدمة/الإعلان داخل الفيديو. إن وُجدت يظهر زر «تخطي» في بداية التشغيل (null = بلا زر). */
+  /** ثوانٍ: نهاية المقدمة/الإعلان داخل الفيديو (= adSec + introSec). إن وُجدت يظهر زر «تخطي» في بداية التشغيل (null = بلا زر). */
   skipTo: number | null;
+  /** مدة الإعلان في بداية الفيديو بالثواني (null = لا إعلان/غير معروفة). */
+  adSec: number | null;
+  /** مدة المقدمة (بعد الإعلان) بالثواني (null = لا مقدمة/غير معروفة). */
+  introSec: number | null;
+  /** تم فحص الفيديو تلقائيًا بحثًا عن المقدمة والإعلان (حتى لو لم يُعثر على شيء). */
+  skipChecked: boolean;
+  /** ترتيب الحلقة داخل مجموعتها كما رتّبه المشرف (null = بلا ترتيب يدوي فيُرتَّب بالموسم والحلقة). */
+  seriesOrder: number | null;
   /** عدد المشاهدات (يزيد مرة لكل زائر في كل جلسة). */
   views: number;
   createdAt: number | null;
@@ -34,7 +42,7 @@ function norm(s: string) {
   return s.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-/** قائمة مسمّاة (تصنيفات/سلاسل) مع إمكانية إضافة عنصر جديد. */
+/** قائمة مسمّاة (تصنيفات/مجموعات) مع إمكانية إضافة عنصر جديد. */
 export function useNamedList(coll: "categories" | "series") {
   const [items, setItems] = useState<Named[]>([]);
   const [loading, setLoading] = useState(isFirebaseConfigured);
@@ -87,6 +95,25 @@ function toClip(d: Record<string, unknown>): VideoDoc["clip"] {
   return { start, end, x };
 }
 
+const secs = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 1 ? Math.min(Math.floor(v), 36000) : null);
+
+/** مدة الإعلان والمقدمة. الفيديوهات القديمة التي لها skipTo فقط تُعدّ مقدمة كلها. */
+function toSkip(d: Record<string, unknown>): Pick<VideoDoc, "skipTo" | "adSec" | "introSec"> {
+  const adSec = secs(d.adSec);
+  let introSec = secs(d.introSec);
+  const legacy = secs(d.skipTo);
+  if (adSec === null && introSec === null && legacy !== null) introSec = legacy;
+  const total = (adSec ?? 0) + (introSec ?? 0);
+  return { adSec, introSec, skipTo: total >= 1 ? total : null };
+}
+
+/** ترتيب حلقات المجموعة: الترتيب اليدوي أولًا، ثم الموسم والحلقة، ثم الأقدم. */
+export function compareInSeries(a: VideoDoc, b: VideoDoc): number {
+  if (a.seriesOrder !== null && b.seriesOrder !== null && a.seriesOrder !== b.seriesOrder) return a.seriesOrder - b.seriesOrder;
+  if ((a.seriesOrder !== null) !== (b.seriesOrder !== null)) return a.seriesOrder !== null ? -1 : 1;
+  return (a.season ?? 0) - (b.season ?? 0) || (a.episode ?? 0) - (b.episode ?? 0) || (a.createdAt ?? 0) - (b.createdAt ?? 0);
+}
+
 export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
   const s = (k: string) => (typeof d[k] === "string" ? (d[k] as string) : "");
   const n = (k: string) => (typeof d[k] === "number" ? (d[k] as number) : null);
@@ -106,7 +133,9 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
     hidden: d.hidden === true,
     duration: typeof d.duration === "number" && d.duration > 0 ? Math.round(d.duration) : null,
     clip: toClip(d),
-    skipTo: typeof d.skipTo === "number" && d.skipTo >= 1 ? Math.min(Math.floor(d.skipTo), 36000) : null,
+    ...toSkip(d),
+    skipChecked: d.skipChecked === true,
+    seriesOrder: typeof d.seriesOrder === "number" && Number.isFinite(d.seriesOrder) ? d.seriesOrder : null,
     views: typeof d.views === "number" && d.views > 0 ? Math.floor(d.views) : 0,
     createdAt: ts(d.createdAt),
   };
@@ -184,7 +213,7 @@ async function fetchEveryVideo(): Promise<VideoDoc[]> {
   return allInflight;
 }
 
-/** الفيديوهات الظاهرة مجمّعة حسب معرّف السلسلة (كلها، لا آخر 200 فقط). */
+/** الفيديوهات الظاهرة مجمّعة حسب معرّف المجموعة (كلها، لا آخر 200 فقط). */
 export function useVideosBySeries() {
   const [bySeries, setBySeries] = useState<Map<string, VideoDoc[]>>(new Map());
   const [ready, setReady] = useState(!isFirebaseConfigured);

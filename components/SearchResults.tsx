@@ -16,6 +16,6 @@ export default function SearchResults({ q }: { q: string }) {
   }, [videos, q]);
 
   if (!ready) return <SkeletonGrid />;
-  if (results.length === 0) return <p className="empty-note">لا توجد نتائج مطابقة. جرّب كلمة أقصر أو اسم المسلسل.</p>;
+  if (results.length === 0) return <p className="empty-note">لا توجد نتائج مطابقة. جرّب كلمة أقصر أو اسم المجموعة.</p>;
   return <VideoGrid items={results} />;
 }

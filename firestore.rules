@@ -7,7 +7,7 @@ service cloud.firestore {
     function isOwner() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email in ['you@gmail.com'];
+        && request.auth.token.email in ['c.wqargroup@gmail.com'];
     }
 
     // «المشرف»: المالك، أو عضو دوره admin في users/{uid} وغير محظور (بريده موثّق).
@@ -47,18 +47,27 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    // إشعارات الإدارة للأعضاء: المشرف يكتب ويحذف ويقرأ الكل؛ العضو المسجَّل يقرأ فئتي «all» و«viewers» فقط
-    // (فئة «admins» للمشرفين). الزائر غير المسجَّل لا يقرأ شيئًا.
+    // إشعارات الإدارة. الفئات: all (كل الأعضاء المسجَّلين) • viewers (المشاهدون) • admins (المشرفون) • guests (غير المسجَّلين).
+    // المشرف يكتب ويحذف ويقرأ الكل؛ الزائر غير المسجَّل يقرأ «guests» فقط؛ العضو المسجَّل يقرأ «all» و«viewers».
+    // التطبيق يستعلم عن كل فئة على حدة (audience == X) فتُثبت القواعد صلاحية كل استعلام دون الاعتماد على «in».
     match /notifications/{id} {
-      allow read: if request.auth != null
-        && (isAdmin() || resource.data.audience in ['all', 'viewers']);
+      allow read: if isAdmin()
+        || resource.data.audience == 'guests'
+        || (request.auth != null && resource.data.audience in ['all', 'viewers']);
       allow create: if isAdmin()
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 80
         && request.resource.data.body is string && request.resource.data.body.size() <= 500
         && request.resource.data.link is string && request.resource.data.link.size() <= 300
-        && request.resource.data.audience in ['all', 'viewers', 'admins']
+        && request.resource.data.audience in ['all', 'viewers', 'admins', 'guests']
         && request.resource.data.size() <= 6;
       allow delete: if isAdmin();
+    }
+
+    // بصمات الفيديوهات لكشف المقدمة والإعلان تلقائيًا (للمشرف فقط؛ تُحسب مرة وتُحفظ).
+    match /fingerprints/{id} {
+      allow read, delete: if isAdmin();
+      allow create, update: if isAdmin()
+        && request.resource.data.fp is string && request.resource.data.fp.size() < 100000;
     }
 
     // الصور المصغّرة الملتقطة من الفيديو (JPEG بصيغة base64). القراءة عامة لأن /api/thumb يخدمها للزوار.
