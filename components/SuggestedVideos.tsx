@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { formatClock } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
@@ -50,6 +51,7 @@ export default function SuggestedVideos({ current }: { current: VideoDoc }) {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={v.thumbnail} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />
                     )}
+                    {v.duration && <span className="dur">{formatClock(v.duration)}</span>}
                   </span>
                   <span className="sug-info">
                     <strong>{v.title}</strong>
