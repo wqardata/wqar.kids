@@ -50,7 +50,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           dangerouslySetInnerHTML={{
             __html:
-              'try{var c=document.getElementById("site-theme")?null:localStorage.getItem("site-theme-css");if(c){var s=document.createElement("style");s.id="site-theme";s.textContent=c;document.head.appendChild(s)}}catch(e){}',
+              'try{if(localStorage.getItem("side")==="mini")document.documentElement.setAttribute("data-side","mini");var c=document.getElementById("site-theme")?null:localStorage.getItem("site-theme-css");if(c){var s=document.createElement("style");s.id="site-theme";s.textContent=c;document.head.appendChild(s)}}catch(e){}',
           }}
         />
       </head>

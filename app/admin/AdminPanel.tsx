@@ -10,26 +10,43 @@ import LiveTab from "./LiveTab";
 import MenuTab from "./MenuTab";
 import ReportsTab from "./ReportsTab";
 import MembersTab from "./MembersTab";
-import VideoPageTab from "./VideoPageTab";
+import WatchButtonsEditor from "./WatchButtonsEditor";
+import BehaviorPanel from "./BehaviorPanel";
 
-type Tab = "videos" | "shorts" | "live" | "reports" | "members" | "categories" | "series" | "menu" | "videopage" | "appearance" | "settings";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "videos", label: "الفيديوهات" },
-  { id: "shorts", label: "المقاطع القصيرة" },
-  { id: "live", label: "البث المباشر" },
-  { id: "reports", label: "البلاغات" },
-  { id: "members", label: "الأعضاء" },
-  { id: "categories", label: "التصنيفات" },
-  { id: "series", label: "السلاسل" },
-  { id: "menu", label: "القائمة" },
-  { id: "videopage", label: "صفحة الفيديو" },
-  { id: "appearance", label: "المظهر" },
-  { id: "settings", label: "إعدادات الموقع" },
+type Group = "settings" | "organize" | "content";
+type Sub = "settings" | "appearance" | "menu" | "members" | "videos" | "shorts" | "live" | "categories" | "series" | "reports";
+
+type SubTab = { id: Sub; label: string; ownerOnly?: boolean };
+const GROUPS: { id: Group; label: string; subs: SubTab[] }[] = [
+  { id: "settings", label: "الإعدادات", subs: [{ id: "settings", label: "إعدادات الموقع" }] },
+  {
+    id: "organize",
+    label: "التنظيم",
+    subs: [
+      { id: "appearance", label: "المظهر" },
+      { id: "menu", label: "القوائم" },
+      { id: "members", label: "الأعضاء", ownerOnly: true },
+    ],
+  },
+  {
+    id: "content",
+    label: "إدارة المحتوى",
+    subs: [
+      { id: "videos", label: "الفيديوهات" },
+      { id: "shorts", label: "المقاطع القصيرة" },
+      { id: "live", label: "البث المباشر" },
+      { id: "categories", label: "التصنيفات" },
+      { id: "series", label: "السلاسل" },
+      { id: "reports", label: "البلاغات" },
+    ],
+  },
 ];
 
 export default function AdminPanel() {
   const { user, loading, configured, canAdd, isOwner } = useAuth();
-  const [tab, setTab] = useState<Tab>("videos");
+  const [group, setGroup] = useState<Group>("content");
+  // يُتذكَّر آخر تبويب فرعي في كل مجموعة عند التنقل بينها.
+  const [subs, setSubs] = useState<Record<Group, Sub>>({ settings: "settings", organize: "appearance", content: "videos" });
 
   if (!configured) return <p className="note admin-note">لم يُضبط Firebase بعد — راجع README.</p>;
   if (loading) return <p className="note admin-note" role="status">جارٍ التحميل…</p>;
@@ -43,6 +60,10 @@ export default function AdminPanel() {
   }
   if (!canAdd) return <p className="note admin-note" role="alert">حسابك ({user.email}) غير مخوّل بدخول لوحة التحكم.</p>;
 
+  const current = GROUPS.find((g) => g.id === group) ?? GROUPS[0];
+  const visibleSubs = current.subs.filter((s) => !s.ownerOnly || isOwner);
+  const sub = visibleSubs.some((s) => s.id === subs[group]) ? subs[group] : visibleSubs[0].id;
+
   return (
     <div className="admin">
       <div className="admin-head">
@@ -50,35 +71,59 @@ export default function AdminPanel() {
         <Link href="/add" className="btn btn--sm">＋ إضافة فيديو</Link>
       </div>
 
-      <div role="tablist" aria-label="أقسام لوحة التحكم" className="tabs">
-        {TABS.filter((t) => t.id !== "members" || isOwner).map((t) => (
+      <div role="tablist" aria-label="أقسام لوحة التحكم" className="tabs tabs--main">
+        {GROUPS.map((g) => (
           <button
-            key={t.id}
-            id={`tab-${t.id}`}
+            key={g.id}
+            id={`group-${g.id}`}
             type="button"
             role="tab"
-            aria-selected={tab === t.id}
+            aria-selected={group === g.id}
             aria-controls="admin-panel"
-            className={tab === t.id ? "tab on" : "tab"}
-            onClick={() => setTab(t.id)}
+            className={group === g.id ? "tab on" : "tab"}
+            onClick={() => setGroup(g.id)}
           >
-            {t.label}
+            {g.label}
           </button>
         ))}
       </div>
 
-      <div id="admin-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
-        {tab === "videos" && <VideosTab />}
-        {tab === "shorts" && <VideosTab shortsOnly />}
-        {tab === "live" && <LiveTab />}
-        {tab === "reports" && <ReportsTab />}
-        {tab === "members" && isOwner && <MembersTab />}
-        {tab === "categories" && <NamedManager coll="categories" />}
-        {tab === "series" && <NamedManager coll="series" />}
-        {tab === "menu" && <MenuTab />}
-        {tab === "videopage" && <VideoPageTab />}
-        {tab === "appearance" && <AppearanceTab />}
-        {tab === "settings" && <SettingsTab />}
+      {visibleSubs.length > 1 && (
+        <div role="tablist" aria-label={`أقسام ${current.label}`} className="tabs tabs--sub">
+          {visibleSubs.map((t) => (
+            <button
+              key={t.id}
+              id={`tab-${t.id}`}
+              type="button"
+              role="tab"
+              aria-selected={sub === t.id}
+              aria-controls="admin-panel"
+              className={sub === t.id ? "tab on" : "tab"}
+              onClick={() => setSubs((s) => ({ ...s, [group]: t.id }))}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div id="admin-panel" role="tabpanel" aria-labelledby={visibleSubs.length > 1 ? `tab-${sub}` : `group-${group}`}>
+        {sub === "settings" && <SettingsTab />}
+        {sub === "appearance" && (
+          <div className="admin-stack">
+            <AppearanceTab />
+            <WatchButtonsEditor />
+            <BehaviorPanel />
+          </div>
+        )}
+        {sub === "menu" && <MenuTab />}
+        {sub === "members" && isOwner && <MembersTab />}
+        {sub === "videos" && <VideosTab />}
+        {sub === "shorts" && <VideosTab shortsOnly />}
+        {sub === "live" && <LiveTab />}
+        {sub === "categories" && <NamedManager coll="categories" />}
+        {sub === "series" && <NamedManager coll="series" />}
+        {sub === "reports" && <ReportsTab />}
       </div>
     </div>
   );

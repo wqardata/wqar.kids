@@ -50,10 +50,10 @@ function message(e: unknown): string {
   }
 }
 
-export default function LoginPanel() {
+export default function LoginPanel({ initialMode = "signin" }: { initialMode?: Mode }) {
   const { user, loading, configured, canAdd, banned, signIn, signOut, signInEmail, signUpEmail, resetPassword } = useAuth();
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
