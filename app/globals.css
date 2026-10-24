@@ -513,3 +513,7 @@ html, body { overflow-x: clip; }
 .short-nav button:disabled { opacity: .4; cursor: default; }
 .short-open { position: absolute; inset-inline-start: 12px; bottom: 76px; z-index: 4; padding: 6px 12px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff; font-size: .8rem; }
 .shorts-empty { padding: 32px 16px; }
+
+/* تحديد الفيديوهات للتعديل الجماعي */
+.arow-pick { position: absolute; inset-block-start: 6px; inset-inline-start: 6px; z-index: 2; width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; }
+.bulk-bar { display: grid; gap: 10px; margin-bottom: 14px; }

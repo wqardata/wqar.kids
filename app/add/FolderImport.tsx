@@ -27,7 +27,10 @@ export default function FolderImport() {
   const [season, setSeason] = useState("1");
   const [numbering, setNumbering] = useState(true);
   const [startEp, setStartEp] = useState("1");
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(true);
+  // سلسلة جديدة باسم المجلد (الافتراضي)، أو اختيار سلسلة موجودة.
+  const [folderSeries, setFolderSeries] = useState(true);
+  const [seriesName, setSeriesName] = useState("");
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
@@ -62,6 +65,7 @@ export default function FolderImport() {
       if (!r.ok) return setError(j.error ?? "تعذّر قراءة المجلد.");
       const list = (j.videos as Omit<Row, "exists" | "on">[]).map((v) => ({ ...v, exists: known.has(v.id), on: !known.has(v.id) }));
       setRows(list);
+      setSeriesName(typeof j.folderName === "string" ? j.folderName : "");
       const parts = [`وُجد ${list.length} فيديو`];
       const dup = list.filter((x) => x.exists).length;
       if (dup) parts.push(`${dup} منها مضاف سابقًا (غير محدَّد)`);
@@ -83,13 +87,16 @@ export default function FolderImport() {
     if (!user) return;
     if (selected.length === 0) return setError("حدّد فيديو واحدًا على الأقل.");
     if (!categoryId) return setError("اختر التصنيف.");
+    if (folderSeries && !seriesName.trim()) return setError("اكتب اسم السلسلة (اسم المجلد).");
     if (selected.some((r) => !r.title.trim())) return setError("بعض العناوين فارغة.");
     setSaving(true);
     setError("");
     setDoneCount(0);
     try {
       const cat = categories.items.find((c) => c.id === categoryId);
-      const ser = series.items.find((s) => s.id === seriesId);
+      // سلسلة باسم المجلد: تُنشأ الآن (أو تُستخدم الموجودة بنفس الاسم دون تكرار).
+      const serId = folderSeries ? await series.create(seriesName) : seriesId;
+      const ser = folderSeries ? { id: serId, name: seriesName.trim().replace(/\s+/g, " ") } : series.items.find((s) => s.id === seriesId);
       const num = (v: string, d: number) => (v.trim() && Number.isFinite(Number(v)) ? Math.max(1, Math.floor(Number(v))) : d);
       const first = num(startEp, 1);
       const sn = ser ? num(season, 1) : null;
@@ -181,9 +188,18 @@ export default function FolderImport() {
 
           <CreatableSelect label="التصنيف" items={categories.items} value={categoryId} onChange={setCategoryId} onCreate={categories.create}
             placeholder="اختر التصنيف" newLabel="إضافة تصنيف جديد…" newPlaceholder="اسم التصنيف الجديد" required disabled={categories.loading} />
-          <CreatableSelect label="السلسلة (اختياري)" items={series.items} value={seriesId} onChange={setSeriesId} onCreate={series.create}
-            placeholder="بدون سلسلة" newLabel="إضافة سلسلة جديدة…" newPlaceholder="اسم السلسلة الجديدة" disabled={series.loading} />
-          {seriesId && (
+          <label className="check"><input type="checkbox" checked={folderSeries} onChange={(e) => setFolderSeries(e.target.checked)} /> إنشاء سلسلة باسم المجلد ووضع الفيديوهات فيها</label>
+          {folderSeries ? (
+            <div className="field">
+              <label htmlFor="fi-series-name">اسم السلسلة</label>
+              <input id="fi-series-name" value={seriesName} maxLength={100} onChange={(e) => setSeriesName(e.target.value)} disabled={saving} />
+              <p className="hint">يُملأ باسم المجلد تلقائيًا، ويمكنك تعديله. إن وُجدت سلسلة بنفس الاسم تُستعمل بدل إنشاء نسخة ثانية.</p>
+            </div>
+          ) : (
+            <CreatableSelect label="السلسلة (اختياري)" items={series.items} value={seriesId} onChange={setSeriesId} onCreate={series.create}
+              placeholder="بدون سلسلة" newLabel="إضافة سلسلة جديدة…" newPlaceholder="اسم السلسلة الجديدة" disabled={series.loading} />
+          )}
+          {(folderSeries || seriesId) && (
             <>
               <div className="two">
                 <div className="field">
@@ -198,7 +214,7 @@ export default function FolderImport() {
               <label className="check"><input type="checkbox" checked={numbering} onChange={(e) => setNumbering(e.target.checked)} /> ترقيم الحلقات تلقائيًا بترتيب الأسماء</label>
             </>
           )}
-          <label className="check"><input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> استيرادها مخفية عن الزوار (لتراجعها أولًا)</label>
+          <label className="check"><input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> استيرادها مخفية عن الزوار حتى أراجعها (مفعّل افتراضيًا؛ تُظهرها لاحقًا من لوحة التحكم)</label>
           <p className="hint">تُستخدم صورة درايف المصغّرة الافتراضية، ويمكنك تغيير أي صورة لاحقًا من لوحة التحكم.</p>
           {progress && <p className="hint" role="status">{progress}</p>}
           {doneCount > 0 && !saving && <p className="hint" role="status">تم استيراد {doneCount} فيديو ✓ — <Link href="/admin">فتح لوحة التحكم</Link></p>}

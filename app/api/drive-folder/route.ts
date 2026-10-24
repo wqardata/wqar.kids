@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { DRIVE_ID, stripExtension } from "@/lib/drive";
-import { listFolderPublic } from "@/lib/driveFolderPublic";
+import { folderNamePublic, listFolderPublic } from "@/lib/driveFolderPublic";
 import { adminFromToken, bearer } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
@@ -40,6 +40,25 @@ async function listFolderApi(folderId: string, key: string): Promise<DriveFile[]
     }
   }
   return out;
+}
+
+/** اسم المجلد عبر Drive API (يحتاج المفتاح)، وإلا من الصفحة العامة. */
+async function folderName(folderId: string, key: string | undefined): Promise<string> {
+  if (key) {
+    try {
+      const r = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${folderId}?fields=name&supportsAllDrives=true&key=${encodeURIComponent(key)}`,
+        { cache: "no-store", signal: AbortSignal.timeout(8000) },
+      );
+      if (r.ok) {
+        const j = (await r.json()) as { name?: string };
+        if (j.name) return j.name.slice(0, 100);
+      }
+    } catch {
+      /* نجرّب الصفحة العامة */
+    }
+  }
+  return (await folderNamePublic(folderId)) ?? "";
 }
 
 /** بدون مفتاح: نقرأ صفحة المجلد العامة المضمّنة (تعرض الاسم والمعرّف دون المدة). */
@@ -118,5 +137,5 @@ export async function GET(req: NextRequest) {
   }
 
   videos.sort((a, b) => a.path.localeCompare(b.path, "ar") || a.name.localeCompare(b.name, "ar", { numeric: true }));
-  return NextResponse.json({ videos, skipped, truncated, usedApi });
+  return NextResponse.json({ videos, skipped, truncated, usedApi, folderName: await folderName(id, key) });
 }

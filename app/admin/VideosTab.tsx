@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { collection, deleteDoc, doc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
 import CreatableSelect from "@/components/CreatableSelect";
 import { useAuth } from "@/lib/auth";
 import { driveThumbnail } from "@/lib/drive";
@@ -166,6 +166,14 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
   const [tick, setTick] = useState(0);
   const { user } = useAuth();
   const [probe, setProbe] = useState("");
+  // التعديل الجماعي: الفيديوهات المحدَّدة، وما سيُغيَّر (التصنيف و/أو السلسلة).
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [chgCat, setChgCat] = useState(false);
+  const [chgSer, setChgSer] = useState(false);
+  const [bulkCat, setBulkCat] = useState("");
+  const [bulkSer, setBulkSer] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState("");
 
   useEffect(() => {
     let off = false;
@@ -193,6 +201,67 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
         return terms.every((t) => hay.includes(t));
       });
   }, [items, q, shortsOnly]);
+
+  const toggle = (id: string) =>
+    setSel((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const allShownSelected = shown.length > 0 && shown.every((v) => sel.has(v.id));
+
+  /** يطبّق التصنيف و/أو السلسلة على كل المحدَّدين دفعة واحدة. */
+  async function applyBulk() {
+    const ids = items.filter((v) => sel.has(v.id)).map((v) => v.id);
+    if (ids.length === 0) return setError("حدّد فيديو واحدًا على الأقل.");
+    if (!chgCat && !chgSer) return setError("اختر ما تريد تغييره: التصنيف أو السلسلة.");
+    if (chgCat && !bulkCat) return setError("اختر التصنيف الجديد.");
+    const cat = categories.items.find((c) => c.id === bulkCat);
+    const ser = series.items.find((s) => s.id === bulkSer);
+    const what = [chgCat && `التصنيف «${cat?.name ?? ""}»`, chgSer && (ser ? `السلسلة «${ser.name}»` : "إزالة السلسلة")].filter(Boolean).join(" و");
+    if (!window.confirm(`تطبيق ${what} على ${ids.length} فيديو؟`)) return;
+    setBulkBusy(true);
+    setError("");
+    setBulkMsg("");
+    const data: Record<string, unknown> = { updatedAt: serverTimestamp() };
+    const local: Partial<VideoDoc> = {};
+    if (chgCat) {
+      data.categoryId = bulkCat;
+      data.categoryName = cat?.name ?? "";
+      local.categoryId = bulkCat;
+      local.categoryName = cat?.name ?? "";
+    }
+    if (chgSer) {
+      data.seriesId = ser?.id ?? "";
+      data.seriesName = ser?.name ?? "";
+      local.seriesId = ser?.id ?? "";
+      local.seriesName = ser?.name ?? "";
+      // إزالة السلسلة تُزيل الموسم والحلقة معها لأنهما يخصّانها.
+      if (!ser) {
+        data.season = null;
+        data.episode = null;
+        local.season = null;
+        local.episode = null;
+      }
+    }
+    try {
+      const db = getDb();
+      for (let i = 0; i < ids.length; i += 400) {
+        const batch = writeBatch(db);
+        ids.slice(i, i + 400).forEach((id) => batch.update(doc(db, "videos", id), data));
+        await batch.commit();
+      }
+      const done = new Set(ids);
+      setItems((prev) => prev.map((v) => (done.has(v.id) ? { ...v, ...local } : v)));
+      setBulkMsg(`تم تحديث ${ids.length} فيديو ✓`);
+      setSel(new Set());
+    } catch {
+      setError("تعذّر تنفيذ التعديل الجماعي. تأكد من الصلاحيات ثم أعد المحاولة (قد يكون جزء منها قد تغيّر).");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   function replace(v: VideoDoc) {
     setItems((prev) => prev.map((x) => (x.id === v.id ? v : x)));
@@ -268,6 +337,37 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
           </button>
         </div>
       )}
+      {!loading && shown.length > 0 && (
+        <div className="addrow">
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setSel(allShownSelected ? new Set() : new Set(shown.map((v) => v.id)))}>
+            {allShownSelected ? "إلغاء تحديد الكل" : `تحديد الكل (${shown.length})`}
+          </button>
+          {sel.size > 0 && <small className="hint">المحدَّد: {sel.size}</small>}
+        </div>
+      )}
+      {sel.size > 0 && (
+        <div className="panel bulk-bar" role="region" aria-label="تعديل جماعي">
+          <strong>تعديل {sel.size} فيديو معًا</strong>
+          <label className="check"><input type="checkbox" checked={chgCat} onChange={(e) => setChgCat(e.target.checked)} /> تغيير التصنيف</label>
+          {chgCat && (
+            <CreatableSelect label="التصنيف الجديد" items={categories.items} value={bulkCat} onChange={setBulkCat} onCreate={categories.create}
+              placeholder="اختر التصنيف" newLabel="إضافة تصنيف جديد…" newPlaceholder="اسم التصنيف الجديد" disabled={categories.loading} />
+          )}
+          <label className="check"><input type="checkbox" checked={chgSer} onChange={(e) => setChgSer(e.target.checked)} /> تغيير السلسلة</label>
+          {chgSer && (
+            <>
+              <CreatableSelect label="السلسلة الجديدة" items={series.items} value={bulkSer} onChange={setBulkSer} onCreate={series.create}
+                placeholder="بدون سلسلة (إزالة)" newLabel="إضافة سلسلة جديدة…" newPlaceholder="اسم السلسلة الجديدة" disabled={series.loading} />
+              <p className="hint">ترك الاختيار «بدون سلسلة» يزيل السلسلة والموسم والحلقة من المحدَّدين. عند النقل لسلسلة تبقى أرقام الموسم والحلقة كما هي ويمكن تعديلها لكل فيديو.</p>
+            </>
+          )}
+          <div className="addrow">
+            <button type="button" onClick={() => void applyBulk()} disabled={bulkBusy}>{bulkBusy ? "جارٍ التطبيق…" : "تطبيق على المحدَّدين"}</button>
+            <button type="button" className="btn btn--ghost" onClick={() => setSel(new Set())} disabled={bulkBusy}>إلغاء التحديد</button>
+          </div>
+        </div>
+      )}
+      {bulkMsg && <p className="hint" role="status">{bulkMsg}</p>}
       {error && <p className="field-error" role="alert">{error}</p>}
       {loading ? (
         <p className="empty-note" role="status">جارٍ التحميل…</p>
@@ -282,6 +382,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
               ) : (
                 <>
                   <div className="arow-thumb">
+                    <input type="checkbox" className="arow-pick" aria-label={`تحديد ${v.title}`} checked={sel.has(v.id)} onChange={() => toggle(v.id)} />
                     {v.thumbnail && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={v.thumbnail} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />

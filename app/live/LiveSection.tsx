@@ -18,6 +18,12 @@ function useNow(active: boolean) {
   return now;
 }
 
+/** المشغّل يُثبَّت بنقطة البدء عند تركيبه فقط، كي لا يُعاد تحميله كل ثانية مع تغيّر الوقت. */
+function LivePlayer({ driveId, title, offset }: { driveId: string; title: string; offset: number }) {
+  const [startAt] = useState(offset);
+  return <DrivePlayer driveId={driveId} title={title} hue={160} autoplay startAt={startAt} />;
+}
+
 export default function LiveSection() {
   const { settings } = useSettings();
   const [live, setLive] = useState<LiveDoc>(EMPTY_LIVE);
@@ -49,13 +55,12 @@ export default function LiveSection() {
       return (
         <div className="live-view">
           <p className="live-badge" role="status">● بث مباشر{live.title ? ` — ${live.title}` : ""}</p>
-          <DrivePlayer key={`${np.index}-${cur.videoId}`} driveId={cur.driveId} title={cur.title} hue={160} />
+          <LivePlayer key={`${np.index}-${cur.videoId}`} driveId={cur.driveId} title={cur.title} offset={np.offset} />
           <h2 className="live-now">{cur.title}</h2>
           <p className="live-meta">
             مضى {formatClock(np.offset)} من {formatClock(cur.duration)} • المقطع {np.index + 1} من {live.items.length}
             {hasNext && ` • التالي: ${next.title} بعد ${formatClock(np.remaining)}`}
           </p>
-          <p className="live-meta">إن انضممت أثناء المقطع فسيبدأ من أوله، ثم تلتحق بالبث عند المقطع التالي.</p>
           <h3 className="live-h">جدول البث ({formatTotal(live.items.reduce((n, i) => n + i.duration, 0))})</h3>
           <ol className="live-queue">
             {live.items.map((it, i) => (
