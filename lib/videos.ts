@@ -23,6 +23,8 @@ export type VideoDoc = {
   duration: number | null;
   /** مقطع مقتطع من فيديو أطول: يُشغَّل جزء منه فقط بإطار طولي (null = فيديو كامل). x = موضع القص الأفقي 0–1. */
   clip: { start: number; end: number; x: number } | null;
+  /** ثوانٍ: نهاية المقدمة/الإعلان داخل الفيديو. إن وُجدت يظهر زر «تخطي» في بداية التشغيل (null = بلا زر). */
+  skipTo: number | null;
   /** عدد المشاهدات (يزيد مرة لكل زائر في كل جلسة). */
   views: number;
   createdAt: number | null;
@@ -104,6 +106,7 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
     hidden: d.hidden === true,
     duration: typeof d.duration === "number" && d.duration > 0 ? Math.round(d.duration) : null,
     clip: toClip(d),
+    skipTo: typeof d.skipTo === "number" && d.skipTo >= 1 ? Math.min(Math.floor(d.skipTo), 36000) : null,
     views: typeof d.views === "number" && d.views > 0 ? Math.floor(d.views) : 0,
     createdAt: ts(d.createdAt),
   };

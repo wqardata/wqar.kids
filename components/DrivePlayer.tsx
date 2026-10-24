@@ -6,22 +6,44 @@ import PlayLoader from "@/components/PlayLoader";
 // معرّفات درايف تتكوّن من حروف وأرقام و _ و - فقط؛ نرفض غير ذلك لأمان الرابط.
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,}$/;
 
-type Props = { driveId?: string; title: string; hue: number; autoplay?: boolean; /** ثوانٍ: بدء التشغيل من هذه اللحظة (للبث المباشر). */ startAt?: number };
+type Props = {
+  driveId?: string;
+  title: string;
+  hue: number;
+  autoplay?: boolean;
+  /** ثوانٍ: بدء التشغيل من هذه اللحظة (للبث المباشر). */
+  startAt?: number;
+  /** ثوانٍ: نهاية المقدمة/الإعلان. إن وُجدت يظهر زر «تخطي» في بداية الفيديو. */
+  skipTo?: number;
+};
 
-export default function DrivePlayer({ driveId, title, hue, autoplay = false, startAt = 0 }: Props) {
+export default function DrivePlayer({ driveId, title, hue, autoplay = false, startAt = 0, skipTo = 0 }: Props) {
   const [loaded, setLoaded] = useState(false);
+  const [seek, setSeek] = useState(0); // بعد الضغط على «تخطي»: الثانية التي يبدأ منها المشغّل
+  const [expired, setExpired] = useState(false); // انتهت مدة المقدمة فيُخفى الزر
   // احتياط: إن لم يصل حدث التحميل (حظر أو بطء) نُخفي الشاشة بعد مدة كي لا تحجب المشغّل.
   useEffect(() => {
     setLoaded(false);
+    setSeek(0);
+    setExpired(false);
     const t = setTimeout(() => setLoaded(true), 15_000);
     return () => clearTimeout(t);
   }, [driveId]);
 
+  // يظهر الزر من لحظة تحميل المشغّل حتى تمضي مدة المقدمة (لا نستطيع قراءة وقت التشغيل من داخل مشغّل درايف).
+  useEffect(() => {
+    if (!loaded || !skipTo || seek || expired) return;
+    const t = setTimeout(() => setExpired(true), skipTo * 1000);
+    return () => clearTimeout(t);
+  }, [loaded, skipTo, seek, expired]);
+
   if (driveId && DRIVE_ID.test(driveId)) {
+    const from = seek || startAt;
     const q = new URLSearchParams();
-    if (autoplay) q.set("autoplay", "1");
-    if (startAt >= 1) q.set("t", String(Math.floor(startAt)));
+    if (autoplay || seek) q.set("autoplay", "1");
+    if (from >= 1) q.set("t", String(Math.floor(from)));
     const qs = q.toString();
+    const showSkip = skipTo > 0 && loaded && !seek && !expired;
     return (
       <div className="player player--frame">
         <iframe
@@ -34,6 +56,18 @@ export default function DrivePlayer({ driveId, title, hue, autoplay = false, sta
           onLoad={() => setLoaded(true)}
         />
         <PlayLoader show={!loaded} />
+        {showSkip && (
+          <button
+            type="button"
+            className="skip-btn"
+            onClick={() => {
+              setLoaded(false);
+              setSeek(skipTo);
+            }}
+          >
+            تخطي <Icon name="play" size={16} />
+          </button>
+        )}
       </div>
     );
   }

@@ -1,6 +1,7 @@
 // منطق الإعدادات النقي (بلا "use client") ليعمل في الخادم والمتصفح معًا.
 import { CONTACT_EMAIL, LIVE_URL, MENU_ICONS, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS, more, nav, type IconName, type NavItem } from "./data";
 import { DEFAULT_THEME, cleanTheme, type Theme } from "./theme";
+import { DEFAULT_ADHAN, cleanAdhan, type AdhanSettings } from "./adhanCore";
 
 /** خطوط اسم الموقع. تُحمَّل من layout.tsx ولا تُنزَّل إلا عند استعمالها. */
 export const BRAND_FONTS = [
@@ -179,6 +180,8 @@ export type SiteSettings = {
   autoplay: boolean;
   /** نافذة تثبيت التطبيق على الهاتف والكمبيوتر. */
   install: InstallSettings;
+  /** نافذة الأذان في أوقات الصلوات. */
+  adhan: AdhanSettings;
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -204,6 +207,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   splash: true,
   autoplay: true,
   install: DEFAULT_INSTALL,
+  adhan: DEFAULT_ADHAN,
 };
 
 export const LOGO_MIN = 20;
@@ -324,6 +328,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     splash: d.splash !== false,
     autoplay: d.autoplay !== false,
     install: cleanInstall(d.install),
+    adhan: cleanAdhan(d.adhan),
   };
 }
 
