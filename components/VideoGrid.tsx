@@ -1,13 +1,15 @@
 "use client";
 import Link from "next/link";
 import { SkelCards } from "@/components/Skeleton";
-import { formatClock, viewsAndAge } from "@/lib/format";
+import VideoCaption from "@/components/VideoCaption";
+import { formatClock } from "@/lib/format";
 import { usePaged } from "@/lib/usePaged";
-import type { VideoDoc } from "@/lib/videos";
+import { useSeriesAvatars, type VideoDoc } from "@/lib/videos";
 
 /** شبكة بطاقات لفيديوهات Firestore: خمسة صفوف أولًا، ثم صفّان إضافيان كلما نزلت لآخر صف. */
 export default function VideoGrid({ items, shorts = false, className = "", all = false }: { items: readonly VideoDoc[]; shorts?: boolean; className?: string; /** عرض كل العناصر بلا ترقيم. */ all?: boolean }) {
   const paged = usePaged(items.length);
+  const avatars = useSeriesAvatars();
   const { gridRef, sentinelRef, pending } = paged;
   const visible = all ? items.length : paged.visible;
   return (
@@ -23,9 +25,7 @@ export default function VideoGrid({ items, shorts = false, className = "", all =
                 )}
                 {v.duration && <span className="dur">{formatClock(v.duration)}</span>}
               </div>
-              <h3>{v.title}</h3>
-              <p>{[v.categoryName, v.seriesName].filter(Boolean).join(" • ")}</p>
-              <p className="meta">{viewsAndAge(v.views, v.createdAt)}</p>
+              <VideoCaption v={v} avatars={avatars} />
             </Link>
           </li>
         ))}

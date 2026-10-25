@@ -3,13 +3,19 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SkeletonGrid } from "@/components/Skeleton";
 import VideoGrid from "@/components/VideoGrid";
-import { shuffled, viewsAndAge } from "@/lib/format";
+import { NewList } from "@/components/NewVideos";
+import RowIcon, { RowTitle } from "@/components/RowIcon";
+import VideoCaption from "@/components/VideoCaption";
+import { shuffled } from "@/lib/format";
 import { SHORTS_POS_END, useSettings, type DisplaySettings } from "@/lib/settings";
-import { useAllVideos, type VideoDoc } from "@/lib/videos";
+import { CONTINUE_MIN_SEC, useHistory } from "@/lib/history";
+import { formatClock } from "@/lib/format";
+import { useAllVideos, useSeriesAvatars, useVideosByIds, type VideoDoc } from "@/lib/videos";
 
 const ROW = 4; // أربعة فيديوهات في الصف على الحاسوب
 const POOL = 16; // في الوضع العشوائي نختار من أحدث 16 ومن أكثر 16 مشاهدة (أو ضعف العدد المطلوب إن كان أكبر)
 const SHORTS_IN_ROW = 10;
+const NEW_TAB = "__new"; // تبويب «الجديد» بعد «الكل» (معرّف خاص لا يتعارض مع معرّفات التصنيفات)
 
 type Layout = { top: VideoDoc[]; rest: VideoDoc[] };
 
@@ -43,7 +49,7 @@ function layoutHome(regular: VideoDoc[], d: Pick<DisplaySettings, "newCount" | "
   return { top, rest: ordered ? rest : shuffled(rest) };
 }
 
-type Seg = { kind: "grid"; key: string; items: VideoDoc[]; title: string; paged: boolean } | { kind: "shorts"; key: string };
+type Seg = { kind: "grid"; key: string; items: VideoDoc[]; title: string; group: 1 | 2; paged: boolean } | { kind: "shorts"; key: string };
 
 /**
  * يقسّم القائمة إلى أجزاء متتالية: عنوان المجموعة الأولى قبل أول صف، وعنوان البقية قبل أول صف منها،
@@ -67,19 +73,27 @@ function buildSegments(home: Layout, d: DisplaySettings, hasShorts: boolean): Se
     const to = points[i + 1];
     if (shortsAt === from) segs.push({ kind: "shorts", key: "shorts" });
     const title = topN > 0 && from === 0 ? d.titleTop : from === topN ? d.titleRest : "";
-    segs.push({ kind: "grid", key: `g${from}`, items: list.slice(from, to), title, paged: pagedFromEnd && i === points.length - 2 });
+    segs.push({ kind: "grid", key: `g${from}`, items: list.slice(from, to), title, group: topN > 0 && from < topN ? 1 : 2, paged: pagedFromEnd && i === points.length - 2 });
   }
   if (shortsAt === list.length) segs.push({ kind: "shorts", key: "shorts" });
   return segs;
 }
 
-/** صف المقاطع القصيرة: شريط أفقي قابل للتمرير يظهر بين الصفّين الأولين وبقية الفيديوهات. */
-function ShortsRow({ items }: { items: readonly VideoDoc[] }) {
+/** صف المقاطع القصيرة: شريط أفقي قابل للتمرير يظهر في الموضع المحدّد من «إعدادات العرض». */
+function ShortsRow({ items, title, icon }: { items: readonly VideoDoc[]; title: string; icon: string }) {
+  const avatars = useSeriesAvatars();
   if (items.length === 0) return null;
   return (
-    <section className="home-shorts" aria-labelledby="home-shorts-title">
+    <section className="home-shorts" aria-label={title || "مقاطع قصيرة"}>
       <div className="home-shorts-head">
-        <h2 id="home-shorts-title">مقاطع قصيرة</h2>
+        {title ? (
+          <h2 id="home-shorts-title" className="row-title">
+            {icon && <span className="row-title-ic"><RowIcon id={icon} size={22} /></span>}
+            <span>{title}</span>
+          </h2>
+        ) : (
+          <span />
+        )}
         <Link href="/shorts">عرض المزيد</Link>
       </div>
       <ul className="home-shorts-row">
@@ -92,12 +106,55 @@ function ShortsRow({ items }: { items: readonly VideoDoc[] }) {
                   <img src={v.thumbnail} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />
                 )}
               </div>
-              <h3>{v.title}</h3>
-              <p className="meta">{viewsAndAge(v.views, v.createdAt)}</p>
+              <VideoCaption v={v} avatars={avatars} size={28} />
             </Link>
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/**
+ * صف «تابع المشاهدة»: آخر فيديوهات (غير القصيرة) بدأ الزائر مشاهدتها ولم تكتمل، من سجل متصفحه.
+ * إمّا شريط أفقي قابل للتمرير أو شبكة صفوف حسب «إعدادات العرض».
+ */
+function ContinueRow({ d }: { d: DisplaySettings }) {
+  const entries = useHistory();
+  const avatars = useSeriesAvatars();
+  const candidates = useMemo(
+    () => entries.filter((e) => !e.done && (e.watched ?? 0) >= CONTINUE_MIN_SEC).slice(0, Math.min(30, d.continueCount * 3 + 3)),
+    [entries, d.continueCount],
+  );
+  const { videos } = useVideosByIds(candidates.map((e) => e.id));
+  const items = useMemo(() => {
+    const by = new Map(videos.map((v) => [v.id, v] as const));
+    return candidates.map((e) => by.get(e.id)).filter((v): v is VideoDoc => Boolean(v) && !v!.isShort).slice(0, d.continueCount);
+  }, [candidates, videos, d.continueCount]);
+  if (items.length === 0) return null;
+  return (
+    <section className="home-continue" aria-label={d.continueTitle || "تابع المشاهدة"}>
+      <RowTitle text={d.continueTitle} icon={d.iconContinue} />
+      {d.continueLayout === "rows" ? (
+        <VideoGrid items={items} className="grid--home" all />
+      ) : (
+        <ul className="cont-row">
+          {items.map((v, i) => (
+            <li key={v.id}>
+              <Link href={`/v/${v.id}`} className="card">
+                <div className="thumb" style={{ ["--h" as string]: (i * 47) % 360 }}>
+                  {v.thumbnail && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={v.thumbnail} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />
+                  )}
+                  {v.duration && <span className="dur">{formatClock(v.duration)}</span>}
+                </div>
+                <VideoCaption v={v} avatars={avatars} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -108,6 +165,7 @@ export default function HomeFeed({ emptyNote }: { emptyNote?: string }) {
   const { settings } = useSettings();
   const disp = settings.display;
   const [cat, setCat] = useState("");
+  const isNew = cat === NEW_TAB;
 
   // نخلط مرة واحدة عند وصول البيانات (تغيير التصنيف لا يعيد الخلط).
   const home = useMemo(
@@ -129,14 +187,17 @@ export default function HomeFeed({ emptyNote }: { emptyNote?: string }) {
     return [...m.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, "ar"));
   }, [pool]);
 
-  const filtered = useMemo(() => (cat ? shuffled(pool.filter((v) => v.categoryId === cat)) : []), [pool, cat]);
+  const filtered = useMemo(() => (cat && !isNew ? shuffled(pool.filter((v) => v.categoryId === cat)) : []), [pool, cat, isNew]);
 
   return (
     <section aria-label="الفيديوهات">
-      {cats.length > 0 && (
+      {(cats.length > 0 || videos.length > 0) && (
         <div className="chips" role="tablist" aria-label="التصنيفات">
           <button type="button" role="tab" aria-selected={cat === ""} className={cat === "" ? "chip on" : "chip"} onClick={() => setCat("")}>
             الكل
+          </button>
+          <button type="button" role="tab" aria-selected={isNew} className={isNew ? "chip on" : "chip"} onClick={() => setCat(NEW_TAB)}>
+            الجديد
           </button>
           {cats.map((c) => (
             <button key={c.id} type="button" role="tab" aria-selected={cat === c.id} className={cat === c.id ? "chip on" : "chip"} onClick={() => setCat(c.id)}>
@@ -147,21 +208,24 @@ export default function HomeFeed({ emptyNote }: { emptyNote?: string }) {
       )}
       {!ready ? (
         <SkeletonGrid />
+      ) : isNew ? (
+        <NewList videos={videos} ready={ready} />
       ) : cat ? (
         <VideoGrid items={filtered} className="grid--home" />
-      ) : segments.length > 0 ? (
-        <>
+      ) : segments.length > 0 || pool.length > 0 ? (
+        <div className="home-blocks">
+          {disp.continueShow && <ContinueRow d={disp} />}
           {segments.map((seg) =>
             seg.kind === "shorts" ? (
-              <ShortsRow key={seg.key} items={shortsRow} />
+              <ShortsRow key={seg.key} items={shortsRow} title={disp.shortsTitle} icon={disp.iconShorts} />
             ) : (
               <div key={seg.key}>
-                {seg.title && <h2 className="home-group-title">{seg.title}</h2>}
+                <RowTitle text={seg.title} icon={seg.group === 1 ? disp.iconTop : disp.iconRest} />
                 <VideoGrid items={seg.items} className="grid--home" all={!seg.paged} />
               </div>
             ),
           )}
-        </>
+        </div>
       ) : emptyNote ? (
         <p className="empty-note">{emptyNote}</p>
       ) : null}

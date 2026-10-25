@@ -64,7 +64,7 @@ export default function SuggestedVideos({ current }: { current: VideoDoc }) {
                   </span>
                   <span className="sug-info">
                     <strong>{v.title}</strong>
-                    <small>{[v.seriesName, v.categoryName].filter(Boolean).join(" • ")}</small>
+                    {v.seriesName && <small>{v.seriesName}</small>}
                     <small>{viewsAndAge(v.views, v.createdAt)}</small>
                   </span>
                 </Link>

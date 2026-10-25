@@ -2,6 +2,7 @@
 import { CONTACT_EMAIL, LIVE_URL, MENU_ICONS, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS, more, nav, type IconName, type NavItem } from "./data";
 import { DEFAULT_THEME, cleanTheme, type Theme } from "./theme";
 import { DEFAULT_ADHAN, cleanAdhan, type AdhanSettings } from "./adhanCore";
+import { ROW_ICON_IDS } from "./rowIcons";
 import { DEFAULT_ADHKAR, cleanAdhkar, type AdhkarSettings } from "./adhkarCore";
 
 /** خطوط اسم الموقع. تُحمَّل من layout.tsx ولا تُنزَّل إلا عند استعمالها. */
@@ -284,6 +285,14 @@ export type GroupOrder = (typeof GROUP_ORDERS)[number]["id"];
 export const SHORTS_POS_END = 99;
 export const SHORTS_POS_MAX_ROW = 10;
 
+/** طريقة عرض صف «تابع المشاهدة»: شريط أفقي قابل للتمرير، أو صفوف شبكة. */
+export const CONTINUE_LAYOUTS = [
+  { id: "scroll", label: "شريط أفقي (تمرير يمينًا ويسارًا)" },
+  { id: "rows", label: "صفوف (شبكة)" },
+] as const;
+export type ContinueLayout = (typeof CONTINUE_LAYOUTS)[number]["id"];
+export const CONTINUE_COUNT_MAX = 12;
+
 /** إعدادات العرض: الصفحة الرئيسية وصفحات المجموعات (تبويب «العرض» في إدارة المحتوى). */
 export type DisplaySettings = {
   /** إجمالي صفوف الفيديوهات في الرئيسية (الصف = 4 فيديوهات على الحاسوب). 0 = كل الفيديوهات مع التحميل التدريجي. */
@@ -302,6 +311,18 @@ export type DisplaySettings = {
   shortsPos: number;
   /** ترتيب الفيديوهات داخل صفحة المجموعة. */
   groupOrder: GroupOrder;
+  /** صف «تابع المشاهدة»: آخر فيديوهات بدأ الزائر مشاهدتها ولم يُكمِلها (من سجل متصفحه). */
+  continueShow: boolean;
+  continueCount: number;
+  continueLayout: ContinueLayout;
+  continueTitle: string;
+  /** عنوان صف المقاطع القصيرة. */
+  shortsTitle: string;
+  /** أيقونات عناوين الصفوف (معرّف من lib/rowIcons.ts؛ فارغ = بلا أيقونة). */
+  iconContinue: string;
+  iconTop: string;
+  iconRest: string;
+  iconShorts: string;
 };
 
 export const DEFAULT_DISPLAY: DisplaySettings = {
@@ -314,6 +335,15 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   shortsShow: true,
   shortsPos: 2,
   groupOrder: "random",
+  continueShow: true,
+  continueCount: 2,
+  continueLayout: "scroll",
+  continueTitle: "تابع المشاهدة",
+  shortsTitle: "مقاطع قصيرة",
+  iconContinue: "",
+  iconTop: "",
+  iconRest: "",
+  iconShorts: "",
 };
 
 export const DISPLAY_COUNT_MAX = 40;
@@ -327,6 +357,9 @@ export function cleanDisplay(v: unknown): DisplaySettings {
     return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : fb;
   };
   const text = (k: string) => (typeof o[k] === "string" ? (o[k] as string).trim().slice(0, 60) : "");
+  // النص غير الموجود يأخذ الافتراضي، أما الفارغ عمدًا فيبقى فارغًا (بلا عنوان).
+  const textOr = (k: string, fb: string) => (typeof o[k] === "string" ? (o[k] as string).trim().slice(0, 60) : fb);
+  const icon = (k: string) => (typeof o[k] === "string" && ROW_ICON_IDS.has(o[k] as string) ? (o[k] as string) : "");
   const pos = int("shortsPos", 0, SHORTS_POS_END, D.shortsPos);
   return {
     homeRows: int("homeRows", 0, DISPLAY_ROWS_MAX, D.homeRows),
@@ -338,6 +371,15 @@ export function cleanDisplay(v: unknown): DisplaySettings {
     shortsShow: o.shortsShow !== false,
     shortsPos: pos > SHORTS_POS_MAX_ROW ? SHORTS_POS_END : pos,
     groupOrder: GROUP_ORDERS.some((x) => x.id === o.groupOrder) ? (o.groupOrder as GroupOrder) : D.groupOrder,
+    continueShow: o.continueShow !== false,
+    continueCount: int("continueCount", 1, CONTINUE_COUNT_MAX, D.continueCount),
+    continueLayout: CONTINUE_LAYOUTS.some((x) => x.id === o.continueLayout) ? (o.continueLayout as ContinueLayout) : D.continueLayout,
+    continueTitle: textOr("continueTitle", D.continueTitle),
+    shortsTitle: textOr("shortsTitle", D.shortsTitle),
+    iconContinue: icon("iconContinue"),
+    iconTop: icon("iconTop"),
+    iconRest: icon("iconRest"),
+    iconShorts: icon("iconShorts"),
   };
 }
 

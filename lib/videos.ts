@@ -283,3 +283,49 @@ export function pickCover(list: readonly VideoDoc[], coverId = ""): VideoDoc | u
     [...usable].sort((a, b) => Number(Boolean(b.thumbnail)) - Number(Boolean(a.thumbnail)) || b.views - a.views || (b.createdAt ?? 0) - (a.createdAt ?? 0))[0]
   );
 }
+
+/**
+ * صورة كل مجموعة (تُعرض كصورة القناة بجانب اسم الفيديو): الفيديو الذي اختاره المشرف للمجموعة،
+ * وإلا الأكثر مشاهدة من فيديوهاتها. تُخزَّن دقيقتين داخل الجلسة وتستعمل نفس جلب الفيديوهات المشترك.
+ */
+let avatarCache: { at: number; map: Map<string, string> } | null = null;
+let avatarInflight: Promise<Map<string, string>> | null = null;
+
+async function fetchSeriesAvatars(): Promise<Map<string, string>> {
+  if (avatarCache && Date.now() - avatarCache.at < 120_000) return avatarCache.map;
+  if (avatarInflight) return avatarInflight;
+  avatarInflight = (async () => {
+    const [snap, all] = await Promise.all([getDocs(collection(getDb(), "series")), fetchEveryVideo()]);
+    const by = new Map<string, VideoDoc[]>();
+    for (const v of all) if (v.seriesId) by.set(v.seriesId, [...(by.get(v.seriesId) ?? []), v]);
+    const map = new Map<string, string>();
+    for (const d of snap.docs) {
+      const list = by.get(d.id) ?? [];
+      const chosen = typeof d.data().coverVideoId === "string" ? (d.data().coverVideoId as string) : "";
+      // إن لم تكن للفيديو المختار صورة مصغّرة نرجع للاختيار التلقائي.
+      const url = pickCover(list, chosen)?.thumbnail || pickCover(list, "")?.thumbnail || "";
+      if (url) map.set(d.id, url);
+    }
+    avatarCache = { at: Date.now(), map };
+    return map;
+  })().finally(() => {
+    avatarInflight = null;
+  });
+  return avatarInflight;
+}
+
+/** خريطة معرّف المجموعة ← رابط صورتها. تبدأ فارغة ثم تمتلئ عند وصول البيانات. */
+export function useSeriesAvatars(): Map<string, string> {
+  const [map, setMap] = useState<Map<string, string>>(() => avatarCache?.map ?? new Map());
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    let off = false;
+    fetchSeriesAvatars()
+      .then((m) => !off && setMap(m))
+      .catch(() => {});
+    return () => {
+      off = true;
+    };
+  }, []);
+  return map;
+}

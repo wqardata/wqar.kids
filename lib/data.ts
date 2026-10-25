@@ -29,7 +29,6 @@ export const nav: readonly NavItem[] = [
 ];
 
 export const more: readonly NavItem[] = [
-  { href: "/new", label: "الجديد", icon: "spark" },
   { href: "/history", label: "سجل المشاهدة", icon: "history" },
   { href: "/downloads", label: "التنزيلات", icon: "down" },
   { href: "/support", label: "ادعمنا", icon: "gift" },

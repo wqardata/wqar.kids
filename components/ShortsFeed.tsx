@@ -169,7 +169,7 @@ export default function ShortsFeed() {
                 )}
                 <div className="short-info">
                   <h2>{v.title}</h2>
-                  {(v.categoryName || v.seriesName) && <small>{[v.categoryName, v.seriesName].filter(Boolean).join(" • ")}</small>}
+                  {v.seriesName && <small>{v.seriesName}</small>}
                   <small className="short-views">{viewsAndAge(v.views, v.createdAt)}</small>
                 </div>
                 {i === active && (
