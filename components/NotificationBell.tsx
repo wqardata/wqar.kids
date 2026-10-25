@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { useAuth } from "@/lib/auth";
+import { useSettings } from "@/lib/settings";
+import { armSounds, playAlert } from "@/lib/sounds";
 import { readGone, readSeen, timeAgo, writeGone, useNotifications, useOpenReports, writeSeen, type Notice } from "@/lib/notifications";
 
 const GUEST = "guest"; // مفتاح «آخر ما رآه» للزائر غير المسجَّل
@@ -28,6 +30,8 @@ export default function NotificationBell() {
   const { user, loading, canAdd } = useAuth();
   const uid = user?.uid ?? null;
   const { items: all, failed } = useNotifications(uid, canAdd, !loading);
+  const { settings } = useSettings();
+  const snd = settings.sounds;
   const [gone, setGone] = useState<string[]>([]);
   const reports = useOpenReports(canAdd);
   const [open, setOpen] = useState(false);
@@ -40,6 +44,36 @@ export default function NotificationBell() {
     setSeen(readSeen(uid ?? GUEST));
     setGone(readGone(uid ?? GUEST));
   }, [uid]);
+
+  // صوت تنبيه عند وصول إشعار جديد أثناء فتح الموقع (ما كان موجودًا عند التحميل لا يُصدر صوتًا).
+  // أول ثانيتين بعد الاشتراك نكتفي بتسجيل ما وصل (لقطات الفئات تصل متفرقة)، وبعدها أي معرّف جديد = نغمة.
+  const known = useRef<Set<string>>(new Set());
+  const armedAt = useRef(0);
+  const lastReports = useRef<number | null>(null);
+  useEffect(() => armSounds(), []);
+  useEffect(() => {
+    known.current = new Set();
+    lastReports.current = null;
+    armedAt.current = Date.now() + 2500;
+  }, [uid, loading]);
+  useEffect(() => {
+    if (loading) return;
+    const armed = Date.now() >= armedAt.current;
+    let fresh = false;
+    for (const n of all) {
+      if (!known.current.has(n.id)) {
+        known.current.add(n.id);
+        if (armed && !gone.includes(n.id)) fresh = true;
+      }
+    }
+    if (fresh && snd.notify) playAlert("notify", snd.volume);
+  }, [all, loading, gone, snd.notify, snd.volume]);
+  useEffect(() => {
+    if (!canAdd) return;
+    const prev = lastReports.current;
+    lastReports.current = reports.count;
+    if (prev !== null && reports.count > prev && Date.now() >= armedAt.current && snd.notify) playAlert("notify", snd.volume);
+  }, [reports.count, canAdd, snd.notify, snd.volume]);
 
   // ما أزاله المستخدم لا يظهر ولا يُعدّ في العدّاد.
   const items = all.filter((n) => !gone.includes(n.id));

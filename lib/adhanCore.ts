@@ -83,6 +83,8 @@ export type AdhanSettings = {
   remindMin: Record<PrayerId, number>;
   /** نص التنبيه. {prayer} اسم الصلاة، {min} الدقائق المتبقية. */
   remindText: string;
+  /** إظهار نافذة الأذان وتنبيه «اقتربت صلاة» للمشرفين أيضًا. الافتراضي: معطّل (لا تقاطع المشرف أثناء عمله في لوحة التحكم). */
+  adminShow: boolean;
 };
 
 export const DEFAULT_ADHAN: AdhanSettings = {
@@ -98,6 +100,7 @@ export const DEFAULT_ADHAN: AdhanSettings = {
   remind: true,
   remindMin: { fajr: 5, dhuhr: 5, asr: 5, maghrib: 5, isha: 5 },
   remindText: "اقتربت صلاة {prayer} — بعد {min} دقيقة",
+  adminShow: false,
 };
 
 /** يقبل http/https أو مسارًا داخل الموقع يبدأ بـ / (لا //). */
@@ -146,5 +149,6 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     remind: o.remind !== false,
     remindMin,
     remindText,
+    adminShow: o.adminShow === true,
   };
 }

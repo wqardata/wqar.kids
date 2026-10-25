@@ -233,6 +233,38 @@ export function cleanSignup(v: unknown): SignupTexts {
   return out;
 }
 
+/** طرق الدخول الظاهرة في صفحة /login. يجب أن تبقى واحدة على الأقل. */
+export type LoginMethods = { google: boolean; email: boolean };
+export const DEFAULT_LOGIN_METHODS: LoginMethods = { google: true, email: true };
+export function cleanLoginMethods(v: unknown): LoginMethods {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const m = { google: o.google !== false, email: o.email !== false };
+  return m.google || m.email ? m : { ...DEFAULT_LOGIN_METHODS }; // لا يُسمح بإخفاء الطريقتين معًا
+}
+
+/** أصوات التنبيه (نغمات مولَّدة في المتصفح، بلا ملفات). */
+export type SoundSettings = {
+  /** عند وصول إشعار جديد. */
+  notify: boolean;
+  /** عند ظهور تنبيه «اقتربت صلاة …». */
+  remind: boolean;
+  /** عند ظهور نافذة الأذان (إن لم يكن هناك ملف تكبيرات؛ ملف التكبيرات له صوته). */
+  adhan: boolean;
+  /** مستوى الصوت 0..100. */
+  volume: number;
+};
+export const DEFAULT_SOUNDS: SoundSettings = { notify: true, remind: true, adhan: true, volume: 70 };
+export function cleanSounds(v: unknown): SoundSettings {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const n = Number(o.volume);
+  return {
+    notify: o.notify !== false,
+    remind: o.remind !== false,
+    adhan: o.adhan !== false,
+    volume: Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : DEFAULT_SOUNDS.volume,
+  };
+}
+
 export type SupportLink = { label: string; href: string };
 export type SiteSettings = {
   /** اسم الموقع كما يظهر داخل الصفحات (الهيدر، الدعم…). */
@@ -278,6 +310,10 @@ export type SiteSettings = {
   glass: number;
   /** نصوص صفحة التسجيل والدخول. */
   signup: SignupTexts;
+  /** طرق الدخول الظاهرة: جوجل و/أو البريد وكلمة المرور. */
+  loginMethods: LoginMethods;
+  /** أصوات التنبيه للإشعارات والأذان. */
+  sounds: SoundSettings;
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -308,6 +344,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   adhkar: DEFAULT_ADHKAR,
   glass: 60,
   signup: DEFAULT_SIGNUP,
+  loginMethods: DEFAULT_LOGIN_METHODS,
+  sounds: DEFAULT_SOUNDS,
 };
 
 export const GLASS_MIN = 0;
@@ -446,6 +484,8 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     adhkar: cleanAdhkar(d.adhkar),
     glass: typeof d.glass === "number" && Number.isFinite(d.glass) ? Math.min(GLASS_MAX, Math.max(GLASS_MIN, Math.round(d.glass))) : DEFAULT_SETTINGS.glass,
     signup: cleanSignup(d.signup),
+    loginMethods: cleanLoginMethods(d.loginMethods),
+    sounds: cleanSounds(d.sounds),
   };
 }
 
