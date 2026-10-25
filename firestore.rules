@@ -23,11 +23,17 @@ service cloud.firestore {
     match /videos/{id} {
       allow read: if true;
       allow create, delete: if isAdmin();
-      // المشرف يعدّل كل شيء؛ أي زائر يستطيع فقط زيادة عدّاد المشاهدات بمقدار 1 (لا شيء غيره).
+      // المشرف يعدّل كل شيء؛ أي زائر يستطيع فقط: زيادة عدّاد المشاهدات بمقدار 1،
+      // أو تغيير عدّاد المعجبين (زر المفضلة) بمقدار +1 أو −1 دون أن ينزل عن الصفر. لا شيء غير ذلك.
       allow update: if isAdmin()
         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])
             && request.resource.data.views is int
-            && request.resource.data.views == resource.data.get('views', 0) + 1);
+            && request.resource.data.views == resource.data.get('views', 0) + 1)
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+            && request.resource.data.likes is int
+            && request.resource.data.likes >= 0
+            && (request.resource.data.likes == resource.data.get('likes', 0) + 1
+                || request.resource.data.likes == resource.data.get('likes', 0) - 1));
     }
     match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
     match /series/{id}     { allow read: if true; allow write: if isAdmin(); }
@@ -59,16 +65,6 @@ service cloud.firestore {
         && request.resource.data.audience in ['all', 'viewers', 'admins', 'guests']
         && request.resource.data.size() <= 6;
       allow delete: if isAdmin();
-    }
-
-    // تفضيلات كل مستخدم (الأذان…): يقرؤها ويكتبها صاحب الحساب وحده.
-    match /userPrefs/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['adhan', 'updatedAt'])
-        && request.resource.data.adhan is map
-        && request.resource.data.adhan.size() <= 6;
-      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     // بصمات الفيديوهات لكشف المقدمة والإعلان تلقائيًا (للمشرف فقط؛ تُحسب مرة وتُحفظ).

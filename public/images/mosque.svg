@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" role="img" aria-label="مسجد">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14264a"/><stop offset=".6" stop-color="#2f5d8f"/><stop offset="1" stop-color="#7fb2d6"/></linearGradient>
+    <linearGradient id="dome" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fe0c0"/><stop offset="1" stop-color="#0c8a73"/></linearGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#efe0bd"/></linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff3b0" stop-opacity=".9"/><stop offset="1" stop-color="#fff3b0" stop-opacity="0"/></radialGradient>
+    <clipPath id="card"><rect width="400" height="280" rx="26"/></clipPath>
+  </defs>
+  <g clip-path="url(#card)">
+    <rect width="400" height="280" fill="url(#sky)"/>
+    <circle cx="322" cy="62" r="62" fill="url(#glow)"/>
+    <path d="M322 30a32 32 0 1 0 30 44a25 25 0 1 1-30-44z" fill="#ffe58a"/>
+    <g fill="#fff7c9">
+      <circle cx="40" cy="40" r="3"/><circle cx="92" cy="72" r="2"/><circle cx="150" cy="30" r="3"/><circle cx="214" cy="58" r="2"/><circle cx="262" cy="26" r="2.5"/><circle cx="372" cy="128" r="2"/><circle cx="24" cy="112" r="2"/><circle cx="120" cy="108" r="1.8"/>
+    </g>
+    <g fill="#fff7c9" opacity=".85"><path d="M60 98l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><path d="M286 118l1.6 4 4 1.6-4 1.6-1.6 4-1.6-4-4-1.6 4-1.6z"/></g>
+    <!-- سحب -->
+    <g fill="#ffffff" opacity=".18"><ellipse cx="90" cy="150" rx="46" ry="10"/><ellipse cx="320" cy="170" rx="54" ry="11"/></g>
+    <!-- الأرض -->
+    <path d="M0 226 Q100 210 200 222 T400 214 V280 H0z" fill="#e8d3a0"/>
+    <path d="M0 240 Q120 228 220 238 T400 232 V280 H0z" fill="#d9bf86"/>
+    <!-- المآذن -->
+    <g id="min">
+      <rect x="62" y="104" width="30" height="124" rx="5" fill="url(#wall)" stroke="#c9b58a" stroke-width="2"/>
+      <rect x="56" y="98" width="42" height="12" rx="4" fill="#e4d1a6" stroke="#c9b58a" stroke-width="2"/>
+      <path d="M62 98 Q77 52 92 98z" fill="url(#dome)"/>
+      <path d="M77 54 v-16" stroke="#ffd34d" stroke-width="3.5" stroke-linecap="round"/>
+      <circle cx="77" cy="34" r="5" fill="#ffd34d"/>
+      <path d="M70 134 v-8 a7 7 0 0 1 14 0 v8z" fill="#3f78a8"/><path d="M70 170 v-8 a7 7 0 0 1 14 0 v8z" fill="#3f78a8"/><path d="M70 206 v-8 a7 7 0 0 1 14 0 v8z" fill="#3f78a8"/>
+    </g>
+    <use href="#min" x="246"/>
+    <!-- المبنى -->
+    <rect x="112" y="150" width="176" height="80" rx="6" fill="url(#wall)" stroke="#c9b58a" stroke-width="2"/>
+    <rect x="112" y="146" width="176" height="10" rx="4" fill="#e4d1a6" stroke="#c9b58a" stroke-width="2"/>
+    <!-- القبة الصغيرتان -->
+    <path d="M122 146 A24 24 0 0 1 170 146z" fill="url(#dome)"/><path d="M230 146 A24 24 0 0 1 278 146z" fill="url(#dome)"/>
+    <path d="M146 122 v-8 M254 122 v-8" stroke="#ffd34d" stroke-width="3" stroke-linecap="round"/>
+    <!-- القبة الكبيرة -->
+    <path d="M140 146 A60 60 0 0 1 260 146z" fill="url(#dome)" stroke="#0a7260" stroke-width="2"/>
+    <path d="M200 86 v-20" stroke="#ffd34d" stroke-width="4" stroke-linecap="round"/>
+    <path d="M200 52a11 11 0 1 0 11 15a8.5 8.5 0 1 1-11-15z" fill="#ffd34d"/>
+    <path d="M160 128 Q168 100 192 92" fill="none" stroke="#ffffff" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/>
+    <!-- وجه مبتسم -->
+    <circle cx="184" cy="124" r="4" fill="#073d33"/><circle cx="216" cy="124" r="4" fill="#073d33"/>
+    <circle cx="177" cy="133" r="5" fill="#ff9aa8" opacity=".7"/><circle cx="223" cy="133" r="5" fill="#ff9aa8" opacity=".7"/>
+    <path d="M190 132 q10 10 20 0" fill="none" stroke="#073d33" stroke-width="3" stroke-linecap="round"/>
+    <!-- الباب والنوافذ المضيئة -->
+    <path d="M178 230 v-42 a22 22 0 0 1 44 0 v42z" fill="#0c8a73" stroke="#0a6b5a" stroke-width="2.5"/>
+    <path d="M188 230 v-36 a12 12 0 0 1 24 0 v36z" fill="#ffe58a"/>
+    <g fill="#ffe58a" stroke="#c9a23a" stroke-width="1.5"><path d="M128 206 v-22 a10 10 0 0 1 20 0 v22z"/><path d="M152 206 v-22 a10 10 0 0 1 20 0 v22z"/><path d="M228 206 v-22 a10 10 0 0 1 20 0 v22z"/><path d="M252 206 v-22 a10 10 0 0 1 20 0 v22z"/></g>
+    <!-- فوانيس -->
+    <g stroke="#c9a23a" stroke-width="2"><path d="M170 150 v14"/><path d="M230 150 v14"/></g>
+    <g fill="#ffcf4a"><rect x="164" y="164" width="12" height="16" rx="4"/><rect x="224" y="164" width="12" height="16" rx="4"/></g>
+  </g>
+</svg>
