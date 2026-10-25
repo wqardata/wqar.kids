@@ -75,12 +75,12 @@ function render(v: HTMLVideoElement): string {
 }
 
 /** يفتح الفيديو ويقرأ بياناته الوصفية فقط؛ اللقطات تُطلب لاحقًا بـ grab(). */
-export function openGrabber(src: string, timeoutMs = 30_000): Promise<Grabber> {
+export function openGrabber(src: string, timeoutMs = 30_000, preload: "auto" | "metadata" = "auto"): Promise<Grabber> {
   return new Promise((resolve, reject) => {
     const v = document.createElement("video");
     v.muted = true;
     v.playsInline = true;
-    v.preload = "auto";
+    v.preload = preload;
     v.setAttribute("aria-hidden", "true");
     // يُلحَق بالصفحة خارج الشاشة لأن بعض المتصفحات (سفاري) لا تحمّل فيديو منفصلًا.
     Object.assign(v.style, { position: "fixed", left: "-9999px", top: "0", width: "2px", height: "2px", opacity: "0", pointerEvents: "none" });
@@ -124,5 +124,39 @@ export function openGrabber(src: string, timeoutMs = 30_000): Promise<Grabber> {
       });
     };
     v.src = src;
+  });
+}
+
+/**
+ * يقرأ مدة فيديو درايف (بالثواني) مباشرةً من متصفح المشرف إلى درايف، دون المرور بسيرفر الموقع،
+ * فلا يُحتسب شيء من حصة فيرسل. قراءة المدة وحدها لا تحتاج CORS (بعكس قراءة بكسلات الصورة).
+ * يعيد 0 إن منع درايف ذلك أو تعذّر؛ عندها يعود المستدعي إلى الوسيط /api/drive-video.
+ */
+export function probeDuration(driveId: string, timeoutMs = 12_000): Promise<number> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = "metadata";
+    v.setAttribute("aria-hidden", "true");
+    Object.assign(v.style, { position: "fixed", left: "-9999px", top: "0", width: "2px", height: "2px", opacity: "0", pointerEvents: "none" });
+    document.body.appendChild(v);
+    let done = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const finish = (d: number) => {
+      if (done) return;
+      done = true;
+      if (timer) clearTimeout(timer);
+      v.onloadedmetadata = null;
+      v.onerror = null;
+      v.removeAttribute("src");
+      v.load();
+      v.remove();
+      resolve(d);
+    };
+    timer = setTimeout(() => finish(0), timeoutMs);
+    v.onloadedmetadata = () => finish(Number.isFinite(v.duration) && v.duration > 0 ? Math.round(v.duration) : 0);
+    v.onerror = () => finish(0);
+    v.src = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(driveId)}&export=download&confirm=t`;
   });
 }

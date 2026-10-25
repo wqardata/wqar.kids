@@ -265,6 +265,82 @@ export function cleanSounds(v: unknown): SoundSettings {
   };
 }
 
+/** ترتيب فيديوهات الرئيسية: عشوائي، أو مرتّب (الجديد ثم الأكثر مشاهدة ثم البقية من الأحدث للأقدم). */
+export const HOME_ORDERS = [
+  { id: "random", label: "عشوائي (يتغيّر مع كل زيارة)" },
+  { id: "ordered", label: "ترتيب ثابت (الجديد ثم الأكثر مشاهدة ثم البقية من الأحدث)" },
+] as const;
+export type HomeOrder = (typeof HOME_ORDERS)[number]["id"];
+
+/** ترتيب فيديوهات صفحة المجموعة. */
+export const GROUP_ORDERS = [
+  { id: "newest", label: "من الأحدث إلى الأقدم" },
+  { id: "oldest", label: "من الأقدم إلى الأحدث" },
+  { id: "random", label: "عشوائي (يتغيّر مع كل زيارة)" },
+] as const;
+export type GroupOrder = (typeof GROUP_ORDERS)[number]["id"];
+
+/** موضع صف المقاطع القصيرة: 0 = أعلى الصفحة، n = بعد الصف رقم n، SHORTS_POS_END = في النهاية. */
+export const SHORTS_POS_END = 99;
+export const SHORTS_POS_MAX_ROW = 10;
+
+/** إعدادات العرض: الصفحة الرئيسية وصفحات المجموعات (تبويب «العرض» في إدارة المحتوى). */
+export type DisplaySettings = {
+  /** إجمالي صفوف الفيديوهات في الرئيسية (الصف = 4 فيديوهات على الحاسوب). 0 = كل الفيديوهات مع التحميل التدريجي. */
+  homeRows: number;
+  /** عنوان يسبق المجموعة الأولى من الصفوف (الجديد والأكثر مشاهدة). فارغ = بلا عنوان. */
+  titleTop: string;
+  /** عنوان يسبق بقية الصفوف. فارغ = بلا عنوان. */
+  titleRest: string;
+  /** عدد الفيديوهات الجديدة في المجموعة الأولى. */
+  newCount: number;
+  /** عدد الفيديوهات الأكثر مشاهدة في المجموعة الأولى. */
+  popularCount: number;
+  homeOrder: HomeOrder;
+  /** إظهار صف المقاطع القصيرة في الرئيسية. */
+  shortsShow: boolean;
+  shortsPos: number;
+  /** ترتيب الفيديوهات داخل صفحة المجموعة. */
+  groupOrder: GroupOrder;
+};
+
+export const DEFAULT_DISPLAY: DisplaySettings = {
+  homeRows: 0,
+  titleTop: "",
+  titleRest: "",
+  newCount: 3,
+  popularCount: 2,
+  homeOrder: "random",
+  shortsShow: true,
+  shortsPos: 2,
+  groupOrder: "random",
+};
+
+export const DISPLAY_COUNT_MAX = 40;
+export const DISPLAY_ROWS_MAX = 100;
+
+export function cleanDisplay(v: unknown): DisplaySettings {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const D = DEFAULT_DISPLAY;
+  const int = (k: string, lo: number, hi: number, fb: number) => {
+    const n = Number(o[k]);
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : fb;
+  };
+  const text = (k: string) => (typeof o[k] === "string" ? (o[k] as string).trim().slice(0, 60) : "");
+  const pos = int("shortsPos", 0, SHORTS_POS_END, D.shortsPos);
+  return {
+    homeRows: int("homeRows", 0, DISPLAY_ROWS_MAX, D.homeRows),
+    titleTop: text("titleTop"),
+    titleRest: text("titleRest"),
+    newCount: int("newCount", 0, DISPLAY_COUNT_MAX, D.newCount),
+    popularCount: int("popularCount", 0, DISPLAY_COUNT_MAX, D.popularCount),
+    homeOrder: HOME_ORDERS.some((x) => x.id === o.homeOrder) ? (o.homeOrder as HomeOrder) : D.homeOrder,
+    shortsShow: o.shortsShow !== false,
+    shortsPos: pos > SHORTS_POS_MAX_ROW ? SHORTS_POS_END : pos,
+    groupOrder: GROUP_ORDERS.some((x) => x.id === o.groupOrder) ? (o.groupOrder as GroupOrder) : D.groupOrder,
+  };
+}
+
 export type SupportLink = { label: string; href: string };
 export type SiteSettings = {
   /** اسم الموقع كما يظهر داخل الصفحات (الهيدر، الدعم…). */
@@ -314,6 +390,8 @@ export type SiteSettings = {
   loginMethods: LoginMethods;
   /** أصوات التنبيه للإشعارات والأذان. */
   sounds: SoundSettings;
+  /** إعدادات عرض الرئيسية والمجموعات. */
+  display: DisplaySettings;
 };
 
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
@@ -346,6 +424,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   signup: DEFAULT_SIGNUP,
   loginMethods: DEFAULT_LOGIN_METHODS,
   sounds: DEFAULT_SOUNDS,
+  display: DEFAULT_DISPLAY,
 };
 
 export const GLASS_MIN = 0;
@@ -486,6 +565,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     signup: cleanSignup(d.signup),
     loginMethods: cleanLoginMethods(d.loginMethods),
     sounds: cleanSounds(d.sounds),
+    display: cleanDisplay(d.display),
   };
 }
 

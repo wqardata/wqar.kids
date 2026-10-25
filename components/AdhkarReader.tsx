@@ -15,6 +15,9 @@ export function repeatLabel(n: number): string {
 
 /** مسافة السحب (بالبكسل) التي تُعدّ قلبًا للبطاقة. */
 const SWIPE_PX = 56;
+/** سحبة سريعة (flick) أقصر من SWIPE_PX تكفي إن تمّت خلال هذه المدة (م.ث). */
+const FLICK_PX = 28;
+const FLICK_MS = 350;
 
 type Props = {
   title: string;
@@ -35,7 +38,7 @@ export default function AdhkarReader({ title, icon, items, onClose, onFinish }: 
   const [i, setI] = useState(0);
   const [dir, setDir] = useState<"next" | "prev" | "">("");
   const [dx, setDx] = useState(0);
-  const start = useRef<{ x: number; y: number; id: number } | null>(null);
+  const start = useRef<{ x: number; y: number; id: number; t: number } | null>(null);
   const dragging = useRef(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -62,7 +65,7 @@ export default function AdhkarReader({ title, icon, items, onClose, onFinish }: 
 
   function down(e: RPointerEvent<HTMLDivElement>) {
     if ((e.target as HTMLElement).closest("button")) return;
-    start.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    start.current = { x: e.clientX, y: e.clientY, id: e.pointerId, t: Date.now() };
     dragging.current = false;
   }
   function move(e: RPointerEvent<HTMLDivElement>) {
@@ -84,15 +87,19 @@ export default function AdhkarReader({ title, icon, items, onClose, onFinish }: 
     const s = start.current;
     if (!s || s.id !== e.pointerId) return;
     start.current = null;
-    if (dragging.current) {
-      if (dx <= -SWIPE_PX) next();
-      else if (dx >= SWIPE_PX) prev();
+    if (dragging.current && e.type !== "pointercancel") {
+      const quick = Date.now() - s.t < FLICK_MS;
+      const need = quick ? FLICK_PX : SWIPE_PX;
+      if (dx <= -need) next();
+      else if (dx >= need) prev();
     }
     dragging.current = false;
     setDx(0);
   }
 
   const it = items[i];
+  // النص الطويل بخط أصغر ليتّسع قدر الإمكان؛ وما زاد عن الشاشة يُمرَّر رأسيًا داخل البطاقة.
+  const size = it.text.length > 420 ? " adhkar-text--xs" : it.text.length > 240 ? " adhkar-text--sm" : "";
   const pct = items.length > 1 ? (i / last) * 100 : 100;
 
   return (
@@ -113,7 +120,7 @@ export default function AdhkarReader({ title, icon, items, onClose, onFinish }: 
           style={dx ? { transform: `translateX(${dx}px) rotate(${dx / 60}deg)`, opacity: 1 - Math.min(0.4, Math.abs(dx) / 500) } : undefined}
           aria-live="polite"
         >
-          <p className="adhkar-text">{it.text}</p>
+          <p className={`adhkar-text${size}`}>{it.text}</p>
           <div className="adhkar-meta">
             <span className="adhkar-rep">{repeatLabel(it.repeat)}</span>
             {it.note && <small className="adhkar-note">{it.note}</small>}

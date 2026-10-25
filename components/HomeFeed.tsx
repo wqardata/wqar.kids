@@ -4,24 +4,28 @@ import { useMemo, useState } from "react";
 import { SkeletonGrid } from "@/components/Skeleton";
 import VideoGrid from "@/components/VideoGrid";
 import { shuffled, viewsAndAge } from "@/lib/format";
+import { SHORTS_POS_END, useSettings, type DisplaySettings } from "@/lib/settings";
 import { useAllVideos, type VideoDoc } from "@/lib/videos";
 
 const ROW = 4; // أربعة فيديوهات في الصف على الحاسوب
-const TOP_ROWS = 2; // صفّان منتقيان قبل صف المقاطع القصيرة
-const POOL = 16; // نختار من أحدث 16 ومن أكثر 16 مشاهدة
+const POOL = 16; // في الوضع العشوائي نختار من أحدث 16 ومن أكثر 16 مشاهدة (أو ضعف العدد المطلوب إن كان أكبر)
 const SHORTS_IN_ROW = 10;
 
+type Layout = { top: VideoDoc[]; rest: VideoDoc[] };
+
 /**
- * الصفّان الأولان معًا (8 فيديوهات): 2 أو 3 من أحدث المنشور + 2 من الأكثر مشاهدة + الباقي عشوائي، كلها بترتيب عشوائي.
- * ثم بقية الفيديوهات بترتيب عشوائي. القائمة المدخلة مرتبة من الأحدث للأقدم.
+ * المجموعة الأولى (top): عدد الجديد + عدد الأكثر مشاهدة، وتُكمَل خانات آخر صف فيها بفيديوهات أخرى.
+ * ثم بقية الفيديوهات (rest). القائمة المدخلة مرتبة من الأحدث للأقدم.
+ * عشوائي: الاختيار والعرض بخلط جديد في كل زيارة. ترتيب: الجديد ثم الأكثر مشاهدة ثم البقية من الأحدث للأقدم.
  */
-function layoutHome(regular: VideoDoc[]) {
-  const newest = regular.slice(0, POOL);
-  const popular = [...regular].sort((a, b) => b.views - a.views).slice(0, POOL);
+function layoutHome(regular: VideoDoc[], d: Pick<DisplaySettings, "newCount" | "popularCount" | "homeOrder">): Layout {
+  const ordered = d.homeOrder === "ordered";
+  const want = d.newCount + d.popularCount;
+  const size = Math.ceil(want / ROW) * ROW;
   const used = new Set<string>();
   const take = (pool: VideoDoc[], n: number) => {
     const out: VideoDoc[] = [];
-    for (const v of shuffled(pool)) {
+    for (const v of ordered ? pool : shuffled(pool)) {
       if (out.length >= n) break;
       if (!used.has(v.id)) {
         used.add(v.id);
@@ -30,12 +34,43 @@ function layoutHome(regular: VideoDoc[]) {
     }
     return out;
   };
-  const size = ROW * TOP_ROWS;
-  const picked = [...take(newest, Math.random() < 0.5 ? 2 : 3), ...take(popular, 2)];
-  picked.push(...take(regular, size - picked.length));
-  const top = shuffled(picked);
-  const rest = shuffled(regular.filter((v) => !used.has(v.id)));
-  return { top, rest };
+  const newest = regular.slice(0, Math.max(POOL, d.newCount * 2));
+  const popular = [...regular].sort((a, b) => b.views - a.views).slice(0, Math.max(POOL, d.popularCount * 2));
+  let top = [...take(newest, d.newCount), ...take(popular, d.popularCount)];
+  top.push(...take(regular, size - top.length));
+  if (!ordered) top = shuffled(top);
+  const rest = regular.filter((v) => !used.has(v.id));
+  return { top, rest: ordered ? rest : shuffled(rest) };
+}
+
+type Seg = { kind: "grid"; key: string; items: VideoDoc[]; title: string; paged: boolean } | { kind: "shorts"; key: string };
+
+/**
+ * يقسّم القائمة إلى أجزاء متتالية: عنوان المجموعة الأولى قبل أول صف، وعنوان البقية قبل أول صف منها،
+ * وصف المقاطع القصيرة عند موضعه المحدّد (بعد الصف رقم n). آخر شبكة فقط تُحمَّل تدريجيًا حين تكون الصفوف غير محدودة.
+ */
+function buildSegments(home: Layout, d: DisplaySettings, hasShorts: boolean): Seg[] {
+  const limit = d.homeRows > 0 ? d.homeRows * ROW : 0;
+  const list = limit ? [...home.top, ...home.rest].slice(0, limit) : [...home.top, ...home.rest];
+  const topN = Math.min(home.top.length, list.length);
+  const shortsAt = !hasShorts ? -1 : d.shortsPos >= SHORTS_POS_END ? list.length : Math.min(d.shortsPos * ROW, list.length);
+
+  const cuts = new Set<number>([0, list.length]);
+  if (topN > 0 && topN < list.length) cuts.add(topN);
+  if (shortsAt > 0 && shortsAt < list.length) cuts.add(shortsAt);
+  const points = [...cuts].sort((a, b) => a - b);
+
+  const segs: Seg[] = [];
+  const pagedFromEnd = limit === 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const from = points[i];
+    const to = points[i + 1];
+    if (shortsAt === from) segs.push({ kind: "shorts", key: "shorts" });
+    const title = topN > 0 && from === 0 ? d.titleTop : from === topN ? d.titleRest : "";
+    segs.push({ kind: "grid", key: `g${from}`, items: list.slice(from, to), title, paged: pagedFromEnd && i === points.length - 2 });
+  }
+  if (shortsAt === list.length) segs.push({ kind: "shorts", key: "shorts" });
+  return segs;
 }
 
 /** صف المقاطع القصيرة: شريط أفقي قابل للتمرير يظهر بين الصفّين الأولين وبقية الفيديوهات. */
@@ -67,15 +102,21 @@ function ShortsRow({ items }: { items: readonly VideoDoc[] }) {
   );
 }
 
-/** الرئيسية: شريط تصنيفات، ثم صفّان (أحدث + أكثر مشاهدة)، فصف مقاطع قصيرة، فبقية الفيديوهات عشوائيًا. */
+/** الرئيسية: شريط تصنيفات، ثم مجموعات الصفوف وصف المقاطع القصيرة حسب «إعدادات العرض» في لوحة التحكم. */
 export default function HomeFeed({ emptyNote }: { emptyNote?: string }) {
   const { videos, ready } = useAllVideos();
+  const { settings } = useSettings();
+  const disp = settings.display;
   const [cat, setCat] = useState("");
 
   // نخلط مرة واحدة عند وصول البيانات (تغيير التصنيف لا يعيد الخلط).
-  const home = useMemo(() => layoutHome(videos.filter((v) => !v.isShort)), [videos]);
+  const home = useMemo(
+    () => layoutHome(videos.filter((v) => !v.isShort), { newCount: disp.newCount, popularCount: disp.popularCount, homeOrder: disp.homeOrder }),
+    [videos, disp.newCount, disp.popularCount, disp.homeOrder],
+  );
   const shortsRow = useMemo(() => shuffled(videos.filter((v) => v.isShort)).slice(0, SHORTS_IN_ROW), [videos]);
   const pool = useMemo(() => [...home.top, ...home.rest], [home]);
+  const segments = useMemo(() => buildSegments(home, disp, disp.shortsShow && shortsRow.length > 0), [home, disp, shortsRow.length]);
 
   const cats = useMemo(() => {
     const m = new Map<string, { id: string; name: string; n: number }>();
@@ -108,11 +149,18 @@ export default function HomeFeed({ emptyNote }: { emptyNote?: string }) {
         <SkeletonGrid />
       ) : cat ? (
         <VideoGrid items={filtered} className="grid--home" />
-      ) : pool.length > 0 || shortsRow.length > 0 ? (
+      ) : segments.length > 0 ? (
         <>
-          <VideoGrid items={home.top} className="grid--home" all />
-          <ShortsRow items={shortsRow} />
-          {home.rest.length > 0 && <VideoGrid items={home.rest} className="grid--home" />}
+          {segments.map((seg) =>
+            seg.kind === "shorts" ? (
+              <ShortsRow key={seg.key} items={shortsRow} />
+            ) : (
+              <div key={seg.key}>
+                {seg.title && <h2 className="home-group-title">{seg.title}</h2>}
+                <VideoGrid items={seg.items} className="grid--home" all={!seg.paged} />
+              </div>
+            ),
+          )}
         </>
       ) : emptyNote ? (
         <p className="empty-note">{emptyNote}</p>

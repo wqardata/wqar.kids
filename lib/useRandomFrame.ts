@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "firebase/auth";
-import { openGrabber, type Grabber } from "./frameGrab";
+import { openGrabber, probeDuration, type Grabber } from "./frameGrab";
 
 export type FrameState = {
   status: "idle" | "loading" | "ok" | "error";
@@ -41,8 +41,18 @@ export function useRandomFrame(driveId: string | null, user: User | null, enable
     const timer = setTimeout(async () => {
       let duration = 0;
       try {
+        // المدة وحدها (بلا لقطة): نقرؤها مباشرة من درايف دون المرور بسيرفر الموقع.
+        if (!wantFrame) {
+          const d = await probeDuration(driveId);
+          if (me !== run.current) return;
+          if (d > 0) {
+            setState({ ...IDLE, duration: d });
+            return;
+          }
+        }
         const token = await user.getIdToken();
-        const g = await openGrabber(`/api/drive-video?id=${encodeURIComponent(driveId)}&token=${encodeURIComponent(token)}`);
+        // الوسيط للضرورة فقط: اللقطة تحتاج نفس النطاق (canvas)، أو تعذّرت القراءة المباشرة للمدة.
+        const g = await openGrabber(`/api/drive-video?id=${encodeURIComponent(driveId)}&token=${encodeURIComponent(token)}`, 30_000, wantFrame ? "auto" : "metadata");
         if (me !== run.current) return g.dispose();
         grabber.current = g;
         duration = Math.round(g.duration);

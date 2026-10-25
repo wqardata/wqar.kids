@@ -9,19 +9,33 @@ function sources(id: string): string[] {
   return list;
 }
 
+/** أقصى حجم يُمرَّر في استجابة واحدة (بايت). المتصفح يطلب الباقي على دفعات عند الحاجة فقط،
+ *  فلا يُسحب الفيديو كاملًا عبر فيرسل (كل بايت يمرّ من هنا يُحتسب في Fast Origin Transfer). */
+const MAX_CHUNK = 6 * 1024 * 1024;
+
+/** يقصّ ترويسة Range بحيث لا يتجاوز الطلب MAX_CHUNK. بلا Range يُعامَل الطلب كأنه bytes=0-. */
+function clampRange(range: string | null): string {
+  const m = /^bytes=(\d*)-(\d*)$/.exec((range ?? "").trim());
+  if (!m || (m[1] === "" && m[2] === "")) return `bytes=0-${MAX_CHUNK - 1}`;
+  if (m[1] === "") return `bytes=-${Math.min(Number(m[2]), MAX_CHUNK)}`; // آخر N بايت
+  const start = Number(m[1]);
+  const end = m[2] === "" ? Infinity : Number(m[2]);
+  return `bytes=${start}-${Math.min(end, start + MAX_CHUNK - 1)}`;
+}
+
 export function fail(status: number, error: string) {
   return NextResponse.json({ error }, { status, headers: { "cache-control": "no-store" } });
 }
 
 /** يمرّر بايتات ملف درايف (مع دعم Range) أو يعيد خطأ JSON. */
 export async function streamDrive(req: NextRequest, id: string, cacheControl = "private, no-store"): Promise<Response> {
-  const range = req.headers.get("range");
+  const range = clampRange(req.headers.get("range"));
   let lastStatus = 502;
   for (const url of sources(id)) {
     let up: Response;
     try {
       up = await fetch(url, {
-        headers: range ? { range } : {},
+        headers: { range },
         redirect: "follow",
         cache: "no-store",
         signal: req.signal,
