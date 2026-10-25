@@ -124,7 +124,7 @@ export default function LivePlayer({ driveId, title, offset, volume, muted, onVo
           aria-label="مستوى الصوت"
           onChange={(e) => { const x = Number(e.target.value); setBlocked(false); onVolume(x, x === 0); }}
         />
-        <span className="live-pill" aria-hidden="true">● مباشر</span>
+        <span className="live-pill" aria-hidden="true"><span className="live-dot live-dot--on">●</span> مباشر</span>
         <button
           type="button"
           className="live-ibtn"

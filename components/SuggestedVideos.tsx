@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { formatClock } from "@/lib/format";
+import { formatClock, viewsAndAge } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
@@ -65,6 +65,7 @@ export default function SuggestedVideos({ current }: { current: VideoDoc }) {
                   <span className="sug-info">
                     <strong>{v.title}</strong>
                     <small>{[v.seriesName, v.categoryName].filter(Boolean).join(" • ")}</small>
+                    <small>{viewsAndAge(v.views, v.createdAt)}</small>
                   </span>
                 </Link>
               </li>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { formatClock } from "@/lib/format";
+import { formatClock, viewsLabel } from "@/lib/format";
 import { describeStart, fillTemplate, formatTotal, totalSeconds, type LiveItem, type LiveTexts, type NowPlaying } from "@/lib/live";
 
 type Props = {
@@ -15,21 +15,24 @@ type Props = {
   tz: string;
   /** المشغّل الحقيقي في صفحة البث، أو مكان محجوز في المعاينة. */
   player: ReactNode;
+  /** مشاهدات المقطع الجاري (null/غير موجود = لا يُعرض). */
+  views?: number | null;
 };
 
 /**
  * عرض البث للزائر (الشارة، المقطع الحالي، سطر التقدّم، قائمة الجدول).
  * تستعمله صفحة «بث مباشر» نفسها ومعاينة لوحة التحكم، فتطابق المعاينة ما سيراه الزائر تمامًا.
  */
-export default function LiveStage({ texts, title, items, loop, np, startAt, now, tz, player }: Props) {
+export default function LiveStage({ texts, title, items, loop, np, startAt, now, tz, player, views }: Props) {
   const waiting = np.state === "waiting";
   const badge = `${texts.badge}${title ? ` — ${title}` : ""}`;
   return (
     <div className="live-view">
-      <p className={waiting ? "live-badge live-badge--wait" : "live-badge"} role="status">{waiting ? "◔" : "●"} {badge}</p>
+      <p className={waiting ? "live-badge live-badge--wait" : "live-badge"} role="status"><span className={waiting ? "live-dot" : "live-dot live-dot--on"} aria-hidden="true">{waiting ? "◔" : "●"}</span> {badge}</p>
       {np.state === "playing" ? (
         <>
           {player}
+          {typeof views === "number" && <p className="live-views" aria-label="المشاهدات">{viewsLabel(views)}</p>}
           <h2 className="live-now">{items[np.index].title}</h2>
           <p className="live-meta">
             {fillTemplate(texts.metaNow, { elapsed: formatClock(np.offset), duration: formatClock(items[np.index].duration), n: np.index + 1, count: items.length })}

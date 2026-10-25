@@ -1,4 +1,5 @@
 "use client";
+import DownloadButton from "@/components/DownloadButton";
 import FavoriteButton from "@/components/FavoriteButton";
 import Icon from "@/components/Icon";
 import LikeButton from "@/components/LikeButton";
@@ -28,6 +29,8 @@ export default function WatchActions({ video }: { video: VideoDoc }) {
               return <FavoriteButton key={b.id} id={video.id} />;
             case "like":
               return <LikeButton key={b.id} id={video.id} />;
+            case "download":
+              return <DownloadButton key={b.id} driveId={video.driveId} title={video.title} />;
             case "share":
               return <ShareButton key={b.id} title={video.title} />;
             case "report":

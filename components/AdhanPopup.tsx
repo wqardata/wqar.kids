@@ -1,14 +1,12 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AdhanCard from "@/components/AdhanCard";
+import type { AdhanSettings } from "@/lib/adhanCore";
 import AdhanRemind from "@/components/AdhanRemind";
-import { configuredCoords } from "@/lib/adhanCore";
+import { applyPrefs, effectiveCoords, useAdhanPrefs, DENIED_KEY, POS_KEY } from "@/lib/adhanPrefs";
 import { slotsAround, type Slot } from "@/lib/prayer";
 import { useSettings } from "@/lib/settings";
-import { approxFromTimezone } from "@/lib/tzLocation";
 
-const POS_KEY = "adhan-pos";
-const DENIED_KEY = "adhan-geo-denied";
 const doneKey = (s: Slot) => `adhan-done:${s.id}:${s.at.getTime()}`;
 const remindKey = (s: Slot) => `adhan-remind-done:${s.id}:${s.at.getTime()}`;
 /** نحاول تشغيل الصوت تلقائيًا فقط إن فُتحت الصفحة خلال هذه المدة من الأذان. */
@@ -17,7 +15,8 @@ const AUTOPLAY_WINDOW_MS = 90_000;
 /** نافذة الأذان: تظهر عند دخول وقت كل صلاة وتعدّ تنازليًا ثم تختفي. */
 export default function AdhanPopup() {
   const { settings } = useSettings();
-  const cfg = settings.adhan;
+  const prefs = useAdhanPrefs();
+  const cfg = useMemo(() => applyPrefs(settings.adhan, prefs), [settings.adhan, prefs]);
   const [auto, setAuto] = useState<{ lat: number; lng: number } | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [closed, setClosed] = useState<string>("");
@@ -41,7 +40,7 @@ export default function AdhanPopup() {
       () => { try { localStorage.setItem(DENIED_KEY, "1"); } catch { /* لا بأس */ } },
       { maximumAge: 86_400_000, timeout: 10_000 },
     );
-  }, [cfg.enabled, cfg.locationMode]);
+  }, [cfg.enabled, cfg.locationMode, prefs]);
 
   useEffect(() => {
     if (!cfg.enabled) return;
@@ -50,8 +49,7 @@ export default function AdhanPopup() {
   }, [cfg.enabled]);
 
   // تلقائي: موقع الجهاز بإذن الزائر، وإن لم يُمنح فتقدير من منطقته الزمنية؛ المدينة المضبوطة هي الاحتياط الأخير.
-  const coords =
-    cfg.locationMode === "auto" ? (auto ?? (typeof window !== "undefined" ? approxFromTimezone() : null) ?? configuredCoords(cfg)) : configuredCoords(cfg);
+  const coords = effectiveCoords(cfg, auto);
   const slots = useMemo(
     () => (cfg.enabled ? slotsAround(new Date(now), coords.lat, coords.lng, cfg) : []),
     // نُعيد الحساب كل دقيقة فقط (المواقيت لا تتغير بين الثواني).
@@ -62,11 +60,11 @@ export default function AdhanPopup() {
   if (!cfg.enabled) return null;
   const windowMs = cfg.countdownMin * 60_000;
   const active = [...slots].reverse().find((s) => s.at.getTime() <= now && now - s.at.getTime() < windowMs && cfg.prayers[s.id]);
-  if (!active) return <Reminder slots={slots} now={now} />;
+  if (!active) return <Reminder cfg={cfg} slots={slots} now={now} />;
   const key = doneKey(active);
   let dismissed = closed === key;
   try { dismissed = dismissed || localStorage.getItem(key) === "1"; } catch { /* لا بأس */ }
-  if (dismissed) return <Reminder slots={slots} now={now} />;
+  if (dismissed) return <Reminder cfg={cfg} slots={slots} now={now} />;
 
   const close = () => {
     setClosed(key);
@@ -74,6 +72,7 @@ export default function AdhanPopup() {
   };
   return (
     <div className="adhan-overlay">
+      <AdhanLock />
       <AdhanCard
         cfg={cfg}
         prayerLabel={active.label}
@@ -86,9 +85,7 @@ export default function AdhanPopup() {
 }
 
 /** تنبيه «اقتربت صلاة …» قبل الموعد بالدقائق المضبوطة لكل صلاة. */
-function Reminder({ slots, now }: { slots: Slot[]; now: number }) {
-  const { settings } = useSettings();
-  const cfg = settings.adhan;
+function Reminder({ cfg, slots, now }: { cfg: AdhanSettings; slots: Slot[]; now: number }) {
   const [closed, setClosed] = useState("");
   if (!cfg.remind) return null;
   const next = slots.find((s) => {
@@ -106,4 +103,35 @@ function Reminder({ slots, now }: { slots: Slot[]; now: number }) {
     try { localStorage.setItem(key, "1"); } catch { /* لا بأس */ }
   };
   return <AdhanRemind text={cfg.remindText} prayerLabel={next.label} minutes={Math.max(1, Math.ceil((next.at.getTime() - now) / 60_000))} onClose={close} />;
+}
+
+/**
+ * أثناء شاشة الأذان لا يمكن تصفّح الموقع خلفها: نمنع تمرير الصفحة ونجعل كل ما عداها «inert»
+ * (لا نقر ولا تنقّل بلوحة المفاتيح ولا قارئ شاشة). يزول كل ذلك عند إغلاق الشاشة أو انتهاء العدّ.
+ */
+function AdhanLock() {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const me = ref.current?.parentElement;
+    if (!me) return;
+    const locked: Element[] = [];
+    let node: Element | null = me;
+    while (node && node !== document.documentElement) {
+      const parent: Element | null = node.parentElement;
+      if (!parent) break;
+      for (const sib of Array.from(parent.children)) {
+        if (sib === node || sib.hasAttribute("inert") || /^(SCRIPT|STYLE|LINK|NOSCRIPT)$/.test(sib.tagName)) continue;
+        sib.setAttribute("inert", "");
+        locked.push(sib);
+      }
+      node = parent;
+    }
+    const prev = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      for (const el of locked) el.removeAttribute("inert");
+      document.documentElement.style.overflow = prev;
+    };
+  }, []);
+  return <span ref={ref} hidden />;
 }

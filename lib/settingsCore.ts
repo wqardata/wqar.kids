@@ -25,6 +25,7 @@ export type NavOverrides = Record<string, NavOverride>;
 export const WATCH_BUILTINS = [
   { id: "favorite", label: "المفضلة" },
   { id: "like", label: "أعجبني" },
+  { id: "download", label: "تنزيل" },
   { id: "share", label: "مشاركة" },
   { id: "report", label: "إبلاغ" },
 ] as const;
@@ -60,7 +61,13 @@ function cleanWatch(v: unknown): WatchButton[] {
     }
   }
   // أي زر مدمج غاب عن القائمة (مثل الإعدادات القديمة) يُضاف في آخرها.
-  for (const b of WATCH_BUILTINS) if (!seen.has(b.id)) out.push(builtinButton(b.id));
+  // زر «تنزيل» يوضع قبل «مشاركة» (على يمينها في الواجهة العربية)، وغيره في الآخر.
+  for (const b of WATCH_BUILTINS) {
+    if (seen.has(b.id)) continue;
+    const at = b.id === "download" ? out.findIndex((x) => x.id === "share") : -1;
+    if (at >= 0) out.splice(at, 0, builtinButton(b.id));
+    else out.push(builtinButton(b.id));
+  }
   return out;
 }
 

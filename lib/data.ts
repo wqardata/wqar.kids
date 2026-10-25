@@ -35,6 +35,7 @@ export const more: readonly NavItem[] = [
   { href: "/liked", label: "أعجبني", icon: "like" },
   { href: "/history", label: "سجل المشاهدة", icon: "history" },
   { href: "/downloads", label: "التنزيلات", icon: "down" },
+  { href: "/adhan", label: "إعدادات الأذان", icon: "bell" },
   { href: "/support", label: "ادعمنا", icon: "gift" },
   { href: "/contact", label: "تواصل معنا", icon: "mail" },
 ];

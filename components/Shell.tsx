@@ -46,7 +46,10 @@ function NavLinks({ items, path, size }: { items: readonly NavItem[]; path: stri
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? "/";
-  const { user, canAdd, profile } = useAuth();
+  const { user, canAdd, profile, configured } = useAuth();
+  // صفحات تظهر للمسجَّلين فقط: «إعدادات الأذان» و«سجل المشاهدة». عند عدم ضبط Firebase لا نحجب شيئًا.
+  const MEMBERS_ONLY = ["/adhan", "/history"];
+  const hideForGuest = configured && !user;
   const { settings } = useSettings();
   // القائمة الجانبية على الشاشات الكبيرة: موسّعة أو مطويّة إلى أيقونات (تُحفظ في المتصفح).
   const [mini, setMini] = useState(false);
@@ -58,7 +61,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   // الأسماء والأيقونات المخصّصة من لوحة التحكم تتغلّب على الافتراضية.
   const custom = (items: readonly NavItem[]): NavItem[] => items.map((n) => ({ ...n, ...settings.navItems[n.href] }));
   // العناصر التي أخفاها المشرف من لوحة التحكم لا تظهر في القائمة الجانبية ولا في الشريط السفلي.
-  const visible = (items: NavItem[]) => items.filter((n) => !settings.navHidden.includes(n.href));
+  // «إعدادات الأذان» للمسجّلين فقط.
+  const visible = (items: NavItem[]) => items.filter((n) => !settings.navHidden.includes(n.href) && (!hideForGuest || !MEMBERS_ONLY.includes(n.href)));
   const layout = resolveNav(settings.navLayout);
   const navItems = visible(custom(layout.main));
   const moreItems = visible(custom(layout.more));

@@ -18,7 +18,7 @@ export const audienceLabel = (a: Audience) => AUDIENCES.find((x) => x.id === a)?
 export type Notice = { id: string; title: string; body: string; link: string; audience: Audience; at: number };
 
 /** كم إشعارًا يراه العضو في القائمة. */
-export const NOTICE_SHOW = 30;
+export const NOTICE_SHOW = 5;
 
 export function newNoticeId(): string {
   const rev = String(9_999_999_999_999 - Date.now()).padStart(13, "0");
@@ -108,6 +108,24 @@ export function useOpenReports(enabled: boolean) {
     };
   }, [enabled, tick]);
   return { count, refresh: () => setTick((n) => n + 1) };
+}
+
+// إشعارات أزالها المستخدم بنفسه بعد قراءتها (محفوظة في متصفحه لكل حساب).
+const goneKey = (uid: string) => `notif-gone:${uid}`;
+export function readGone(uid: string): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(goneKey(uid)) ?? "[]");
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+export function writeGone(uid: string, ids: string[]) {
+  try {
+    localStorage.setItem(goneKey(uid), JSON.stringify(ids.slice(-200)));
+  } catch {
+    /* التخزين غير متاح */
+  }
 }
 
 // آخر وقت فتح فيه العضو قائمة الإشعارات (محفوظ في المتصفح لكل حساب).

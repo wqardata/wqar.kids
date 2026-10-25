@@ -124,13 +124,13 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fb;
   };
   const rec = (x: unknown) => (x && typeof x === "object" ? (x as Record<string, unknown>) : {});
-  const pr = rec(o.prayers), ad = rec(o.adjust), rm = rec(o.remindMin);
+  const pr = rec(o.prayers), rm = rec(o.remindMin);
   const prayers = { ...D.prayers };
   const adjust = { ...D.adjust };
   const remindMin = { ...D.remindMin };
   for (const p of PRAYERS) {
     prayers[p.id] = pr[p.id] !== false;
-    adjust[p.id] = Math.round(num(ad[p.id], -30, 30, 0));
+    adjust[p.id] = 0; // لا تعديل يدوي للمواقيت: تُحسب من الموقع فقط
     remindMin[p.id] = Math.round(num(rm[p.id], 0, 60, D.remindMin[p.id]));
   }
   const text = typeof o.text === "string" && o.text.trim() ? o.text.trim().slice(0, 120) : D.text;

@@ -142,15 +142,17 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
 }
 
 /** يزيد عدّاد مشاهدات الفيديو مرة واحدة لكل جلسة متصفح. الفشل صامت (لا يمنع المشاهدة). */
-export async function countView(id: string): Promise<void> {
-  if (!isFirebaseConfigured) return;
+export async function countView(id: string): Promise<boolean> {
+  if (!isFirebaseConfigured) return false;
   try {
     const k = `viewed:${id}`;
-    if (sessionStorage.getItem(k)) return;
+    if (sessionStorage.getItem(k)) return false;
     sessionStorage.setItem(k, "1");
     await updateDoc(doc(getDb(), "videos", id), { views: increment(1) });
+    return true;
   } catch {
     /* القواعد القديمة أو التخزين غير متاح: نتجاهل */
+    return false;
   }
 }
 

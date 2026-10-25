@@ -40,7 +40,7 @@ export function timesForDay(y: number, m: number, d: number, lat: number, lng: n
   const out = {} as DayTimes;
   for (const p of PRAYERS) {
     // التقريب إلى أقرب دقيقة ثم التعديل اليدوي.
-    const mins = Math.round(hours[p.id] * 60) + a.adjust[p.id];
+    const mins = Math.round(hours[p.id] * 60);
     out[p.id] = new Date(base + mins * 60000);
   }
   return out;

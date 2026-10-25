@@ -15,3 +15,45 @@ export function formatClock(sec: number): string {
   const r = String(s % 60).padStart(2, "0");
   return h ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
 }
+
+
+const ar = (n: number) => new Intl.NumberFormat("ar-u-nu-latn").format(n);
+
+/** «منذ …» بالعربية الصحيحة (مفرد/مثنى/جمع). */
+export function timeAgo(ms: number | null, now = Date.now()): string {
+  if (!ms) return "";
+  const sec = Math.max(0, Math.floor((now - ms) / 1000));
+  if (sec < 45) return "الآن";
+  const units: [number, string, string, string, string][] = [
+    // [الثواني، مفرد، مثنى، جمع (3–10)، جمع (11+)]
+    [31_536_000, "سنة", "سنتين", "سنوات", "سنة"],
+    [2_592_000, "شهر", "شهرين", "أشهر", "شهرًا"],
+    [604_800, "أسبوع", "أسبوعين", "أسابيع", "أسبوعًا"],
+    [86_400, "يوم", "يومين", "أيام", "يومًا"],
+    [3_600, "ساعة", "ساعتين", "ساعات", "ساعة"],
+    [60, "دقيقة", "دقيقتين", "دقائق", "دقيقة"],
+  ];
+  for (const [size, one, two, few, many] of units) {
+    const n = Math.floor(sec / size);
+    if (n < 1) continue;
+    if (n === 1) return `منذ ${one}`;
+    if (n === 2) return `منذ ${two}`;
+    return `منذ ${ar(n)} ${n <= 10 ? few : many}`;
+  }
+  return "الآن";
+}
+
+/** سطر «عدد المشاهدات • منذ كذا» الموحّد تحت الفيديوهات. */
+export function viewsAndAge(views: number, createdAt: number | null): string {
+  return [viewsLabel(views), timeAgo(createdAt)].filter(Boolean).join(" • ");
+}
+
+/** خلط فيشر–ييتس (نسخة جديدة). */
+export function shuffled<T>(list: readonly T[]): T[] {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}

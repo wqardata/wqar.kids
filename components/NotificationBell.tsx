@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { useAuth } from "@/lib/auth";
-import { readSeen, timeAgo, useNotifications, useOpenReports, writeSeen, type Notice } from "@/lib/notifications";
+import { readGone, readSeen, timeAgo, writeGone, useNotifications, useOpenReports, writeSeen, type Notice } from "@/lib/notifications";
 
 const GUEST = "guest"; // مفتاح «آخر ما رآه» للزائر غير المسجَّل
 const cap = (n: number) => (n > 9 ? "9+" : String(n));
@@ -27,7 +27,8 @@ function NoticeLink({ n }: { n: Notice }) {
 export default function NotificationBell() {
   const { user, loading, canAdd } = useAuth();
   const uid = user?.uid ?? null;
-  const { items, failed } = useNotifications(uid, canAdd, !loading);
+  const { items: all, failed } = useNotifications(uid, canAdd, !loading);
+  const [gone, setGone] = useState<string[]>([]);
   const reports = useOpenReports(canAdd);
   const [open, setOpen] = useState(false);
   const [seen, setSeen] = useState(0);
@@ -37,7 +38,16 @@ export default function NotificationBell() {
 
   useEffect(() => {
     setSeen(readSeen(uid ?? GUEST));
+    setGone(readGone(uid ?? GUEST));
   }, [uid]);
+
+  // ما أزاله المستخدم لا يظهر ولا يُعدّ في العدّاد.
+  const items = all.filter((n) => !gone.includes(n.id));
+  function dismiss(id: string) {
+    const next = [...gone, id];
+    setGone(next);
+    writeGone(uid ?? GUEST, next);
+  }
 
   const unread = items.filter((n) => n.at > seen).length;
   // الزائر: إشعاراته غير المقروءة + 1 لرسالة التسجيل التي تبقى ظاهرة دائمًا.
@@ -104,6 +114,9 @@ export default function NotificationBell() {
                     {n.body && <p>{n.body}</p>}
                     <small>{timeAgo(n.at)}</small>
                     <NoticeLink n={n} />
+                    <button type="button" className="notif-del" aria-label={`إزالة الإشعار: ${n.title}`} title="إزالة" onClick={() => dismiss(n.id)}>
+                      <Icon name="close" size={16} />
+                    </button>
                   </li>
                 ))}
                 {items.length === 0 && uid && !(canAdd && reports.count > 0) && (
