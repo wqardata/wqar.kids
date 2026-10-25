@@ -17,6 +17,9 @@ const TONES: Record<AlertKind, Note[]> = {
   ],
 };
 
+// دالة منفصلة كي لا يضيّق TypeScript نوع state بعد أول فحص (الحالة تتغير فعليًا بعد resume).
+const isRunning = (c: AudioContext): boolean => c.state === "running";
+
 let ctx: AudioContext | null = null;
 let unlocked = false;
 
@@ -40,7 +43,7 @@ export function armSounds(): void {
     const c = getCtx();
     if (!c) return;
     void c.resume().then(() => {
-      unlocked = c.state === "running";
+      unlocked = isRunning(c);
       if (unlocked) ["pointerdown", "keydown", "touchstart"].forEach((e) => window.removeEventListener(e, unlock));
     }).catch(() => {});
   };
@@ -51,9 +54,9 @@ export function armSounds(): void {
 export function playAlert(kind: AlertKind, volume: number): boolean {
   const c = getCtx();
   if (!c || volume <= 0) return false;
-  if (c.state !== "running") {
+  if (isRunning(c) === false) {
     void c.resume().catch(() => {});
-    if (c.state !== "running") return false;
+    if (!isRunning(c)) return false;
   }
   const peak = 0.5 * Math.min(1, Math.max(0, volume / 100));
   const t0 = c.currentTime + 0.02;
