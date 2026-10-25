@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getDb, getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 import { THEME_CACHE_KEY, THEME_STYLE_ID, effectiveColors, themeCss, type Theme } from "./theme";
 import { BRAND_FONTS, DEFAULT_SETTINGS, glassCss, merge, type SiteSettings } from "./settingsCore";
@@ -17,10 +17,38 @@ export function brandStyle(s: SiteSettings): CSSProperties {
   return st as CSSProperties;
 }
 
-/** يحفظ الإعدادات بعد تنظيفها ويعيد النسخة المنظّفة. */
+// آخر نسخة قرأها المتصفح فعلًا من Firestore (وليس القيم الافتراضية). null = لم تُقرأ بعد.
+let baseline: { settings: SiteSettings; exists: boolean } | null = null;
+
+/**
+ * يحفظ الإعدادات بعد تنظيفها ويعيد النسخة المنظّفة.
+ * يكتب الحقول التي تغيّرت فقط (مقارنةً بما قُرئ من Firestore) كي لا تُمحى حقول أخرى كالشعار واسم الموقع
+ * إن كانت نسخة الصفحة قديمة أو افتراضية؛ ويرفض الحفظ إن لم تُقرأ الإعدادات من Firestore بعد.
+ */
 export async function saveSettings(s: SiteSettings): Promise<SiteSettings> {
   const clean = merge({ ...s });
-  await setDoc(doc(getDb(), "settings", "site"), { ...clean, updatedAt: serverTimestamp() });
+  if (!baseline) {
+    // لم يكتمل تحميل الإعدادات: نحاول قراءتها الآن، فإن فشلت لا نكتب شيئًا.
+    const snap = await getDoc(doc(getDb(), "settings", "site"));
+    baseline = { settings: snap.exists() ? merge(snap.data()) : DEFAULT_SETTINGS, exists: snap.exists() };
+  }
+  const base = baseline;
+  const changed: Record<string, unknown> = {};
+  for (const k of Object.keys(clean) as (keyof SiteSettings)[]) {
+    if (JSON.stringify(clean[k]) !== JSON.stringify(base.settings[k])) changed[k] = clean[k];
+  }
+  const ref = doc(getDb(), "settings", "site");
+  if (base.exists) {
+    try {
+      await updateDoc(ref, { ...changed, updatedAt: serverTimestamp() });
+    } catch (e) {
+      if ((e as { code?: string })?.code !== "not-found") throw e;
+      await setDoc(ref, { ...clean, updatedAt: serverTimestamp() });
+    }
+  } else {
+    await setDoc(ref, { ...clean, updatedAt: serverTimestamp() });
+  }
+  baseline = { settings: clean, exists: true };
   // يُبطل نسخة الخادم المخزّنة كي يظهر الاسم/الشعار الجديد في التبويب وفي أول تحميل للجميع.
   try {
     const token = await getFirebaseAuth().currentUser?.getIdToken();
@@ -70,6 +98,29 @@ export function applyGlass(level: number) {
 type Ctx = { settings: SiteSettings; update: (s: SiteSettings) => void; ready: boolean };
 const SettingsCtx = createContext<Ctx | null>(null);
 
+/** نسخة محلية من هوية الموقع (الاسم والشعار) تُعرض إن تعذّر Firebase (انتهاء الحد اليومي مثلًا). */
+const IDENTITY_CACHE_KEY = "site-identity";
+type IdentityCache = Pick<SiteSettings, "siteName" | "tabName" | "logo" | "logoHeight" | "showName">;
+function readIdentity(): IdentityCache | null {
+  try {
+    const raw = localStorage.getItem(IDENTITY_CACHE_KEY);
+    if (!raw) return null;
+    const j = JSON.parse(raw) as Record<string, unknown>;
+    // merge ينظّف القيم (طول الاسم، صيغة الشعار…) فلا نثق بالمخزَّن كما هو.
+    const m = merge({ siteName: j.siteName, tabName: j.tabName, logo: j.logo, logoHeight: j.logoHeight, showName: j.showName });
+    return { siteName: m.siteName, tabName: m.tabName, logo: m.logo, logoHeight: m.logoHeight, showName: m.showName };
+  } catch {
+    return null;
+  }
+}
+function writeIdentity(s: SiteSettings) {
+  try {
+    localStorage.setItem(IDENTITY_CACHE_KEY, JSON.stringify({ siteName: s.siteName, tabName: s.tabName, logo: s.logo, logoHeight: s.logoHeight, showName: s.showName }));
+  } catch {
+    /* التخزين المحلي غير متاح: لا بأس */
+  }
+}
+
 export function SettingsProvider({ children, initial }: { children: ReactNode; initial?: SiteSettings }) {
   // `initial` قادمة من الخادم: الاسم والشعار الصحيحان يظهران في أول HTML دون وميض القيم القديمة.
   const [settings, setSettings] = useState<SiteSettings>(initial ?? DEFAULT_SETTINGS);
@@ -80,10 +131,18 @@ export function SettingsProvider({ children, initial }: { children: ReactNode; i
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     let off = false;
+    // إن كان الخادم لم يجد الإعدادات (فعاد بالقيم الافتراضية) نعرض آخر هوية محفوظة في هذا المتصفح حتى يرد Firebase.
+    const cached = readIdentity();
+    if (cached) setSettings((s) => ({ ...s, ...cached }));
     getDoc(doc(getDb(), "settings", "site"))
       .then((snap) => {
         if (off) return;
-        if (snap.exists()) setSettings(merge(snap.data()));
+        baseline = { settings: snap.exists() ? merge(snap.data()) : DEFAULT_SETTINGS, exists: snap.exists() };
+        if (snap.exists()) {
+          const fresh = merge(snap.data());
+          setSettings(fresh);
+          writeIdentity(fresh);
+        }
         setThemeKnown(true);
       })
       .catch(() => {})

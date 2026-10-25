@@ -33,6 +33,8 @@ export function decodeFields(f: Record<string, FsValue>): Record<string, unknown
  * النتيجة مخزّنة بوسم SETTINGS_TAG ويُبطَل تخزينها فور حفظ الإعدادات من لوحة التحكم،
  * فيظهر الاسم والشعار الصحيحان في HTML نفسه دون وميض الاسم القديم.
  */
+let lastGood: SiteSettings | null = null; // آخر نسخة قُرئت بنجاح (في ذاكرة الخادم) تُستعمل إن تعذّر Firebase لاحقًا
+
 export async function getServerSettings(): Promise<SiteSettings> {
   const pid = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const key = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -41,11 +43,13 @@ export async function getServerSettings(): Promise<SiteSettings> {
     const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(pid)}/databases/(default)/documents/settings/site${key ? `?key=${encodeURIComponent(key)}` : ""}`;
     const r = await fetch(url, { next: { revalidate: 300, tags: [SETTINGS_TAG] }, signal: AbortSignal.timeout(6000) });
     if (r.status === 404) return DEFAULT_SETTINGS;
-    if (!r.ok) return DEFAULT_SETTINGS;
+    // فشل مؤقت (حد يومي، 429، 5xx…): نُبقي آخر نسخة ناجحة بدل العودة للقيم الافتراضية فيختفي الاسم والشعار.
+    if (!r.ok) return lastGood ?? DEFAULT_SETTINGS;
     const j = (await r.json()) as { fields?: Record<string, FsValue> };
-    return merge(decodeFields(j.fields ?? {}));
+    lastGood = merge(decodeFields(j.fields ?? {}));
+    return lastGood;
   } catch {
-    return DEFAULT_SETTINGS;
+    return lastGood ?? DEFAULT_SETTINGS;
   }
 }
 

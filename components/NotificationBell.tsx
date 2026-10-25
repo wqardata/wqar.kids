@@ -6,7 +6,7 @@ import Icon from "./Icon";
 import { useAuth } from "@/lib/auth";
 import { useSettings } from "@/lib/settings";
 import { armSounds, playAlert } from "@/lib/sounds";
-import { readGone, readSeen, timeAgo, writeGone, useNotifications, useOpenReports, writeSeen, type Notice } from "@/lib/notifications";
+import { readGone, readSeenIds, timeAgo, writeGone, useNotifications, useOpenReports, writeSeenIds, type Notice } from "@/lib/notifications";
 
 const GUEST = "guest"; // مفتاح «آخر ما رآه» للزائر غير المسجَّل
 const cap = (n: number) => (n > 9 ? "9+" : String(n));
@@ -30,20 +30,28 @@ export default function NotificationBell() {
   const { user, loading, canAdd } = useAuth();
   const uid = user?.uid ?? null;
   const { settings } = useSettings();
-  const { items: all, failed } = useNotifications(uid, canAdd, !loading, settings.noticeCount);
+  const { items: all, failed, loaded } = useNotifications(uid, canAdd, !loading, settings.noticeCount);
   const snd = settings.sounds;
   const [gone, setGone] = useState<string[]>([]);
   const reports = useOpenReports(canAdd);
   const [open, setOpen] = useState(false);
-  const [seen, setSeen] = useState(0);
-  const [mark, setMark] = useState(0); // حدّ «الجديد» داخل القائمة المفتوحة
+  const [seen, setSeen] = useState<string[] | null>(null); // معرّفات ما رآه العضو (null = لم يُقرأ بعد)
+  const [mark, setMark] = useState<string[]>([]); // الجديد وقت فتح القائمة (للتمييز داخلها)
   const btn = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setSeen(readSeen(uid ?? GUEST));
+    setSeen(readSeenIds(uid ?? GUEST));
     setGone(readGone(uid ?? GUEST));
   }, [uid]);
+
+  // أول زيارة (لا سجل محفوظ): ما وصل عند التحميل لا يُعدّ جديدًا، وما يصل بعده يزيد العدّاد.
+  useEffect(() => {
+    if (seen !== null || !loaded || loading) return;
+    const ids = all.map((n) => n.id);
+    setSeen(ids);
+    writeSeenIds(uid ?? GUEST, ids);
+  }, [seen, loaded, loading, all, uid]);
 
   // صوت تنبيه عند وصول إشعار جديد أثناء فتح الموقع (ما كان موجودًا عند التحميل لا يُصدر صوتًا).
   // أول ثانيتين بعد الاشتراك نكتفي بتسجيل ما وصل (لقطات الفئات تصل متفرقة)، وبعدها أي معرّف جديد = نغمة.
@@ -83,15 +91,16 @@ export default function NotificationBell() {
     writeGone(uid ?? GUEST, next);
   }
 
-  const unread = items.filter((n) => n.at > seen).length;
+  const unread = seen === null ? 0 : items.filter((n) => !seen.includes(n.id)).length;
   const total = uid ? unread + (canAdd ? reports.count : 0) : unread;
 
   function toggle() {
     if (open) return close();
-    setMark(seen);
-    const latest = items.reduce((m, n) => Math.max(m, n.at), seen);
-    writeSeen(uid ?? GUEST, latest);
-    setSeen(latest);
+    const cur = seen ?? [];
+    setMark(items.filter((n) => !cur.includes(n.id)).map((n) => n.id));
+    const next = [...cur, ...items.map((n) => n.id).filter((id) => !cur.includes(id))];
+    writeSeenIds(uid ?? GUEST, next);
+    setSeen(next);
     if (uid && canAdd) reports.refresh();
     setOpen(true);
   }
@@ -164,7 +173,7 @@ export default function NotificationBell() {
                   </li>
                 )}
                 {items.map((n) => (
-                  <li key={n.id} className={n.at > mark ? "notif-item new" : "notif-item"}>
+                  <li key={n.id} className={mark.includes(n.id) ? "notif-item new" : "notif-item"}>
                     <strong>{n.title}</strong>
                     {n.body && <p>{n.body}</p>}
                     <small>{timeAgo(n.at)}</small>

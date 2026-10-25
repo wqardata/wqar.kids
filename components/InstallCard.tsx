@@ -1,3 +1,4 @@
+import { IDENTITY } from "@/lib/identity";
 import type { InstallSettings } from "@/lib/settingsCore";
 
 /** يستبدل {name} في نص النافذة باسم الموقع. */
@@ -6,7 +7,8 @@ export function fillName(text: string, name: string): string {
 }
 
 export function installIconSrc(i: InstallSettings): string {
-  return i.appIconV > 0 ? `/api/app-icon?s=192&v=${i.appIconV}` : "/icons/icon-192.png";
+  void i;
+  return IDENTITY.icon192;
 }
 
 type Props = {

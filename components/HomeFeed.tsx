@@ -15,6 +15,7 @@ import { useAllVideos, useSeriesAvatars, useVideosByIds, type VideoDoc } from "@
 const ROW = 4; // أربعة فيديوهات في الصف على الحاسوب
 const POOL = 16; // في الوضع العشوائي نختار من أحدث 16 ومن أكثر 16 مشاهدة (أو ضعف العدد المطلوب إن كان أكبر)
 const SHORTS_IN_ROW = 10;
+const HOME_FETCH = 100; // الرئيسية تقرأ أحدث 100 فيديو فقط (كل قراءة تُحتسب من حصة Firestore)
 const HISTORY_FETCH = 30; // نجلب حتى 30 فيديو من السجل ثم نصفّي (المقاطع القصيرة والمحذوف) ونأخذ العدد المطلوب
 
 type Layout = { top: VideoDoc[]; rest: VideoDoc[] };
@@ -162,7 +163,7 @@ function ContinueRow({ d }: { d: DisplaySettings }) {
 
 /** الرئيسية: شريط تصنيفات، ثم مجموعات الصفوف وصف المقاطع القصيرة حسب «إعدادات العرض» في لوحة التحكم. */
 export default function HomeFeed({ emptyNote }: { emptyNote?: string }) {
-  const { videos, ready } = useAllVideos();
+  const { videos, ready } = useAllVideos(HOME_FETCH);
   const { settings } = useSettings();
   const disp = settings.display;
   // التبويب المختار (معرّف: "all" | "new" | "cat:…")؛ null = الأول في القائمة.

@@ -1,5 +1,6 @@
 // منطق الإعدادات النقي (بلا "use client") ليعمل في الخادم والمتصفح معًا.
-import { CONTACT_EMAIL, LIVE_URL, MENU_ICONS, SITE_DESCRIPTION, SITE_NAME, SUPPORT_LINKS, more, nav, type IconName, type NavItem } from "./data";
+import { CONTACT_EMAIL, LIVE_URL, MENU_ICONS, SITE_DESCRIPTION, SUPPORT_LINKS, more, nav, type IconName, type NavItem } from "./data";
+import { IDENTITY } from "./identity";
 import { DEFAULT_THEME, cleanTheme, type Theme } from "./theme";
 import { DEFAULT_ADHAN, cleanAdhan, type AdhanSettings } from "./adhanCore";
 import { ROW_ICON_IDS } from "./rowIcons";
@@ -465,12 +466,12 @@ export type SiteSettings = {
   navLayout: NavLayout;
   /** أزرار أسفل مشغّل الفيديو بترتيبها. */
   watchButtons: WatchButton[];
-  /** شاشة الشعار لثانية عند فتح الرئيسية. */
+  /** شاشة الشعار عند فتح الموقع (تفعيل). */
   splash: boolean;
+  /** تفاصيل شاشة الشعار: الصورة والحجم وطريقة الظهور والحركة والزمن. */
+  splashCfg: SplashCfg;
   /** تشغيل الفيديو تلقائيًا عند فتح صفحته (قدر ما يسمح المتصفح والمشغّل). */
   autoplay: boolean;
-  /** زر «تخطي» على كل فيديو: ثواني المقدمة الافتراضية (0 = بلا زر). يتجاوزها حقل الفيديو نفسه. */
-  skipDefaultSec: number;
   /** نافذة تثبيت التطبيق على الهاتف والكمبيوتر. */
   install: InstallSettings;
   /** نافذة الأذان في أوقات الصلوات. */
@@ -491,17 +492,79 @@ export type SiteSettings = {
   noticeCount: number;
 };
 
+/** شاشة الشعار عند فتح الموقع. */
+export const SPLASH_IN = [
+  { id: "fade", label: "ظهور تدريجي" },
+  { id: "zoom", label: "تكبير من الصغر" },
+  { id: "up", label: "صعود من الأسفل" },
+  { id: "down", label: "نزول من الأعلى" },
+  { id: "bounce", label: "ارتداد" },
+  { id: "blur", label: "من الضبابية إلى الوضوح" },
+] as const;
+export const SPLASH_MOTION = [
+  { id: "none", label: "ثابت" },
+  { id: "pulse", label: "نبض" },
+  { id: "float", label: "طفو" },
+  { id: "glow", label: "توهّج" },
+  { id: "spin", label: "دوران بطيء" },
+] as const;
+export const SPLASH_OUT = [
+  { id: "fade", label: "تلاشٍ" },
+  { id: "zoom", label: "تكبير ثم تلاشٍ" },
+  { id: "up", label: "صعود ثم تلاشٍ" },
+  { id: "none", label: "اختفاء فوري" },
+] as const;
+export type SplashIn = (typeof SPLASH_IN)[number]["id"];
+export type SplashMotion = (typeof SPLASH_MOTION)[number]["id"];
+export type SplashOut = (typeof SPLASH_OUT)[number]["id"];
+export const SPLASH_SIZE_MIN = 40;
+export const SPLASH_SIZE_MAX = 360;
+export const SPLASH_DUR_MIN = 1;
+export const SPLASH_DUR_MAX = 8;
+export type SplashCfg = {
+  /** صورة خاصة بالشاشة (data:). فارغة = شعار الموقع. */
+  image: string;
+  /** ارتفاع الصورة بالبكسل. */
+  size: number;
+  anim: SplashIn;
+  motion: SplashMotion;
+  out: SplashOut;
+  /** مدة بقاء الشاشة بالثواني قبل أن تختفي. */
+  duration: number;
+  /** لون الخلفية (فارغ = لون خلفية الموقع). */
+  bg: string;
+  /** إظهار اسم الموقع تحت الصورة. */
+  showName: boolean;
+};
+export const DEFAULT_SPLASH: SplashCfg = { image: "", size: 80, anim: "zoom", motion: "none", out: "fade", duration: 1.3, bg: "", showName: false };
+
+function cleanSplash(v: unknown): SplashCfg {
+  const o = (v && typeof v === "object" && !Array.isArray(v) ? v : {}) as Record<string, unknown>;
+  const num = (x: unknown, lo: number, hi: number, def: number) => (typeof x === "number" && Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : def);
+  const D = DEFAULT_SPLASH;
+  return {
+    image: cleanLogo(o.image),
+    size: Math.round(num(o.size, SPLASH_SIZE_MIN, SPLASH_SIZE_MAX, D.size)),
+    anim: SPLASH_IN.some((x) => x.id === o.anim) ? (o.anim as SplashIn) : D.anim,
+    motion: SPLASH_MOTION.some((x) => x.id === o.motion) ? (o.motion as SplashMotion) : D.motion,
+    out: SPLASH_OUT.some((x) => x.id === o.out) ? (o.out as SplashOut) : D.out,
+    duration: Math.round(num(o.duration, SPLASH_DUR_MIN, SPLASH_DUR_MAX, D.duration) * 10) / 10,
+    bg: typeof o.bg === "string" && HEX.test(o.bg) ? o.bg : "",
+    showName: o.showName === true,
+  };
+}
+
 /** القيم الافتراضية (من lib/data.ts) تُستخدم حتى تُحفظ إعدادات في Firestore. */
 export const DEFAULT_SETTINGS: SiteSettings = {
-  siteName: SITE_NAME,
-  tabName: "",
+  siteName: IDENTITY.siteName,
+  tabName: IDENTITY.tabName,
   siteDescription: SITE_DESCRIPTION,
   contactEmail: CONTACT_EMAIL,
   liveUrl: LIVE_URL,
   supportLinks: SUPPORT_LINKS.map((l) => ({ ...l })),
-  logo: "",
-  logoHeight: 32,
-  showName: true,
+  logo: IDENTITY.logo,
+  logoHeight: IDENTITY.logoHeight,
+  showName: IDENTITY.showName,
   brandColor: "",
   brandColorDark: "",
   brandSize: 22,
@@ -512,8 +575,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   navLayout: { main: [], more: [] },
   watchButtons: DEFAULT_WATCH_BUTTONS,
   splash: true,
+  splashCfg: DEFAULT_SPLASH,
   autoplay: true,
-  skipDefaultSec: 30,
   install: DEFAULT_INSTALL,
   adhan: DEFAULT_ADHAN,
   adhkar: DEFAULT_ADHKAR,
@@ -545,6 +608,7 @@ const LOGO_RE = /^data:image\/(png|webp|jpeg);base64,[A-Za-z0-9+/=]+$/;
 function cleanLogo(v: unknown): string {
   return typeof v === "string" && v.length <= 300_000 && LOGO_RE.test(v) ? v : "";
 }
+
 
 /** يقبل روابط http/https فقط (يمنع javascript: وغيره). */
 export function cleanUrl(s: string): string {
@@ -636,14 +700,14 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     : DEFAULT_SETTINGS.supportLinks;
   return {
     siteName: str("siteName", DEFAULT_SETTINGS.siteName).trim() || DEFAULT_SETTINGS.siteName,
-    tabName: str("tabName", "").trim().slice(0, 60),
+    tabName: str("tabName", DEFAULT_SETTINGS.tabName).trim().slice(0, 60),
     siteDescription: str("siteDescription", DEFAULT_SETTINGS.siteDescription),
     contactEmail: str("contactEmail", DEFAULT_SETTINGS.contactEmail).trim(),
     liveUrl: cleanUrl(str("liveUrl", DEFAULT_SETTINGS.liveUrl)),
     supportLinks: links,
-    logo: cleanLogo(d.logo),
+    logo: d.logo === undefined ? DEFAULT_SETTINGS.logo : cleanLogo(d.logo),
     logoHeight: Math.min(LOGO_MAX, Math.max(LOGO_MIN, Math.round(Number(d.logoHeight) || DEFAULT_SETTINGS.logoHeight))),
-    showName: d.showName !== false,
+    showName: d.showName === undefined ? DEFAULT_SETTINGS.showName : d.showName !== false,
     brandColor: typeof d.brandColor === "string" && HEX.test(d.brandColor) ? d.brandColor : "",
     brandColorDark: typeof d.brandColorDark === "string" && HEX.test(d.brandColorDark) ? d.brandColorDark : "",
     brandSize: Math.min(BRAND_SIZE_MAX, Math.max(BRAND_SIZE_MIN, Math.round(Number(d.brandSize) || DEFAULT_SETTINGS.brandSize))),
@@ -654,8 +718,8 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     navLayout: cleanLayout(d.navLayout),
     watchButtons: cleanWatch(d.watchButtons),
     splash: d.splash !== false,
+    splashCfg: cleanSplash(d.splashCfg),
     autoplay: d.autoplay !== false,
-    skipDefaultSec: typeof d.skipDefaultSec === "number" && Number.isFinite(d.skipDefaultSec) ? Math.min(600, Math.max(0, Math.round(d.skipDefaultSec))) : DEFAULT_SETTINGS.skipDefaultSec,
     install: cleanInstall(d.install),
     adhan: cleanAdhan(d.adhan),
     adhkar: cleanAdhkar(d.adhkar),

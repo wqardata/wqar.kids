@@ -21,29 +21,28 @@ export type Notice = { id: string; title: string; body: string; link: string; au
 export const NOTICE_KEEP = NOTICE_COUNT_MAX;
 
 /**
- * يُشغّل `fn` كلما عاد الزائر إلى الصفحة (فتح التطبيق/التبويب، العودة للاتصال) وكل `everyMs` ما دامت ظاهرة.
+ * يُشغّل `fn` عند عودة الزائر إلى الصفحة (فتح التطبيق/التبويب، العودة للاتصال)، بحدّ أدنى `minGapMs` بين مرّتين.
  * الاشتراك المباشر (onSnapshot) كثيرًا ما يتجمّد في متصفحات الجوال بعد أن تذهب الصفحة للخلفية،
- * فنُحدّث البيانات من الخادم صراحةً كي يظهر الإشعار الجديد دون إعادة تحميل الصفحة.
+ * فنُحدّث البيانات من الخادم عند العودة فقط (بلا مؤقّت دوري) كي لا نستهلك حصّة قراءات Firestore المجانية.
  */
-export function useRefreshOnReturn(fn: () => void, enabled: boolean, everyMs = 45_000) {
+export function useRefreshOnReturn(fn: () => void, enabled: boolean, minGapMs = 60_000) {
   useEffect(() => {
     if (!enabled) return;
+    let last = Date.now();
     const run = () => {
-      if (document.visibilityState === "visible") fn();
+      if (document.visibilityState !== "visible" || Date.now() - last < minGapMs) return;
+      last = Date.now();
+      fn();
     };
-    const timer = setInterval(run, everyMs);
     document.addEventListener("visibilitychange", run);
-    window.addEventListener("focus", run);
     window.addEventListener("online", run);
     window.addEventListener("pageshow", run);
     return () => {
-      clearInterval(timer);
       document.removeEventListener("visibilitychange", run);
-      window.removeEventListener("focus", run);
       window.removeEventListener("online", run);
       window.removeEventListener("pageshow", run);
     };
-  }, [fn, enabled, everyMs]);
+  }, [fn, enabled, minGapMs]);
 }
 
 export function newNoticeId(): string {
@@ -123,7 +122,8 @@ export function useNotifications(uid: string | null, isAdmin: boolean, ready = t
     .sort((a, b) => b.at - a.at)
     .slice(0, show);
   const total = audiencesFor(uid, isAdmin).length;
-  return { items, failed: denied.length >= total && total > 0, denied };
+  const loaded = Object.keys(byAud).length + denied.length >= total;
+  return { items, failed: denied.length >= total && total > 0, denied, loaded };
 }
 
 /** عدد البلاغات المفتوحة (للمشرف فقط) مباشرةً: يتحدّث فور وصول بلاغ جديد. */
@@ -185,6 +185,28 @@ export function readSeen(uid: string): number {
 export function writeSeen(uid: string, at: number) {
   try {
     localStorage.setItem(seenKey(uid), String(at));
+  } catch {
+    /* التخزين غير متاح */
+  }
+}
+
+// معرّفات الإشعارات التي رآها العضو (تُحفظ لكل حساب). العدّاد = إشعارات ظاهرة معرّفها ليس هنا.
+// نعتمد المعرّفات لا الأوقات كي لا يتأثر العدّاد بفرق ساعة الجهاز عن ساعة الخادم.
+// null = لم يُحفظ شيء بعد (أول زيارة: ما هو موجود الآن لا يُعدّ جديدًا).
+const seenIdsKey = (uid: string) => `notif-seen-ids:${uid}`;
+export function readSeenIds(uid: string): string[] | null {
+  try {
+    const raw = localStorage.getItem(seenIdsKey(uid));
+    if (raw === null) return null;
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : null;
+  } catch {
+    return null;
+  }
+}
+export function writeSeenIds(uid: string, ids: string[]) {
+  try {
+    localStorage.setItem(seenIdsKey(uid), JSON.stringify(ids.slice(-300)));
   } catch {
     /* التخزين غير متاح */
   }

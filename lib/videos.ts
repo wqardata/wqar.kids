@@ -21,6 +21,46 @@ export function cleanCoverImage(v: unknown): string {
   return "";
 }
 
+/** رابط صورة جاهز محفوظ في مستند المجموعة (avatarUrl): داخلي أو https فقط. */
+export function cleanAvatarUrl(v: unknown): string {
+  if (typeof v !== "string") return "";
+  const t = v.trim();
+  return t.length <= 600 && /^(\/(?!\/)|https:\/\/)/.test(t) ? t : "";
+}
+
+// ───────── تخزين مؤقت في متصفح الزائر (يوفّر قراءات Firestore: الزائر العائد لا يقرأ شيئًا خلال المدة) ─────────
+const CACHE_TTL = 15 * 60_000;
+const CACHE_PREFIX = "vc:";
+function cacheGet<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    if (!raw) return null;
+    const o = JSON.parse(raw) as { at?: number; v?: T };
+    return o && typeof o.at === "number" && Date.now() - o.at < CACHE_TTL && o.v !== undefined ? o.v : null;
+  } catch {
+    return null;
+  }
+}
+function cacheSet(key: string, v: unknown) {
+  try {
+    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ at: Date.now(), v }));
+  } catch {
+    /* التخزين ممتلئ أو غير متاح: لا بأس */
+  }
+}
+const slim = (list: VideoDoc[]): VideoDoc[] => list.map((v) => ({ ...v, description: v.description.slice(0, 300) }));
+
+/** يمسح التخزين المؤقت للفيديوهات (يُستدعى بعد أي تعديل من لوحة التحكم كي يرى المشرف التغيير فورًا). */
+export function clearVideoCache() {
+  allCache = null;
+  avatarCache = null;
+  try {
+    for (const k of Object.keys(localStorage)) if (k.startsWith(CACHE_PREFIX)) localStorage.removeItem(k);
+  } catch {
+    /* لا بأس */
+  }
+}
+
 export type VideoDoc = {
   id: string;
   title: string;
@@ -39,14 +79,6 @@ export type VideoDoc = {
   duration: number | null;
   /** مقطع مقتطع قديم (clipStart/clipEnd): أُلغيت خاصية الاقتصاص، فيُخفى عن الزوار ويبقى في لوحة التحكم لتحذفه. */
   clip: boolean;
-  /** ثوانٍ: نهاية المقدمة/الإعلان داخل الفيديو (= adSec + introSec). إن وُجدت يظهر زر «تخطي» في بداية التشغيل (null = بلا زر). */
-  skipTo: number | null;
-  /** مدة الإعلان في بداية الفيديو بالثواني (null = لا إعلان/غير معروفة). */
-  adSec: number | null;
-  /** مدة المقدمة (بعد الإعلان) بالثواني (null = لا مقدمة/غير معروفة). */
-  introSec: number | null;
-  /** تم فحص الفيديو تلقائيًا بحثًا عن المقدمة والإعلان (حتى لو لم يُعثر على شيء). */
-  skipChecked: boolean;
   /** ترتيب الحلقة داخل مجموعتها كما رتّبه المشرف (null = بلا ترتيب يدوي فيُرتَّب بالموسم والحلقة). */
   seriesOrder: number | null;
   /** عدد المشاهدات (يزيد مرة لكل زائر في كل جلسة). */
@@ -111,18 +143,6 @@ function isLegacyClip(d: Record<string, unknown>): boolean {
   return typeof d.clipStart === "number" && typeof d.clipEnd === "number";
 }
 
-const secs = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 1 ? Math.min(Math.floor(v), 36000) : null);
-
-/** مدة الإعلان والمقدمة. الفيديوهات القديمة التي لها skipTo فقط تُعدّ مقدمة كلها. */
-function toSkip(d: Record<string, unknown>): Pick<VideoDoc, "skipTo" | "adSec" | "introSec"> {
-  const adSec = secs(d.adSec);
-  let introSec = secs(d.introSec);
-  const legacy = secs(d.skipTo);
-  if (adSec === null && introSec === null && legacy !== null) introSec = legacy;
-  const total = (adSec ?? 0) + (introSec ?? 0);
-  return { adSec, introSec, skipTo: total >= 1 ? total : null };
-}
-
 /** ترتيب حلقات المجموعة: الترتيب اليدوي أولًا، ثم الموسم والحلقة، ثم الأقدم. */
 export function compareInSeries(a: VideoDoc, b: VideoDoc): number {
   if (a.seriesOrder !== null && b.seriesOrder !== null && a.seriesOrder !== b.seriesOrder) return a.seriesOrder - b.seriesOrder;
@@ -149,8 +169,6 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
     hidden: d.hidden === true || isLegacyClip(d),
     duration: typeof d.duration === "number" && d.duration > 0 ? Math.round(d.duration) : null,
     clip: isLegacyClip(d),
-    ...toSkip(d),
-    skipChecked: d.skipChecked === true,
     seriesOrder: typeof d.seriesOrder === "number" && Number.isFinite(d.seriesOrder) ? d.seriesOrder : null,
     views: typeof d.views === "number" && d.views > 0 ? Math.floor(d.views) : 0,
     likes: typeof d.likes === "number" && d.likes > 0 ? Math.floor(d.likes) : 0,
@@ -183,21 +201,32 @@ export function normalizeAr(s: string): string {
     .replace(/ة/g, "ه");
 }
 
-/** أحدث الفيديوهات الظاهرة للزوار (غير المخفية)، حتى 200. */
-export function useAllVideos() {
+/** أحدث الفيديوهات الظاهرة للزوار (غير المخفية)، حتى `max` (الافتراضي 200). تُخزَّن 15 دقيقة في المتصفح. */
+export function useAllVideos(max = 200) {
   const [videos, setVideos] = useState<VideoDoc[]>([]);
   const [ready, setReady] = useState(!isFirebaseConfigured);
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     let off = false;
-    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(200)))
-      .then((snap) => !off && setVideos(snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => !v.hidden)))
+    const key = `latest${max}`;
+    const hit = cacheGet<VideoDoc[]>(key);
+    if (hit) {
+      setVideos(hit);
+      setReady(true);
+      return;
+    }
+    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(max)))
+      .then((snap) => {
+        const list = snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => !v.hidden);
+        cacheSet(key, slim(list));
+        if (!off) setVideos(list);
+      })
       .catch(() => {})
       .finally(() => !off && setReady(true));
     return () => {
       off = true;
     };
-  }, []);
+  }, [max]);
   return { videos, ready };
 }
 
@@ -211,7 +240,12 @@ let allCache: { at: number; videos: VideoDoc[] } | null = null;
 let allInflight: Promise<VideoDoc[]> | null = null;
 
 async function fetchEveryVideo(): Promise<VideoDoc[]> {
-  if (allCache && Date.now() - allCache.at < 120_000) return allCache.videos;
+  if (allCache && Date.now() - allCache.at < CACHE_TTL) return allCache.videos;
+  const stored = cacheGet<VideoDoc[]>("all");
+  if (stored) {
+    allCache = { at: Date.now(), videos: stored };
+    return stored;
+  }
   if (allInflight) return allInflight;
   allInflight = (async () => {
     const out: VideoDoc[] = [];
@@ -225,6 +259,7 @@ async function fetchEveryVideo(): Promise<VideoDoc[]> {
     }
     const videos = out.filter((v) => !v.hidden);
     allCache = { at: Date.now(), videos };
+    cacheSet("all", slim(videos));
     return videos;
   })().finally(() => {
     allInflight = null;
@@ -308,21 +343,38 @@ let avatarCache: { at: number; map: Map<string, string> } | null = null;
 let avatarInflight: Promise<Map<string, string>> | null = null;
 
 async function fetchSeriesAvatars(): Promise<Map<string, string>> {
-  if (avatarCache && Date.now() - avatarCache.at < 120_000) return avatarCache.map;
+  if (avatarCache && Date.now() - avatarCache.at < CACHE_TTL) return avatarCache.map;
+  const stored = cacheGet<[string, string][]>("avatars");
+  if (stored) {
+    avatarCache = { at: Date.now(), map: new Map(stored) };
+    return avatarCache.map;
+  }
   if (avatarInflight) return avatarInflight;
   avatarInflight = (async () => {
-    const [snap, all] = await Promise.all([getDocs(collection(getDb(), "series")), fetchEveryVideo()]);
-    const by = new Map<string, VideoDoc[]>();
-    for (const v of all) if (v.seriesId) by.set(v.seriesId, [...(by.get(v.seriesId) ?? []), v]);
+    // الأصل: رابط الصورة الجاهز في مستند المجموعة (coverImage أو avatarUrl) فلا نقرأ أي فيديو.
+    // يحدّثه المشرف تلقائيًا عند فتح «المجموعات» في لوحة التحكم. المجموعة التي لم يُحسب لها رابط بعد
+    // (avatarUrl غير موجود) نحسبها بالطريقة القديمة من فيديوهاتها.
+    const snap = await getDocs(collection(getDb(), "series"));
     const map = new Map<string, string>();
+    const unresolved: { id: string; chosen: string }[] = [];
     for (const d of snap.docs) {
-      const list = by.get(d.id) ?? [];
-      const chosen = typeof d.data().coverVideoId === "string" ? (d.data().coverVideoId as string) : "";
-      // الصورة المخصّصة أولًا، ثم صورة الفيديو المختار؛ إن لم تكن له صورة مصغّرة نرجع للاختيار التلقائي.
-      const url = cleanCoverImage(d.data().coverImage) || pickCover(list, chosen)?.thumbnail || pickCover(list, "")?.thumbnail || "";
+      const data = d.data();
+      const url = cleanCoverImage(data.coverImage) || cleanAvatarUrl(data.avatarUrl);
       if (url) map.set(d.id, url);
+      else if (typeof data.avatarUrl !== "string") unresolved.push({ id: d.id, chosen: typeof data.coverVideoId === "string" ? (data.coverVideoId as string) : "" });
+    }
+    if (unresolved.length) {
+      const all = await fetchEveryVideo();
+      const by = new Map<string, VideoDoc[]>();
+      for (const v of all) if (v.seriesId) by.set(v.seriesId, [...(by.get(v.seriesId) ?? []), v]);
+      for (const u of unresolved) {
+        const list = by.get(u.id) ?? [];
+        const url = pickCover(list, u.chosen)?.thumbnail || pickCover(list, "")?.thumbnail || "";
+        if (url) map.set(u.id, url);
+      }
     }
     avatarCache = { at: Date.now(), map };
+    cacheSet("avatars", [...map.entries()]);
     return map;
   })().finally(() => {
     avatarInflight = null;
