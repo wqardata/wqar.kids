@@ -63,6 +63,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // تفضيلات كل مستخدم (الأذان…): يقرؤها ويكتبها صاحب الحساب وحده.
+    match /userPrefs/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['adhan', 'updatedAt'])
+        && request.resource.data.adhan is map
+        && request.resource.data.adhan.size() <= 6;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     // بصمات الفيديوهات لكشف المقدمة والإعلان تلقائيًا (للمشرف فقط؛ تُحسب مرة وتُحفظ).
     match /fingerprints/{id} {
       allow read, delete: if isAdmin();
