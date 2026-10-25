@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { autoDetectSkip } from "@/lib/autoSkip";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { recordView } from "@/lib/history";
+import { viewsAndAge } from "@/lib/format";
 import { useSettings } from "@/lib/settings";
 import { countView, toVideo, type VideoDoc } from "@/lib/videos";
 
@@ -31,6 +32,7 @@ export default function VideoView({ id }: { id: string }) {
   const [video, setVideo] = useState<VideoDoc | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing">(isFirebaseConfigured ? "loading" : "missing");
   const [editing, setEditing] = useState(false);
+  const [counted, setCounted] = useState(0); // +1 إن سجّلنا مشاهدة هذه الجلسة
   const [autoMsg, setAutoMsg] = useState(""); // حالة الكشف التلقائي (للمشرف فقط)
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export default function VideoView({ id }: { id: string }) {
           document.title = v.title;
           if (!v.hidden) {
             recordView(v.id); // سجل المشاهدة (محلي)
-            void countView(v.id); // عدّاد المشاهدات العام (مرة لكل جلسة)
+            void countView(v.id).then((ok) => ok && !off && setCounted(1)); // عدّاد المشاهدات العام (مرة لكل جلسة)
           }
           setVideo(v);
           setState("ok");
@@ -107,10 +109,13 @@ export default function VideoView({ id }: { id: string }) {
             <div className="clip-box"><ClipPlayer driveId={video.driveId} title={video.title} clip={video.clip} active={settings.autoplay} /></div>
           </div>
         ) : (
-          <DrivePlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} {...skipProps(video)} />
+          <div className="watch-sticky">
+            <DrivePlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} {...skipProps(video)} />
+          </div>
         )}
         {video.hidden && <p className="meta">⚠ هذا الفيديو مخفي عن الزوار (تراه لأنك مشرف).</p>}
         <h1>{video.title}</h1>
+        <p className="meta watch-stats">{viewsAndAge(video.views + counted, video.createdAt)}</p>
         {parts.length > 0 && <p className="meta">{parts.join(" • ")}</p>}
         {video.description && <p className="desc">{video.description}</p>}
         <WatchActions video={video} />

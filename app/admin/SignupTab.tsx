@@ -55,27 +55,27 @@ export default function SignupTab() {
         <p className="hint">
           تظهر هذه النصوص في صفحة «تسجيل الدخول / إنشاء حساب». اكتب <code dir="ltr">{"{name}"}</code> في أي نص ليُستبدل باسم الموقع. الحقل الفارغ يعود للنص الافتراضي.
         </p>
-        {SIGNUP_FIELDS.map((g) => (
-          <fieldset key={g.group} className="live-start">
-            <legend>{g.group}</legend>
-            {g.items.map((f) => (
-              <div className="field" key={f.key}>
-                <label htmlFor={`su-${f.key}`}>{f.label}</label>
-                {f.long ? (
-                  <textarea id={`su-${f.key}`} rows={2} value={draft[f.key]} maxLength={f.max} onChange={(e) => set(f.key, e.target.value)} />
-                ) : (
-                  <input id={`su-${f.key}`} value={draft[f.key]} maxLength={f.max} onChange={(e) => set(f.key, e.target.value)} />
-                )}
-                {draft[f.key] !== DEFAULT_SIGNUP[f.key] && (
-                  <div className="live-vars">
-                    <button type="button" className="linkbtn linkbtn--sm" onClick={() => set(f.key, DEFAULT_SIGNUP[f.key])}>الافتراضي</button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </fieldset>
-        ))}
       </section>
+      {SIGNUP_FIELDS.map((g, gi) => (
+        <section key={g.group} className="panel auth-form" aria-labelledby={`su-g${gi}`}>
+          <h2 id={`su-g${gi}`}>{g.group}</h2>
+          {g.items.map((f) => (
+            <div className="field" key={f.key}>
+              <label htmlFor={`su-${f.key}`}>{f.label}</label>
+              {f.long ? (
+                <textarea id={`su-${f.key}`} rows={2} value={draft[f.key]} maxLength={f.max} onChange={(e) => set(f.key, e.target.value)} />
+              ) : (
+                <input id={`su-${f.key}`} value={draft[f.key]} maxLength={f.max} onChange={(e) => set(f.key, e.target.value)} />
+              )}
+              {draft[f.key] !== DEFAULT_SIGNUP[f.key] && (
+                <div className="live-vars">
+                  <button type="button" className="linkbtn linkbtn--sm" onClick={() => set(f.key, DEFAULT_SIGNUP[f.key])}>الافتراضي</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </section>
+      ))}
 
       <section className="live-preview" aria-label="معاينة قبل الحفظ">
         <header>

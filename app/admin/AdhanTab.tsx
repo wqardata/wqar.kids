@@ -33,7 +33,6 @@ export default function AdhanTab() {
     setForm((f) => ({ ...f, [k]: v }));
   };
   const setPrayer = (id: PrayerId, on: boolean) => set("prayers", { ...form.prayers, [id]: on });
-  const setAdjust = (id: PrayerId, n: number) => set("adjust", { ...form.adjust, [id]: n });
   const setRemind = (id: PrayerId, n: number) => set("remindMin", { ...form.remindMin, [id]: Math.min(60, Math.max(0, Math.round(n) || 0)) });
   const [remindTest, setRemindTest] = useState(false);
 
@@ -123,19 +122,14 @@ export default function AdhanTab() {
       </section>
 
       <section className="panel auth-form" aria-labelledby="ad-h-pr">
-        <h2 id="ad-h-pr">الصلوات والتعديل بالدقائق</h2>
+        <h2 id="ad-h-pr">الصلوات</h2>
         {PRAYERS.map((p) => (
           <div className="addrow" key={p.id}>
             <label className="check"><input type="checkbox" checked={form.prayers[p.id]} onChange={(e) => setPrayer(p.id, e.target.checked)} /> {p.label}</label>
             <span dir="ltr"><strong>{clock(todayTimes[p.id])}</strong></span>
-            <label>
-              <span className="sr-only">تعديل {p.label} بالدقائق</span>
-              <input type="number" min={-30} max={30} step={1} dir="ltr" value={form.adjust[p.id]} onChange={(e) => setAdjust(p.id, Number(e.target.value))} style={{ width: 80 }} />
-            </label>
-            <small>دقيقة</small>
           </div>
         ))}
-        <p className="hint">الأوقات المعروضة محسوبة لليوم بحسب الموقع والطريقة أعلاه. الرقم الموجب يؤخّر الصلاة والسالب يقدّمها. قارنها بتقويم مسجدك المحلي قبل الاعتماد عليها.</p>
+        <p className="hint">الأوقات المعروضة محسوبة تلقائيًا لليوم بحسب الموقع (تلقائي لكل زائر أو المدينة المختارة) والطريقة أعلاه، ولا تُعدَّل يدويًا. قارنها بتقويم مسجدك المحلي قبل الاعتماد عليها.</p>
       </section>
 
       <section className="panel auth-form" aria-labelledby="ad-h-rem">
@@ -155,7 +149,7 @@ export default function AdhanTab() {
             <small>دقيقة قبل الأذان (0 = بلا تنبيه)</small>
           </div>
         ))}
-        <p className="hint">تظهر الفقاعة قبل موعد الصلاة بالمدة المضبوطة لها (بعد تعديل الدقائق أعلاه)، ثم تتحول إلى نافذة الأذان عند دخول الوقت. يمكن للزائر إغلاقها. تُحتسب فقط للصلوات المفعّلة في قسم «الصلوات والتعديل».</p>
+        <p className="hint">تظهر الفقاعة قبل موعد الصلاة بالمدة المضبوطة لها ، ثم تتحول إلى نافذة الأذان عند دخول الوقت. يمكن للزائر إغلاقها. تُحتسب فقط للصلوات المفعّلة في قسم «الصلوات».</p>
         <div className="addrow">
           <button type="button" className="btn btn--ghost btn--sm" onClick={() => setRemindTest(true)} disabled={!form.remind}>تجربة التنبيه</button>
         </div>

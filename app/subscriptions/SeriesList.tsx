@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
+import { useMemo } from "react";
 import { formatClock } from "@/lib/format";
 import { SkeletonGrid, SkelCards } from "@/components/Skeleton";
 import { usePaged } from "@/lib/usePaged";
@@ -11,7 +12,12 @@ export default function SeriesList() {
   const series = useNamedList("series");
   const { bySeries, ready } = useVideosBySeries();
   const { canAdd } = useAuth();
-  const { gridRef, sentinelRef, visible, pending } = usePaged(series.items.length);
+  // الأحدث إضافةً في الأعلى: المجموعة التي أُضيف إليها فيديو أخيرًا (أو أُنشئت أخيرًا) أولًا، والفارغة في الآخر.
+  const order = useMemo(() => {
+    const last = (id: string) => Math.max(0, ...(bySeries.get(id) ?? []).map((v) => v.createdAt ?? 0));
+    return [...series.items].sort((a, b) => last(b.id) - last(a.id));
+  }, [series.items, bySeries]);
+  const { gridRef, sentinelRef, visible, pending } = usePaged(order.length);
 
   if (series.loading || !ready) return <SkeletonGrid />;
   return (
@@ -26,7 +32,7 @@ export default function SeriesList() {
       ) : (
         <>
         <ul ref={gridRef} className="grid">
-          {series.items.slice(0, visible).map((s, i) => {
+          {order.slice(0, visible).map((s, i) => {
             const mine = bySeries.get(s.id) ?? [];
             const cover = pickCover(mine, s.coverVideoId);
             return (

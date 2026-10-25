@@ -89,6 +89,7 @@ export default function AccountPanel() {
 
   return (
     <div className="account">
+      <p><Link href="/adhan" className="btn btn--ghost btn--sm">إعدادات الأذان الخاصة بي</Link></p>
       <section className="account-head">
         <Avatar id={avatarId} size={72} />
         <div>

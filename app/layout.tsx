@@ -6,6 +6,7 @@ import { glassCss } from "@/lib/settingsCore";
 import Shell from "@/components/Shell";
 import InstallPrompt from "@/components/InstallPrompt";
 import Splash from "@/components/Splash";
+import FullscreenLandscape from "@/components/FullscreenLandscape";
 import AdhanPopup from "@/components/AdhanPopup";
 import { getServerSettings, shortHash } from "@/lib/serverSettings";
 import { themeCss } from "@/lib/theme";
@@ -74,6 +75,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <AuthProvider>
           <SettingsProvider initial={settings}>
             <Splash />
+            <FullscreenLandscape />
             <Shell>{children}</Shell>
             <InstallPrompt />
             <AdhanPopup />

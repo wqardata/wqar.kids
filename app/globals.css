@@ -799,3 +799,46 @@ html, body { overflow-x: clip; }
 .live-vars { display: flex; flex-wrap: wrap; gap: 6px; }
 .live-vars code { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: .8rem; }
 .dirty-dot { color: #d97706; font-size: .85rem; }
+
+/* ---------- عدّاد المشاهدات والوقت ---------- */
+.card p.meta { margin-top: 1px; }
+.watch-stats { margin-top: 2px; }
+.short-views { display: block; }
+.live-views { color: var(--mute); font-size: .9rem; margin: 0; }
+
+/* ---------- نقطة «بث مباشر» الوامضة ---------- */
+.live-dot--on { color: #e5251b; animation: live-blink 1.2s ease-in-out infinite; }
+.live-pill .live-dot--on { color: #ff3b30; }
+@keyframes live-blink { 0%, 100% { opacity: 1; } 50% { opacity: .12; } }
+/* وميض شفافية فقط (لا حركة): نُبقيه حتى مع «تقليل الحركة». */
+@media (prefers-reduced-motion: reduce) { .live-dot--on { animation: live-blink 1.6s ease-in-out infinite !important; } }
+
+/* ---------- الرئيسية: أربعة في الصف + صف المقاطع القصيرة ---------- */
+@media (min-width: 900px) { .grid.grid--home { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.home-shorts { margin: 26px 0; }
+.home-shorts-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 16px 10px; }
+.home-shorts-head h2 { font-size: 1.1rem; font-weight: 600; }
+.home-shorts-head a { color: var(--accent); font-size: .88rem; }
+.home-shorts-row { list-style: none; margin: 0; padding: 0 16px 6px; display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.home-shorts-row > li { flex: 0 0 42%; max-width: 200px; scroll-snap-align: start; }
+.home-shorts-row .thumb { aspect-ratio: 9 / 16; border-radius: 14px; overflow: hidden; }
+.home-shorts-row .card h3 { margin-inline: 2px; font-size: .9rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.home-shorts-row .card p { margin-inline: 2px; }
+@media (min-width: 600px) {
+  .home-shorts-head, .home-shorts-row { padding-inline: 2px; }
+  .home-shorts-row > li { flex-basis: calc((100% - 4 * 12px) / 5); max-width: none; }
+}
+
+/* ---------- إزالة الإشعار ---------- */
+.notif-item { position: relative; }
+.notif-del { position: absolute; inset-block-start: 6px; inset-inline-end: 6px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--mute); cursor: pointer; }
+.notif-del:hover { background: var(--line); color: var(--ink); }
+.notif-item strong { padding-inline-end: 28px; }
+
+/* ---------- صفحة الفيديو على الجوال/اللوح: الفيديو ثابت أعلى الشاشة وقائمة المقترحات تتمرّر تحته ---------- */
+@media (max-width: 1199px) {
+  .watch { display: block; }
+  .watch > article { display: contents; }
+  .watch-sticky { position: sticky; top: calc(var(--top) + env(safe-area-inset-top, 0px)); z-index: 15; background: var(--bg); }
+  .watch > .suggest { margin-top: 28px; }
+}

@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import LivePlayer from "@/components/LivePlayer";
 import LiveStage, { LiveIdle } from "@/components/LiveStage";
 import PlayLoader from "@/components/PlayLoader";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { DAY_NAMES, EMPTY_STREAMS, effectiveStart, isRunning, nextDayWithStream, nowPlaying, parseStreams, pickStream, type LiveStreams } from "@/lib/live";
 import { useSettings } from "@/lib/settings";
+import { countView } from "@/lib/videos";
 
 function useNow(active: boolean) {
   const [now, setNow] = useState(() => Date.now());
@@ -37,6 +38,32 @@ function useVolume() {
   return [vol, set] as const;
 }
 
+/** مشاهدات المقطع الجاري بثه: نسجّل مشاهدة (مرة لكل جلسة) ثم نقرأ العدد الحالي، ونحدّثه كل دقيقة. */
+function useLiveViews(videoId: string | null) {
+  const [views, setViews] = useState<number | null>(null);
+  useEffect(() => {
+    setViews(null);
+    if (!videoId || !isFirebaseConfigured) return;
+    let off = false;
+    const read = async () => {
+      try {
+        const snap = await getDoc(doc(getDb(), "videos", videoId));
+        const v = snap.data()?.views;
+        if (!off) setViews(typeof v === "number" && v > 0 ? Math.floor(v) : 0);
+      } catch {
+        /* نتجاهل: لا نعرض عدّادًا */
+      }
+    };
+    void countView(videoId).then(read);
+    const t = setInterval(read, 60_000);
+    return () => {
+      off = true;
+      clearInterval(t);
+    };
+  }, [videoId]);
+  return views;
+}
+
 export default function LiveSection() {
   const { settings } = useSettings();
   const [streams, setStreams] = useState<LiveStreams>(EMPTY_STREAMS);
@@ -61,6 +88,8 @@ export default function LiveSection() {
   const { live, day: today } = pickStream(streams, now);
   const running = isRunning(live);
   const [vol, setVol] = useVolume();
+  const curNp = running ? nowPlaying(live.items, effectiveStart(live, now, streams.config.tz) as number, now, live.loop) : null;
+  const liveViews = useLiveViews(curNp && curNp.state === "playing" ? live.items[curNp.index]?.videoId ?? null : null);
 
   if (!ready) return <div className="live-view" aria-busy="true"><div className="live-frame live-frame--wait"><PlayLoader show /></div></div>;
 
@@ -81,6 +110,7 @@ export default function LiveSection() {
           startAt={startAt}
           now={now}
           tz={tz}
+          views={liveViews}
           player={cur && np.state === "playing" ? <LivePlayer key={`${np.index}-${cur.videoId}`} driveId={cur.driveId} title={cur.title} offset={np.offset} volume={vol.volume} muted={vol.muted} onVolume={setVol} /> : null}
         />
       );

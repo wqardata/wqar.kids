@@ -53,6 +53,18 @@ export default function NotificationsTab() {
         audience,
         createdAt: serverTimestamp(),
       });
+      // الحد خمسة إشعارات لكل فئة: يُحذف الأقدم تلقائيًا.
+      try {
+        const all = await getDocs(query(collection(getDb(), "notifications"), limit(300)));
+        const seen: Record<string, number> = {};
+        const extra = all.docs
+          .map((d) => toNotice(d.id, d.data()))
+          .sort((a, b) => b.at - a.at || a.id.localeCompare(b.id))
+          .filter((n) => (seen[n.audience] = (seen[n.audience] ?? 0) + 1) > NOTICE_SHOW);
+        await Promise.all(extra.map((n) => deleteDoc(doc(getDb(), "notifications", n.id))));
+      } catch {
+        /* التنظيف اختياري: القائمة تعرض آخر خمسة على أي حال */
+      }
       setTitle("");
       setBody("");
       setLink("");
@@ -109,7 +121,7 @@ export default function NotificationsTab() {
         <div className="addrow">
           <button type="submit" className="btn" disabled={sending || !title.trim()}>{sending ? "جارٍ الإرسال…" : "إرسال الإشعار"}</button>
         </div>
-        <p className="hint">يرى الأعضاء المسجَّلون آخر {NOTICE_SHOW} إشعارًا من فئتهم، ويظهر عدّاد على الجرس لما لم يفتحوه بعد. الزائر غير المسجَّل يرى إشعارات فئة «غير المسجَّلين» فقط، ثم رسالة طلب التسجيل. بلاغات الزوار الجديدة تظهر للمشرفين فقط على جرسهم تلقائيًا.</p>
+        <p className="hint">يرى الأعضاء المسجَّلون آخر {NOTICE_SHOW} إشعارات من فئتهم (ويُحذف الأقدم تلقائيًا عند إرسال جديد)، ويستطيع كل عضو إزالة الإشعار من قائمته بعد قراءته، ويظهر عدّاد على الجرس لما لم يفتحوه بعد. الزائر غير المسجَّل يرى إشعارات فئة «غير المسجَّلين» فقط، ثم رسالة طلب التسجيل. بلاغات الزوار الجديدة تظهر للمشرفين فقط على جرسهم تلقائيًا.</p>
       </form>
 
       <div className="panel">

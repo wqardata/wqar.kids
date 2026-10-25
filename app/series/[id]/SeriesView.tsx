@@ -4,7 +4,8 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import VideoGrid from "@/components/VideoGrid";
 import { SkeletonGrid } from "@/components/Skeleton";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
-import { compareInSeries, toVideo, type VideoDoc } from "@/lib/videos";
+import { shuffled } from "@/lib/format";
+import { toVideo, type VideoDoc } from "@/lib/videos";
 
 export default function SeriesView({ id }: { id: string }) {
   const [name, setName] = useState("");
@@ -21,11 +22,13 @@ export default function SeriesView({ id }: { id: string }) {
         const n = String(s.data().name ?? "");
         document.title = n;
         setName(n);
+        // الترتيب عشوائي في كل زيارة. لإرجاع ترتيب الحلقات: استبدل shuffled(...) بـ [...].sort(compareInSeries).
         setItems(
+          shuffled(
           snap.docs
             .map((d) => toVideo(d.id, d.data()))
-            .filter((v) => !v.hidden)
-            .sort(compareInSeries),
+            .filter((v) => !v.hidden),
+          ),
         );
         setState("ok");
       })
