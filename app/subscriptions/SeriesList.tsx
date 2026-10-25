@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Icon from "@/components/Icon";
 import { useAuth } from "@/lib/auth";
 import { useMemo } from "react";
 import { formatClock } from "@/lib/format";
@@ -45,17 +46,25 @@ export default function SeriesList() {
             const total = mine.reduce((sum, v) => sum + (v.duration && v.duration > 0 ? v.duration : 0), 0);
             return (
               <li key={s.id}>
-                <Link href={`/series/${s.id}`} className="card">
-                  <div className="thumb" style={{ ["--h" as string]: (i * 47) % 360 }}>
-                    {img && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={img} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />
-                    )}
-                    {!img && <span className="series-letter" aria-hidden="true">{s.name[0]}</span>}
-                    {showTotal && total > 0 && <span className="dur" title="إجمالي مدة الحلقات">{formatClock(total)}</span>}
+                {/* بطاقة مجموعة بشكل «قائمة التشغيل»: طبقات مكدّسة خلف الصورة ولوحة عدّاد الحلقات على جانبها */}
+                <Link href={`/series/${s.id}`} className="card card--pl">
+                  <div className="pl">
+                    <div className="thumb" style={{ ["--h" as string]: (i * 47) % 360 }}>
+                      {img && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={img} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />
+                      )}
+                      {!img && <span className="series-letter" aria-hidden="true">{s.name[0]}</span>}
+                      <span className="pl-count" aria-hidden="true">
+                        <strong>{mine.length.toLocaleString("ar-EG")}</strong>
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h11M3 11h11M3 16h6" /><path d="M16 13v7l6-3.5z" fill="currentColor" /></svg>
+                      </span>
+                      <span className="pl-hover" aria-hidden="true"><Icon name="play" size={20} /> عرض المجموعة</span>
+                    </div>
                   </div>
                   <h3>{s.name}</h3>
-                  <p>{mine.length} حلقة</p>
+                  <p>مجموعة • {mine.length} حلقة{showTotal && total > 0 ? ` • ${formatClock(total)}` : ""}</p>
+                  <p className="pl-link">عرض المجموعة كاملة</p>
                 </Link>
               </li>
             );

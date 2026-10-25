@@ -8,11 +8,11 @@ import { getDb } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
 import { deleteThumb, saveThumb } from "@/lib/thumbs";
 import { useRandomFrame } from "@/lib/useRandomFrame";
-import type { useNamedList, VideoDoc } from "@/lib/videos";
+import { clearVideoCache, type useNamedList, type VideoDoc } from "@/lib/videos";
 
 type NamedList = ReturnType<typeof useNamedList>;
 
-/** نموذج تعديل فيديو (العنوان، الوصف، الصورة، المجموعة، التخطي…). يُستعمل في قائمة الفيديوهات وفي صفحة عرض الفيديو. */
+/** نموذج تعديل فيديو (العنوان، الوصف، الصورة، المجموعة…). يُستعمل في قائمة الفيديوهات وفي صفحة عرض الفيديو. */
 export default function VideoEditForm({ video, categories, series, onSaved, onCancel }: {
   video: VideoDoc;
   categories: NamedList;
@@ -28,8 +28,6 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
   const [episode, setEpisode] = useState(video.episode?.toString() ?? "");
   const [isShort, setIsShort] = useState(video.isShort);
   const [hidden, setHidden] = useState(video.hidden);
-  const [adSec, setAdSec] = useState(video.adSec?.toString() ?? "");
-  const [introSec, setIntroSec] = useState(video.introSec?.toString() ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   // الصورة المصغّرة: إبقاء الحالية، أو لقطة عشوائية بعد الثانية 10، أو صورة درايف الافتراضية.
@@ -48,9 +46,6 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
     try {
       const cat = categories.items.find((c) => c.id === categoryId);
       const ser = series.items.find((s) => s.id === seriesId);
-      const sec = (v: string) => (v.trim() && Number(v) >= 1 ? Math.min(Math.floor(Number(v)), 36000) : null);
-      const ad = sec(adSec);
-      const intro = sec(introSec);
       const num = (v: string) => (v.trim() && Number.isFinite(Number(v)) ? Math.max(1, Math.floor(Number(v))) : null);
       let thumbnail = video.thumbnail;
       if (newFrame) {
@@ -76,14 +71,11 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
         episode: ser ? num(episode) : null,
         isShort,
         hidden,
-        adSec: ad,
-        introSec: intro,
-        skipTo: ad || intro ? Math.min((ad ?? 0) + (intro ?? 0), 36000) : null,
-        skipChecked: Boolean(ad || intro) || video.skipChecked,
         // نقل الفيديو إلى مجموعة أخرى يُسقط ترتيبه القديم (يلحق بآخر المجموعة الجديدة حتى يُرتَّب).
         seriesOrder: (ser?.id ?? "") === video.seriesId ? video.seriesOrder : null,
       };
       await updateDoc(doc(getDb(), "videos", video.id), { ...patch, updatedAt: serverTimestamp() });
+      clearVideoCache();
       if (thumbMode === "drive") void deleteThumb(video.id); // لم تعد اللقطة المحفوظة مستعملة
       onSaved({ ...video, ...patch });
     } catch {
@@ -102,20 +94,6 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
         <label htmlFor={`d-${video.id}`}>الوصف</label>
         <textarea id={`d-${video.id}`} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} />
       </div>
-      <fieldset className="field skipset">
-        <legend>زرّا «تخطي الإعلان» و«تخطي المقدمة»</legend>
-        <div className="two">
-          <div className="field">
-            <label htmlFor={`ad-${video.id}`}>مدة الإعلان (ثانية)</label>
-            <input id={`ad-${video.id}`} type="number" inputMode="numeric" min={1} max={36000} dir="ltr" placeholder="بلا إعلان" value={adSec} onChange={(e) => setAdSec(e.target.value)} />
-          </div>
-          <div className="field">
-            <label htmlFor={`in-${video.id}`}>مدة المقدمة (ثانية)</label>
-            <input id={`in-${video.id}`} type="number" inputMode="numeric" min={1} max={36000} dir="ltr" placeholder="بلا مقدمة" value={introSec} onChange={(e) => setIntroSec(e.target.value)} />
-          </div>
-        </div>
-        <p className="hint">يظهر زر «تخطي الإعلان» ثم «تخطي المقدمة» فوق المشغّل في بداية الفيديو. أدخل المدتين يدويًا. الحقلان فارغان = المدة الافتراضية من الإعدادات.</p>
-      </fieldset>
       <div className="field">
         <span id={`th-${video.id}`}>الصورة المصغّرة</span>
         <div className="arow-thumb thumbedit-img" aria-labelledby={`th-${video.id}`}>

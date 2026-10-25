@@ -101,7 +101,7 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
 
   return (
     <section className="sorder panel" aria-label="ترتيب حلقات المجموعة">
-      <h3>ترتيب الحلقات والتخطي</h3>
+      <h3>ترتيب الحلقات</h3>
       <p className="hint">اسحب الحلقة إلى مكانها أو استعمل الأسهم، ثم اضغط «حفظ الترتيب». الحلقات المخفية تظهر هنا بعلامة وتحتفظ بمكانها.</p>
       <div aria-live="polite">
         {error && <p className="field-error" role="alert">{error}</p>}

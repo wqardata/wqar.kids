@@ -1,11 +1,14 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { clearVideoCache } from "@/lib/videos";
 import AddVideoForm from "./AddVideoForm";
 import FolderImport from "./FolderImport";
 
 /** تبديل بين إضافة فيديو واحد واستيراد مجلد كامل. */
 export default function AddTabs() {
   const [tab, setTab] = useState<"one" | "folder">("one");
+  // ما أُضيف هنا يجب أن يظهر في الرئيسية فورًا: نمسح التخزين المؤقت عند مغادرة الصفحة.
+  useEffect(() => () => clearVideoCache(), []);
   return (
     <>
       <div role="tablist" aria-label="طريقة الإضافة" className="tabs">

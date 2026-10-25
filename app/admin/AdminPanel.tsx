@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
+import { clearVideoCache } from "@/lib/videos";
 import VideosTab from "./VideosTab";
 import SettingsTab from "./SettingsTab";
 import SignupTab from "./SignupTab";
@@ -54,6 +55,9 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
   const [group, setGroup] = useState<Group>("content");
   // يُتذكَّر آخر تبويب فرعي في كل مجموعة عند التنقل بينها.
   const [subs, setSubs] = useState<Record<Group, Sub>>({ settings: "settings", tarbawi: "adhan", notifications: "notifications", organize: "appearance", content: initial === "series" ? "series" : initial === "reports" ? "reports" : "videos" });
+
+  // ما يتغيّر في اللوحة (فيديوهات/مجموعات/تصنيفات) يجب أن يظهر فورًا للمشرف: نمسح التخزين المؤقت عند مغادرتها.
+  useEffect(() => () => clearVideoCache(), []);
 
   // الانتقال من الإشعار إلى /admin?go=reports وأنت داخل اللوحة: نفتح التبويب المطلوب.
   useEffect(() => {

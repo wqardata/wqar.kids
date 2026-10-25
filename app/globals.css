@@ -347,8 +347,6 @@ html, body { overflow-x: clip; }
 .watch-admin .btn { margin-top: 0; display: inline-flex; align-items: center; gap: 6px; }
 .watch-edit { width: 100%; justify-self: stretch; }
 .watch .watch-edit h2 { margin: 0 0 10px; }
-.skipset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; display: grid; gap: 8px; }
-.skipset legend { padding-inline: 6px; font-weight: 600; }
 
 /* ---------- ترتيب حلقات المجموعة ---------- */
 .nrow-order { flex: 1 1 100%; }
@@ -454,11 +452,42 @@ html, body { overflow-x: clip; }
 @media (min-width: 600px) { .chips { padding-inline: 2px; } }
 
 /* ---------- شاشة الشعار عند فتح الرئيسية ---------- */
-.splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--bg); animation: splash-out .3s ease 1s forwards; }
-.splash-brand { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; animation: splash-in .45s ease both; }
+/* شاشة الشعار: خلفية (.splash) ← خروج (.splash-exit) ← دخول (.splash-brand) ← حركة مستمرة (.splash-motion). المدة الكلية --sp-total. */
+.splash { --sp-out: .4s; position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--bg); animation: splash-out var(--sp-out) ease calc(var(--sp-total, 1.3s) - var(--sp-out)) forwards; }
+.splash[data-out="none"] { animation: splash-hide 0s linear var(--sp-total, 1.3s) forwards; }
+.splash--box { position: absolute; z-index: 1; border-radius: inherit; }
+.splash-exit { display: grid; place-items: center; }
+.splash[data-out="zoom"] .splash-exit { animation: splash-exit-zoom var(--sp-out) ease calc(var(--sp-total, 1.3s) - var(--sp-out)) forwards; }
+.splash[data-out="up"] .splash-exit { animation: splash-exit-up var(--sp-out) ease calc(var(--sp-total, 1.3s) - var(--sp-out)) forwards; }
+.splash-brand { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; animation: splash-in-fade .6s ease both; }
+.splash-brand[data-in="zoom"] { animation-name: splash-in-zoom; }
+.splash-brand[data-in="up"] { animation-name: splash-in-up; }
+.splash-brand[data-in="down"] { animation-name: splash-in-down; }
+.splash-brand[data-in="bounce"] { animation: splash-in-bounce .9s cubic-bezier(.3,1.4,.5,1) both; }
+.splash-brand[data-in="blur"] { animation-name: splash-in-blur; animation-duration: .8s; }
+.splash-motion { display: grid; place-items: center; }
+.splash-motion[data-motion="pulse"] { animation: splash-pulse 1.2s ease-in-out infinite; }
+.splash-motion[data-motion="float"] { animation: splash-float 1.8s ease-in-out infinite; }
+.splash-motion[data-motion="glow"] { animation: splash-glow 1.4s ease-in-out infinite; }
+.splash-motion[data-motion="spin"] { animation: splash-spin 6s linear infinite; }
 .splash .brand-logo { width: auto; max-width: 70vw; max-height: 40vh; object-fit: contain; }
-@keyframes splash-in { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
+.splash--box .brand-logo { max-width: 60%; max-height: 70%; }
+@keyframes splash-in-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes splash-in-zoom { from { opacity: 0; transform: scale(.55); } to { opacity: 1; transform: none; } }
+@keyframes splash-in-up { from { opacity: 0; transform: translateY(48px); } to { opacity: 1; transform: none; } }
+@keyframes splash-in-down { from { opacity: 0; transform: translateY(-48px); } to { opacity: 1; transform: none; } }
+@keyframes splash-in-bounce { 0% { opacity: 0; transform: scale(.3); } 55% { opacity: 1; transform: scale(1.12); } 75% { transform: scale(.95); } 100% { transform: none; } }
+@keyframes splash-in-blur { from { opacity: 0; filter: blur(18px); transform: scale(1.08); } to { opacity: 1; filter: none; transform: none; } }
+@keyframes splash-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes splash-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes splash-glow { 0%, 100% { filter: drop-shadow(0 0 0 transparent); } 50% { filter: drop-shadow(0 0 16px var(--accent)); } }
+@keyframes splash-spin { to { transform: rotate(360deg); } }
+@keyframes splash-exit-zoom { to { transform: scale(1.35); } }
+@keyframes splash-exit-up { to { transform: translateY(-60px); } }
 @keyframes splash-out { to { opacity: 0; visibility: hidden; } }
+@keyframes splash-hide { to { opacity: 0; visibility: hidden; } }
+.splash-box { position: relative; height: 200px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); }
+.splash-box .splash { position: absolute; }
 
 /* ---------- طيّ القائمة الجانبية (الشاشات الكبيرة) ---------- */
 .side-toggle { display: none; }
@@ -510,6 +539,19 @@ html, body { overflow-x: clip; }
 /* ---------- مجموعاتي: صورة أبرز فيديو + تحرير ---------- */
 .series-tools { padding: 0 16px 12px; }
 @media (min-width: 600px) { .series-tools { padding-inline: 2px; } }
+/* بطاقة المجموعة على طراز قائمة التشغيل في يوتيوب */
+.pl { position: relative; padding-top: 12px; }
+.pl::before, .pl::after { content: ""; position: absolute; height: 12px; border-radius: 10px 10px 0 0; background: color-mix(in srgb, var(--mute) 38%, var(--bg)); }
+.pl::before { top: 0; inset-inline: 12%; opacity: .55; }
+.pl::after { top: 6px; inset-inline: 6%; opacity: .85; }
+.pl .thumb { position: relative; z-index: 1; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 2px var(--bg); }
+.pl-count { position: absolute; inset-block: 0; inset-inline-end: 0; width: 36%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: rgba(0,0,0,.72); color: #fff; backdrop-filter: blur(3px); }
+.pl-count strong { font-size: 1.25rem; font-weight: 600; line-height: 1; }
+.pl-hover { position: absolute; inset-block: 0; inset-inline-start: 0; width: 64%; display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(0,0,0,.55); color: #fff; font-weight: 600; font-size: .9rem; opacity: 0; transition: opacity .15s; }
+.card--pl:hover .pl-hover, .card--pl:focus-visible .pl-hover { opacity: 1; }
+.card--pl .pl-link { font-weight: 600; margin-top: 4px; }
+.card--pl:hover .pl-link { color: var(--accent); }
+@media (hover: none) { .pl-hover { display: none; } }
 .series-letter { position: absolute; inset: 0; display: grid; place-items: center; font-size: 3rem; font-weight: 700; color: #fff; }
 .nrow-lead { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .nrow-thumb { flex: none; width: 72px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: var(--line); display: block; }
@@ -733,10 +775,6 @@ html, body { overflow-x: clip; }
 .admin-filters .field { margin: 0; min-width: 150px; flex: 1 1 150px; max-width: 240px; }
 .admin-filters .btn { margin: 0; }
 
-/* زر تخطي المقدمة/الإعلان فوق المشغّل */
-.skip-btn { position: absolute; z-index: 30; inset-inline-end: 12px; bottom: 56px; display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border: 1px solid rgba(255,255,255,.7); border-radius: 8px; background: rgba(0,0,0,.72); color: #fff; font: inherit; font-weight: 600; cursor: pointer; backdrop-filter: blur(4px); }
-.skip-btn:hover { background: rgba(0,0,0,.88); }
-.skip-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* نافذة الأذان */
 .adhan-overlay { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(6, 14, 22, .72); backdrop-filter: blur(3px); animation: adhan-in .35s ease both; }

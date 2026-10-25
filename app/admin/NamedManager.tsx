@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import Link from "next/link";
 import { addDoc, collection, deleteDoc, doc, getDocs, limit, query, serverTimestamp, updateDoc, where, writeBatch } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
-import { cleanCoverImage, normalizeAr, pickCover, toVideo, type VideoDoc } from "@/lib/videos";
+import { cleanAvatarUrl, cleanCoverImage, clearVideoCache, normalizeAr, pickCover, toVideo, type VideoDoc } from "@/lib/videos";
 import { driveThumbnail, parseDriveId } from "@/lib/drive";
 import { deleteThumb, fileToJpegDataUrl, saveThumb } from "@/lib/thumbs";
 import SeriesOrder from "./SeriesOrder";
@@ -96,6 +96,19 @@ export default function NamedManager({ coll }: { coll: Coll }) {
         }
       }
       setCapped(vids.size >= COUNT_LIMIT);
+      // مزامنة رابط صورة كل مجموعة (avatarUrl) في مستندها، كي يقرأ الزوار المستند وحده دون جلب كل الفيديوهات.
+      if (coll === "series") {
+        for (const d of list.docs) {
+          const mine = byId.get(d.id) ?? [];
+          const cover = typeof d.data().coverVideoId === "string" ? (d.data().coverVideoId as string) : "";
+          const url = cleanCoverImage(d.data().coverImage) || pickCover(mine, cover)?.thumbnail || pickCover(mine, "")?.thumbnail || "";
+          const cur = typeof d.data().avatarUrl === "string" ? cleanAvatarUrl(d.data().avatarUrl) : null;
+          // لا نكتب فراغًا إن كانت قراءة الفيديوهات مبتورة (حد العدّ)، ولا نكتب إلا عند وجود فرق.
+          if (cur !== url && (url || !(vids.size >= COUNT_LIMIT))) {
+            updateDoc(d.ref, { avatarUrl: cleanAvatarUrl(url) }).then(() => clearVideoCache()).catch(() => {});
+          }
+        }
+      }
       setItems(
         list.docs
           .map((d) => ({
@@ -200,11 +213,14 @@ export default function NamedManager({ coll }: { coll: Coll }) {
           nextImage = driveThumbnail(id, 640);
         }
         if (nextImage !== i.coverImage) patch.coverImage = nextImage;
+        // الرابط الجاهز لصورة المجموعة (يقرؤه الزوار بدل جلب كل الفيديوهات).
+        patch.avatarUrl = cleanAvatarUrl(nextImage || pickCover(i.vids, nextVideo)?.thumbnail || pickCover(i.vids, "")?.thumbnail || "");
         if (nextVideo !== i.coverVideoId) patch.coverVideoId = nextVideo;
       }
       if (Object.keys(patch).length) await updateDoc(doc(getDb(), coll, i.id), { ...patch, updatedAt: serverTimestamp() });
       // الصورة المرفوعة التي لم تعد مستعملة تُحذف كي لا تبقى يتيمة.
       if (coll === "series" && isUploaded(i.coverImage) && !isUploaded(nextImage)) void deleteThumb(i.id);
+      clearVideoCache();
       setItems((prev) =>
         prev
           .map((x) => (x.id === i.id ? { ...x, name, coverVideoId: nextVideo, coverImage: nextImage } : x))

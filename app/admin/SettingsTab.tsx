@@ -1,72 +1,10 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import BrandMark from "@/components/BrandMark";
-import InstallCard, { installIconSrc } from "@/components/InstallCard";
-import { getDb } from "@/lib/firebase";
+import InstallCard from "@/components/InstallCard";
+import { fileToLogo } from "@/lib/logoFile";
 import { GLASS_MAX, GLASS_MIN, INSTALL_POS_DESKTOP, INSTALL_POS_MOBILE, type InstallPosDesktop, type InstallPosMobile, type InstallSettings } from "@/lib/settingsCore";
 import { applyGlass, BRAND_FONTS, BRAND_SIZE_MAX, BRAND_SIZE_MIN, brandStyle, cleanUrl, LOGO_MAX, LOGO_MIN, saveSettings, useSettings, type BrandFontId, type SiteSettings } from "@/lib/settings";
-
-/** يصغّر الصورة (حتى 512px) ويحوّلها إلى data: URL صغير؛ إعادة الرسم تزيل أي سكربت من SVG. */
-async function fileToLogo(file: File): Promise<string> {
-  if (!file.type.startsWith("image/")) throw new Error("اختر ملف صورة (PNG أو SVG أو JPG أو WebP).");
-  if (file.size > 5 * 1024 * 1024) throw new Error("الصورة كبيرة؛ الحد الأقصى 5 ميغابايت.");
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = () => rej(new Error("تعذّر قراءة الصورة."));
-      i.src = url;
-    });
-    const w0 = img.naturalWidth || 512;
-    const h0 = img.naturalHeight || 512;
-    for (const max of [512, 256]) {
-      const k = Math.min(1, max / Math.max(w0, h0));
-      const c = document.createElement("canvas");
-      c.width = Math.max(1, Math.round(w0 * k));
-      c.height = Math.max(1, Math.round(h0 * k));
-      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
-      const out = c.toDataURL("image/webp", 0.9);
-      if (out.length <= 250_000) return out;
-    }
-    throw new Error("الصورة معقّدة جدًا؛ جرّب صورة أبسط أو أصغر.");
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-const ICON_PAD = 0.64; // حجم الشعار داخل الأيقونة (هامش آمن لقصّ الأيقونات الدائرية)
-const ICON_BG_DEFAULT = "#0f1a24";
-
-/** يرسم الشعار في مربع PNG بلون خلفية، بحجم size. */
-function makeIcon(img: HTMLImageElement, size: number, bg: string): string {
-  const c = document.createElement("canvas");
-  c.width = size;
-  c.height = size;
-  const ctx = c.getContext("2d");
-  if (!ctx) throw new Error("canvas");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, size, size);
-  const w0 = img.naturalWidth || 512, h0 = img.naturalHeight || 512;
-  const k = (size * ICON_PAD) / Math.max(w0, h0);
-  const w = w0 * k, h = h0 * k;
-  ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-  return c.toDataURL("image/png");
-}
-
-function loadImage(file: File): Promise<HTMLImageElement> {
-  if (!file.type.startsWith("image/")) return Promise.reject(new Error("اختر ملف صورة (PNG أو SVG أو JPG أو WebP)."));
-  const url = URL.createObjectURL(file);
-  return new Promise<HTMLImageElement>((res, rej) => {
-    const i = new Image();
-    i.onload = () => { URL.revokeObjectURL(url); res(i); };
-    i.onerror = () => { URL.revokeObjectURL(url); rej(new Error("تعذّر قراءة الصورة.")); };
-    i.src = url;
-  });
-}
-
-type PendingIcon = { png192: string; png512: string } | null;
 
 export default function SettingsTab() {
   const { settings, update, ready } = useSettings();
@@ -74,9 +12,6 @@ export default function SettingsTab() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
-  // أيقونة التطبيق المختارة ولم تُحفظ بعد (تُحفظ في settings/appicon عند الضغط على «حفظ»).
-  const [pendingIcon, setPendingIcon] = useState<PendingIcon>(null);
-  const iconImg = useRef<HTMLImageElement | null>(null);
 
   // معاينة حيّة للزجاجية على الموقع نفسه أثناء تحريك المربع؛ إن لم تُحفظ تعود القيمة المحفوظة عند مغادرة التبويب.
   const savedGlass = useRef(settings.glass);
@@ -90,31 +25,6 @@ export default function SettingsTab() {
     setDone(false);
     setForm((f) => ({ ...f, install: { ...f.install, [k]: v } }));
   };
-  const iconBg = form.install.appIconBg || ICON_BG_DEFAULT;
-
-  function buildIcon(img: HTMLImageElement, bg: string) {
-    const png512 = makeIcon(img, 512, bg);
-    if (png512.length > 330_000) throw new Error("الصورة معقّدة جدًا؛ جرّب شعارًا أبسط.");
-    setPendingIcon({ png192: makeIcon(img, 192, bg), png512 });
-  }
-  async function onAppIcon(file: File | undefined) {
-    if (!file) return;
-    setError("");
-    try {
-      const img = await loadImage(file);
-      iconImg.current = img;
-      buildIcon(img, iconBg);
-      setDone(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "تعذّر قراءة الصورة.");
-    }
-  }
-  function onIconBg(v: string) {
-    setInstall("appIconBg", v);
-    if (iconImg.current) {
-      try { buildIcon(iconImg.current, v); } catch { /* تبقى الأيقونة السابقة */ }
-    }
-  }
 
   const set = <K extends keyof SiteSettings>(k: K, v: SiteSettings[K]) => {
     setDone(false);
@@ -145,16 +55,9 @@ export default function SettingsTab() {
     }
     setSaving(true);
     try {
-      let toSave = form;
-      if (pendingIcon) {
-        await setDoc(doc(getDb(), "settings", "appicon"), { ...pendingIcon, bg: iconBg, updatedAt: serverTimestamp() });
-        toSave = { ...form, install: { ...form.install, appIconV: Date.now() } };
-      }
-      const saved = await saveSettings(toSave);
+      const saved = await saveSettings(form);
       update(saved);
       setForm(saved);
-      setPendingIcon(null);
-      iconImg.current = null;
       setDone(true);
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
@@ -186,7 +89,7 @@ export default function SettingsTab() {
       </section>
 
       <section className="panel auth-form" aria-labelledby="st-h-logo">
-        <h2 id="st-h-logo">الشعار (يظهر في الهيدر وكأيقونة للتبويب)</h2>
+        <h2 id="st-h-logo">الشعار (يظهر في الهيدر)</h2>
       <div className="logo-box">
         <div className="logo-preview" aria-label="معاينة الهيدر">
           <span className="brand" style={brandStyle(form)}><BrandMark s={form} /></span>
@@ -338,30 +241,11 @@ export default function SettingsTab() {
           </div>
         </>
       )}
-      <div className="field">
-        <span>أيقونة التطبيق عند تثبيته (على الهاتف والكمبيوتر)</span>
-        <div className="addrow">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="appicon-prev" src={pendingIcon?.png192 || installIconSrc(form.install)} alt="" width={64} height={64} />
-          <label className="btn btn--ghost btn--sm filebtn">
-            رفع أيقونة
-            <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void onAppIcon(e.target.files?.[0]); e.target.value = ""; }} />
-          </label>
-          {(pendingIcon || form.install.appIconV > 0) && (
-            <button type="button" className="btn btn--ghost btn--sm danger" onClick={() => { setPendingIcon(null); iconImg.current = null; setInstall("appIconV", 0); }}>استعادة الافتراضية</button>
-          )}
-        </div>
-        <div className="colorrow">
-          <label htmlFor="in-bg">لون خلفية الأيقونة وشاشة فتح التطبيق</label>
-          <input id="in-bg" type="color" value={iconBg} onChange={(e) => onIconBg(e.target.value)} />
-          {form.install.appIconBg && <button type="button" className="btn btn--ghost btn--sm" onClick={() => onIconBg("")}>افتراضي</button>}
-        </div>
-        <p className="hint">ارفع شعارًا مربعًا (يفضَّل PNG بخلفية شفافة)؛ يوضع داخل مربع بلون الخلفية. لتغيير لون الخلفية لأيقونة محفوظة سابقًا أعد رفع الصورة. تظهر الأيقونة الجديدة بعد الحفظ، وتحتاج إعادة تثبيت التطبيق ليتحدّث على الأجهزة التي ثبّتته.</p>
-      </div>
+      <p className="hint">أيقونة التبويب وأيقونة التطبيق عند تثبيته ثابتتان من ملفات الموقع (<code dir="ltr">public/icons</code>) ولا تُغيَّران من هنا.</p>
       <div className="field">
         <span>معاينة النافذة</span>
         <div className="install install--preview">
-          <InstallCard install={form.install} name={form.tabName || form.siteName} iconSrc={pendingIcon?.png192} canPrompt onClose={() => {}} />
+          <InstallCard install={form.install} name={form.tabName || form.siteName} canPrompt onClose={() => {}} />
         </div>
       </div>
 

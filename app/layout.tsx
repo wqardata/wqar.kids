@@ -9,7 +9,8 @@ import Splash from "@/components/Splash";
 import FullscreenLandscape from "@/components/FullscreenLandscape";
 import AdhanPopup from "@/components/AdhanPopup";
 import AdhkarPopup from "@/components/AdhkarPopup";
-import { getServerSettings, shortHash } from "@/lib/serverSettings";
+import { IDENTITY } from "@/lib/identity";
+import { getServerSettings } from "@/lib/serverSettings";
 import { themeCss } from "@/lib/theme";
 import "./globals.css";
 
@@ -24,15 +25,15 @@ const amiri = Amiri({ subsets: ["arabic", "latin"], weight: ["400", "700"], disp
 
 export async function generateMetadata(): Promise<Metadata> {
   const s = await getServerSettings();
-  // الشعار المرفوع يصبح أيقونة التبويب؛ وإن لم يوجد شعار تُستخدم الأيقونة الافتراضية.
-  const icon = s.logo ? `/api/logo?v=${shortHash(s.logo)}` : "/icons/icon-192.png";
+  // أيقونة التبويب والتطبيق ثابتة من الملفات (لا علاقة لها بـ Firebase).
+  
   // اسم التبويب مستقل عن اسم الموقع داخل الصفحات (فارغ = نفس اسم الموقع).
   const tab = s.tabName || s.siteName;
   return {
     title: { default: tab, template: `%s | ${tab}` },
     description: s.siteDescription,
     applicationName: tab,
-    icons: { icon, apple: s.install.appIconV > 0 ? `/api/app-icon?s=192&v=${s.install.appIconV}` : icon },
+    icons: { icon: [{ url: IDENTITY.favicon, sizes: "32x32", type: "image/png" }, { url: IDENTITY.icon192, sizes: "192x192", type: "image/png" }], apple: IDENTITY.icon192 },
   };
 }
 

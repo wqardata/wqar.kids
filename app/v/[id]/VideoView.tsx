@@ -19,11 +19,6 @@ import { countView, toVideo, useSeriesAvatars, type VideoDoc } from "@/lib/video
 const VideoEditPanel = dynamic(() => import("./VideoEditPanel"), { ssr: false });
 
 /** مدة الإعلان والمقدمة للمشغّل: غير محدّدة = الافتراضي، وفُحص بلا نتيجة = بلا زر. */
-function skipProps(v: VideoDoc): { adSec?: number; introSec?: number } {
-  if (v.adSec === null && v.introSec === null) return v.skipChecked ? { adSec: 0, introSec: 0 } : {};
-  return { adSec: v.adSec ?? 0, introSec: v.introSec ?? 0 };
-}
-
 export default function VideoView({ id }: { id: string }) {
   const { loading: authLoading, canAdd } = useAuth();
   const { settings } = useSettings();
@@ -90,7 +85,7 @@ export default function VideoView({ id }: { id: string }) {
     <div className="watch">
       <article>
         <div className="watch-sticky">
-          <DrivePlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} {...skipProps(video)} />
+          <DrivePlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} />
         </div>
         {video.hidden && <p className="meta">⚠ هذا الفيديو مخفي عن الزوار (تراه لأنك مشرف).</p>}
         <h1>{video.title}</h1>

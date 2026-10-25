@@ -1,6 +1,21 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { applyTheme, saveSettings, useSettings } from "@/lib/settings";
+import { SplashView } from "@/components/Splash";
+import { fileToLogo } from "@/lib/logoFile";
+import {
+  DEFAULT_SPLASH,
+  SPLASH_DUR_MAX,
+  SPLASH_DUR_MIN,
+  SPLASH_IN,
+  SPLASH_MOTION,
+  SPLASH_OUT,
+  SPLASH_SIZE_MAX,
+  SPLASH_SIZE_MIN,
+  applyTheme,
+  saveSettings,
+  useSettings,
+  type SplashCfg,
+} from "@/lib/settings";
 import {
   BASE_SIZE_DEFAULT,
   BASE_SIZE_MAX,
@@ -86,6 +101,9 @@ function ColorRow({ k, mode, theme, onChange }: { k: ColorKey; mode: Mode; theme
 export default function AppearanceTab() {
   const { settings, update, ready } = useSettings();
   const [theme, setTheme] = useState<Theme>(settings.theme);
+  const [splashOn, setSplashOn] = useState(settings.splash);
+  const [sp, setSp] = useState<SplashCfg>(settings.splashCfg);
+  const [spRun, setSpRun] = useState(0); // يزيد لإعادة تشغيل معاينة شاشة الشعار
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -103,6 +121,24 @@ export default function AppearanceTab() {
     setDone(false);
     setTheme(fn);
   };
+  const editSp = <K extends keyof SplashCfg>(k: K, v: SplashCfg[K]) => {
+    setDone(false);
+    setSp((c) => ({ ...c, [k]: v }));
+  };
+  // أعد تشغيل المعاينة بعد كل تغيير (بتأخير قصير كي لا تتقطّع أثناء سحب المنزلق).
+  useEffect(() => {
+    const t = setTimeout(() => setSpRun((n) => n + 1), 350);
+    return () => clearTimeout(t);
+  }, [sp]);
+  async function onSplashImage(file: File | undefined) {
+    if (!file) return;
+    setError("");
+    try {
+      editSp("image", await fileToLogo(file));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذّر رفع الصورة.");
+    }
+  }
   const setColor = (mode: Mode, k: ColorKey, v: string) =>
     edit((t) => (mode === "light" ? { ...t, light: { ...t.light, [k]: v } } : { ...t, dark: { ...t.dark, [k]: v } }));
 
@@ -121,9 +157,11 @@ export default function AppearanceTab() {
     setError("");
     setSaving(true);
     try {
-      const out = await saveSettings({ ...settings, theme });
+      const out = await saveSettings({ ...settings, theme, splash: splashOn, splashCfg: sp });
       update(out);
       setTheme(out.theme);
+      setSplashOn(out.splash);
+      setSp(out.splashCfg);
       setDone(true);
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
@@ -206,6 +244,91 @@ export default function AppearanceTab() {
         <p className="hint">يكبّر أو يصغّر كل نصوص الموقع معًا. خط اسم الموقع وحجمه ولونه من «إعدادات الموقع».</p>
       </div>
 
+      </section>
+
+      <section className="panel panel--wide auth-form" aria-labelledby="ap-h-splash">
+      <h2 id="ap-h-splash">شاشة الشعار عند فتح الموقع</h2>
+      <label className="check">
+        <input type="checkbox" checked={splashOn} onChange={(e) => { setSplashOn(e.target.checked); setDone(false); }} />
+        إظهار شاشة الشعار عند فتح الموقع
+      </label>
+      {splashOn && (
+        <>
+          <div className="splash-box" role="img" aria-label="معاينة شاشة الشعار">
+            <SplashView key={spRun} settings={settings} cfg={sp} contained />
+          </div>
+          <div className="addrow">
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => setSpRun((n) => n + 1)}>إعادة تشغيل المعاينة</button>
+          </div>
+
+          <div className="field">
+            <span>الصورة</span>
+            <div className="addrow">
+              <label className="btn btn--ghost btn--sm filebtn">
+                {sp.image ? "تغيير الصورة" : "رفع صورة خاصة بالشاشة"}
+                <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void onSplashImage(e.target.files?.[0]); e.target.value = ""; }} />
+              </label>
+              {sp.image && (
+                <button type="button" className="btn btn--ghost btn--sm danger" onClick={() => editSp("image", "")}>استعمال الصورة الثابتة</button>
+              )}
+            </div>
+            <p className="hint">{sp.image ? "تُعرض صورة خاصة بهذه الشاشة." : "تُعرض الصورة الثابتة للشاشة (public/brand/splash.png). ارفع صورة هنا لاستبدالها."}</p>
+          </div>
+          <label className="check">
+            <input type="checkbox" checked={sp.showName} onChange={(e) => editSp("showName", e.target.checked)} />
+            إظهار اسم الموقع تحت الصورة
+          </label>
+
+          <div className="field">
+            <label htmlFor="sp-size">حجم الصورة: {sp.size}px</label>
+            <input id="sp-size" type="range" min={SPLASH_SIZE_MIN} max={SPLASH_SIZE_MAX} step={5} value={sp.size} onChange={(e) => editSp("size", Number(e.target.value))} />
+            <p className="hint">الارتفاع على الشاشة الفعلية؛ المعاينة أعلاه مصغّرة.</p>
+          </div>
+
+          <div className="two">
+            <div className="field">
+              <label htmlFor="sp-in">طريقة الظهور</label>
+              <select id="sp-in" value={sp.anim} onChange={(e) => editSp("anim", e.target.value as SplashCfg["anim"])}>
+                {SPLASH_IN.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="sp-motion">الحركة أثناء العرض</label>
+              <select id="sp-motion" value={sp.motion} onChange={(e) => editSp("motion", e.target.value as SplashCfg["motion"])}>
+                {SPLASH_MOTION.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="two">
+            <div className="field">
+              <label htmlFor="sp-out">طريقة الاختفاء</label>
+              <select id="sp-out" value={sp.out} onChange={(e) => editSp("out", e.target.value as SplashCfg["out"])}>
+                {SPLASH_OUT.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="sp-dur">مدة العرض: {sp.duration.toLocaleString("ar-EG")} ثانية</label>
+              <input id="sp-dur" type="range" min={SPLASH_DUR_MIN} max={SPLASH_DUR_MAX} step={0.1} value={sp.duration} onChange={(e) => editSp("duration", Number(e.target.value))} />
+            </div>
+          </div>
+
+          <div className="field crow">
+            <label htmlFor="sp-bg">
+              لون الخلفية
+              <small className="hint">الافتراضي: لون خلفية الموقع (يتبدّل مع الوضع الفاتح والداكن).</small>
+            </label>
+            <div className="colorrow">
+              <input id="sp-bg" type="color" value={sp.bg || "#ffffff"} onChange={(e) => editSp("bg", e.target.value)} />
+              <code dir="ltr">{sp.bg || "افتراضي"}</code>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => editSp("bg", "")} disabled={!sp.bg}>افتراضي</button>
+            </div>
+          </div>
+          <div className="addrow">
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => { setSp(DEFAULT_SPLASH); setDone(false); }}>استعادة الافتراضي لهذه الشاشة</button>
+          </div>
+        </>
+      )}
+      <p className="hint">تظهر الشاشة مرة واحدة عند فتح الموقع ثم تختفي. لا تُحفظ التغييرات حتى تضغط «حفظ المظهر».</p>
       </section>
 
       {error && <p className="field-error" role="alert">{error}</p>}
