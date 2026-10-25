@@ -1,15 +1,18 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import VideoGrid from "@/components/VideoGrid";
 import { SkeletonGrid } from "@/components/Skeleton";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { shuffled } from "@/lib/format";
+import { useSettings } from "@/lib/settings";
 import { toVideo, type VideoDoc } from "@/lib/videos";
 
 export default function SeriesView({ id }: { id: string }) {
   const [name, setName] = useState("");
-  const [items, setItems] = useState<VideoDoc[]>([]);
+  const [raw, setRaw] = useState<VideoDoc[]>([]);
+  const { settings } = useSettings();
+  const order = settings.display.groupOrder;
   const [state, setState] = useState<"loading" | "ok" | "missing">(isFirebaseConfigured ? "loading" : "missing");
 
   useEffect(() => {
@@ -22,14 +25,7 @@ export default function SeriesView({ id }: { id: string }) {
         const n = String(s.data().name ?? "");
         document.title = n;
         setName(n);
-        // الترتيب عشوائي في كل زيارة. لإرجاع ترتيب الحلقات: استبدل shuffled(...) بـ [...].sort(compareInSeries).
-        setItems(
-          shuffled(
-          snap.docs
-            .map((d) => toVideo(d.id, d.data()))
-            .filter((v) => !v.hidden),
-          ),
-        );
+        setRaw(snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => !v.hidden));
         setState("ok");
       })
       .catch(() => !off && setState("missing"));
@@ -37,6 +33,13 @@ export default function SeriesView({ id }: { id: string }) {
       off = true;
     };
   }, [id]);
+
+  // الترتيب من «إعدادات العرض»؛ العشوائي يُخلط مرة لكل تحميل أو عند تغيير الخيار.
+  const items = useMemo(() => {
+    if (order === "random") return shuffled(raw);
+    const dir = order === "oldest" ? 1 : -1;
+    return [...raw].sort((a, b) => dir * ((a.createdAt ?? 0) - (b.createdAt ?? 0)));
+  }, [raw, order]);
 
   if (state === "loading") return <SkeletonGrid />;
   if (state === "missing") return <p className="empty-note">لم يُعثر على هذه المجموعة.</p>;

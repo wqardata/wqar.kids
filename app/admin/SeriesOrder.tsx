@@ -1,8 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where, writeBatch } from "firebase/firestore";
-import { useAuth } from "@/lib/auth";
-import { autoDetectSkip } from "@/lib/autoSkip";
+import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { compareInSeries, toVideo, type VideoDoc } from "@/lib/videos";
 
@@ -24,10 +22,6 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
-  const { user } = useAuth();
-  const [detecting, setDetecting] = useState("");
-  const abort = useRef<AbortController | null>(null);
-  useEffect(() => () => abort.current?.abort(), []);
   const [dragId, setDragId] = useState("");
   const [overId, setOverId] = useState("");
   const rows = useRef<Map<string, HTMLLIElement>>(new Map());
@@ -84,44 +78,6 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
     apply(next);
   }
 
-  /** كشف مدة الإعلان والمقدمة لحلقات المجموعة التي لم تُفحص ولا مدة يدوية لها، وحفظها. */
-  async function detectAll() {
-    if (!user) return;
-    const todo = list.filter((v) => v.driveId && !v.clip && !v.skipChecked && v.adSec === null && v.introSec === null);
-    if (todo.length === 0) return setMsg("كل الحلقات مفحوصة أو لها مدة محدَّدة. لإعادة الكشف لحلقة افتح «تعديل» الفيديو واضغط «كشف تلقائي».");
-    const ctl = new AbortController();
-    abort.current = ctl;
-    setError("");
-    setMsg("");
-    let found = 0, failed = 0;
-    for (let k = 0; k < todo.length && !ctl.signal.aborted; k++) {
-      const v = todo[k];
-      const prefix = `(${k + 1}/${todo.length}) «${v.title}»: `;
-      setDetecting(prefix + "…");
-      const r = await autoDetectSkip(v, user, { signal: ctl.signal, onStep: (t) => !ctl.signal.aborted && setDetecting(prefix + t) });
-      if (ctl.signal.aborted) break;
-      if (r.status === "no-refs") {
-        setError("لا توجد فيديوهات أخرى للمقارنة بعد.");
-        break;
-      }
-      if (r.status !== "ok") {
-        failed++;
-        continue;
-      }
-      const patch = { adSec: r.adSec, introSec: r.introSec, skipTo: r.adSec || r.introSec ? (r.adSec ?? 0) + (r.introSec ?? 0) : null, skipChecked: true };
-      try {
-        await updateDoc(doc(getDb(), "videos", v.id), { ...patch, updatedAt: serverTimestamp() });
-        setList((prev) => prev.map((x) => (x.id === v.id ? { ...x, ...patch } : x)));
-        if (r.adSec || r.introSec) found++;
-      } catch {
-        failed++;
-      }
-    }
-    setDetecting("");
-    abort.current = null;
-    setMsg(`انتهى الكشف: وُجدت مقدمة/إعلان في ${found} حلقة${failed ? `، وتعذّر فحص ${failed}` : ""}.`);
-  }
-
   async function save() {
     setSaving(true);
     setError("");
@@ -148,7 +104,6 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
       <h3>ترتيب الحلقات والتخطي</h3>
       <p className="hint">اسحب الحلقة إلى مكانها أو استعمل الأسهم، ثم اضغط «حفظ الترتيب». الحلقات المخفية تظهر هنا بعلامة وتحتفظ بمكانها.</p>
       <div aria-live="polite">
-        {detecting && <p className="hint" role="status">{detecting}</p>}
         {error && <p className="field-error" role="alert">{error}</p>}
         {msg && <p className="hint" role="status">{msg}</p>}
       </div>
@@ -210,11 +165,6 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
       <div className="addrow">
         <button type="button" className="btn btn--sm" disabled={!dirty || saving} onClick={() => void save()}>{saving ? "جارٍ الحفظ…" : "حفظ الترتيب"}</button>
         <button type="button" className="btn btn--ghost btn--sm" disabled={saving || list.length < 2} onClick={() => apply(autoSort(list))}>ترتيب حسب الموسم والحلقة</button>
-        {detecting ? (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => abort.current?.abort()}>إيقاف الكشف</button>
-        ) : (
-          <button type="button" className="btn btn--ghost btn--sm" disabled={saving || list.length < 2 || !user} onClick={() => void detectAll()}>🔍 كشف المقدمة والإعلان لكل الحلقات</button>
-        )}
         <button type="button" className="btn btn--ghost btn--sm" disabled={saving} onClick={() => (dirty && !window.confirm("لديك ترتيب غير محفوظ. إغلاقه يتجاهله. متابعة؟") ? undefined : onClose())}>إغلاق</button>
       </div>
     </section>

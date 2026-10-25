@@ -7,7 +7,7 @@ import Icon from "@/components/Icon";
 import { useAuth } from "@/lib/auth";
 import { getDb } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
-import { openGrabber } from "@/lib/frameGrab";
+import { openGrabber, probeDuration } from "@/lib/frameGrab";
 import { deleteThumb } from "@/lib/thumbs";
 import { toVideo, useNamedList, type VideoDoc } from "@/lib/videos";
 import ShortForm from "./ShortForm";
@@ -226,9 +226,20 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
       setProbe(`جارٍ قراءة المدة ${n + 1} من ${missing.length}…`);
       try {
         const token = await user.getIdToken();
-        const g = await openGrabber(`/api/drive-video?id=${encodeURIComponent(v.driveId)}&token=${encodeURIComponent(token)}`);
-        const d = Math.round(g.duration);
-        g.dispose();
+        // الأرخص أولًا: المدة من Drive API عبر /api/drive-info (بضع بايتات) بدل سحب الفيديو عبر فيرسل.
+        let d = 0;
+        try {
+          const r = await fetch(`/api/drive-info?id=${encodeURIComponent(v.driveId)}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+          if (r.ok) d = Math.round(Number((await r.json()).duration) || 0);
+        } catch {
+          /* نكمل بالطريقة الاحتياطية */
+        }
+        if (d <= 0) d = await probeDuration(v.driveId); // مباشرة من درايف دون سيرفر الموقع
+        if (d <= 0) {
+          const g = await openGrabber(`/api/drive-video?id=${encodeURIComponent(v.driveId)}&token=${encodeURIComponent(token)}`, 30_000, "metadata");
+          d = Math.round(g.duration);
+          g.dispose();
+        }
         if (d <= 0) throw new Error("no duration");
         await updateDoc(doc(getDb(), "videos", v.id), { duration: d }).catch(() => {});
         setItems((prev) => prev.map((x) => (x.id === v.id ? { ...x, duration: d } : x)));

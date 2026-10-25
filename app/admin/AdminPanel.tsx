@@ -15,9 +15,10 @@ import BehaviorPanel from "./BehaviorPanel";
 import AdhanTab from "./AdhanTab";
 import AdhkarTab from "./AdhkarTab";
 import NotificationsTab from "./NotificationsTab";
+import DisplayTab from "./DisplayTab";
 
 type Group = "settings" | "tarbawi" | "notifications" | "organize" | "content";
-type Sub = "settings" | "signup" | "appearance" | "menu" | "watch" | "adhan" | "adhkar" | "notifications" | "members" | "videos" | "shorts" | "categories" | "series" | "reports";
+type Sub = "settings" | "signup" | "appearance" | "menu" | "watch" | "adhan" | "adhkar" | "notifications" | "members" | "videos" | "shorts" | "display" | "categories" | "series" | "reports";
 
 type SubTab = { id: Sub; label: string; ownerOnly?: boolean };
 const GROUPS: { id: Group; label: string; subs: SubTab[] }[] = [
@@ -42,6 +43,7 @@ const GROUPS: { id: Group; label: string; subs: SubTab[] }[] = [
       { id: "shorts", label: "المقاطع القصيرة" },
       { id: "categories", label: "التصنيفات" },
       { id: "series", label: "المجموعات" },
+      { id: "display", label: "العرض" },
       { id: "reports", label: "البلاغات" },
     ],
   },
@@ -138,6 +140,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
         {sub === "shorts" && <VideosTab shortsOnly />}
         {sub === "categories" && <NamedManager coll="categories" />}
         {sub === "series" && <NamedManager coll="series" />}
+        {sub === "display" && <DisplayTab />}
         {sub === "reports" && <ReportsTab />}
       </div>
     </div>

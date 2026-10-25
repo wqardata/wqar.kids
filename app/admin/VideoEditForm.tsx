@@ -1,9 +1,8 @@
 "use client";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import CreatableSelect from "@/components/CreatableSelect";
 import { useAuth } from "@/lib/auth";
-import { autoDetectSkip } from "@/lib/autoSkip";
 import { driveThumbnail } from "@/lib/drive";
 import { getDb } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
@@ -31,11 +30,6 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
   const [hidden, setHidden] = useState(video.hidden);
   const [adSec, setAdSec] = useState(video.adSec?.toString() ?? "");
   const [introSec, setIntroSec] = useState(video.introSec?.toString() ?? "");
-  const [detecting, setDetecting] = useState("");
-  const [detectMsg, setDetectMsg] = useState("");
-  const [detected, setDetected] = useState(false); // اكتمل كشف تلقائي في هذه الجلسة
-  const abort = useRef<AbortController | null>(null);
-  useEffect(() => () => abort.current?.abort(), []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   // الصورة المصغّرة: إبقاء الحالية، أو لقطة عشوائية بعد الثانية 10، أو صورة درايف الافتراضية.
@@ -45,33 +39,6 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
   const capturing = thumbMode === "random" && frame.status === "loading";
   const newFrame = thumbMode === "random" && frame.status === "ok" && frame.dataUrl ? frame.dataUrl : "";
   const shownThumb = newFrame || (thumbMode === "drive" && video.driveId ? driveThumbnail(video.driveId) : video.thumbnail);
-
-  /** كشف مدة الإعلان والمقدمة من الفيديو نفسه بمقارنته بفيديوهات أخرى؛ يملأ الحقلين فقط ولا يحفظ. */
-  async function detect() {
-    if (!user) return;
-    abort.current?.abort();
-    const ctl = new AbortController();
-    abort.current = ctl;
-    setDetecting("جارٍ الكشف…");
-    setDetectMsg("");
-    const r = await autoDetectSkip(video, user, { signal: ctl.signal, onStep: (t) => !ctl.signal.aborted && setDetecting(t) });
-    if (ctl.signal.aborted) return;
-    setDetecting("");
-    if (r.status === "ok") {
-      setDetected(true);
-      setAdSec(r.adSec ? String(r.adSec) : "");
-      setIntroSec(r.introSec ? String(r.introSec) : "");
-      setDetectMsg(
-        r.adSec || r.introSec
-          ? `تم الكشف: ${r.adSec ? `إعلان ${r.adSec} ث` : "بلا إعلان"} • ${r.introSec ? `مقدمة ${r.introSec} ث` : "بلا مقدمة"}. اضغط «حفظ التعديلات» لاعتمادها.`
-          : "لم يُعثر على مقطع مشترك (إعلان أو مقدمة) مع الفيديوهات الأخرى. يمكنك إدخال المدة يدويًا.",
-      );
-    } else if (r.status === "no-refs") {
-      setDetectMsg("لا توجد فيديوهات أخرى للمقارنة بعد. أضف حلقة أخرى على الأقل (يفضّل من المجموعة نفسها) ثم أعد المحاولة.");
-    } else {
-      setDetectMsg(r.message);
-    }
-  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -112,7 +79,7 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
         adSec: ad,
         introSec: intro,
         skipTo: ad || intro ? Math.min((ad ?? 0) + (intro ?? 0), 36000) : null,
-        skipChecked: Boolean(ad || intro) || detected || video.skipChecked,
+        skipChecked: Boolean(ad || intro) || video.skipChecked,
         // نقل الفيديو إلى مجموعة أخرى يُسقط ترتيبه القديم (يلحق بآخر المجموعة الجديدة حتى يُرتَّب).
         seriesOrder: (ser?.id ?? "") === video.seriesId ? video.seriesOrder : null,
       };
@@ -147,17 +114,7 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
             <input id={`in-${video.id}`} type="number" inputMode="numeric" min={1} max={36000} dir="ltr" placeholder="بلا مقدمة" value={introSec} onChange={(e) => setIntroSec(e.target.value)} />
           </div>
         </div>
-        {video.driveId && !video.clip && (
-          <div className="addrow">
-            <button type="button" className="btn btn--ghost btn--sm" disabled={Boolean(detecting) || !user} onClick={() => void detect()}>
-              🔍 كشف تلقائي
-            </button>
-            {detecting && <button type="button" className="btn btn--ghost btn--sm" onClick={() => { abort.current?.abort(); setDetecting(""); }}>إيقاف</button>}
-          </div>
-        )}
-        {detecting && <p className="hint" role="status">{detecting} (قد يستغرق دقيقة في المرة الأولى)</p>}
-        {detectMsg && <p className="hint" role="status">{detectMsg}</p>}
-        <p className="hint">يظهر زر «تخطي الإعلان» ثم «تخطي المقدمة» فوق المشغّل في بداية الفيديو؛ ويُملآن تلقائيًا بمقارنة الفيديو بحلقات مجموعته وبفيديوهات أخرى. الحقلان فارغان = المدة الافتراضية من الإعدادات.</p>
+        <p className="hint">يظهر زر «تخطي الإعلان» ثم «تخطي المقدمة» فوق المشغّل في بداية الفيديو. أدخل المدتين يدويًا. الحقلان فارغان = المدة الافتراضية من الإعدادات.</p>
       </fieldset>
       <div className="field">
         <span id={`th-${video.id}`}>الصورة المصغّرة</span>
