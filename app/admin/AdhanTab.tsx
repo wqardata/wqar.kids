@@ -6,6 +6,8 @@ import { METHODS, PRAYERS, autoCalc, cleanAdhan, type AdhanSettings, type Prayer
 import { useAutoLocation } from "@/lib/adhanLocation";
 import { timesForDay } from "@/lib/prayer";
 import { saveSettings, useSettings } from "@/lib/settings";
+import { playAlert } from "@/lib/sounds";
+import SoundSettings from "@/app/admin/SoundSettings";
 
 function clock(d: Date): string {
   return new Intl.DateTimeFormat("ar-EG", { hour: "numeric", minute: "2-digit", hour12: true }).format(d);
@@ -67,7 +69,8 @@ export default function AdhanTab() {
         <h2 id="ad-h-main">تفعيل نافذة الأذان</h2>
         <label className="check"><input type="checkbox" checked={form.enabled} onChange={(e) => set("enabled", e.target.checked)} /> إظهار نافذة الأذان للزوار في أوقات الصلوات</label>
         <label className="check"><input type="checkbox" checked={form.closable} onChange={(e) => set("closable", e.target.checked)} /> السماح للزائر بإغلاق النافذة</label>
-        <p className="hint">النافذة تظهر فقط لمن يكون الموقع أو التطبيق مفتوحًا لديه وقت الأذان.</p>
+        <label className="check"><input type="checkbox" checked={form.adminShow} onChange={(e) => set("adminShow", e.target.checked)} /> إظهار نافذة الأذان وتنبيه «اقتربت صلاة» للمشرفين أيضًا</label>
+        <p className="hint">النافذة تظهر فقط لمن يكون الموقع أو التطبيق مفتوحًا لديه وقت الأذان. خيار المشرفين معطّل افتراضيًا: لا ترى حسابات المشرفين (ومنهم أنت) النافذة ولا التنبيه، فلا يُقاطَع عملهم في لوحة التحكم، بينما تبقى ظاهرة لبقية الزوار. «تجربة النافذة» و«تجربة التنبيه» تعملان دائمًا.</p>
       </section>
 
       <section className="panel auth-form" aria-labelledby="ad-h-loc">
@@ -110,7 +113,7 @@ export default function AdhanTab() {
         ))}
         <p className="hint">تظهر الفقاعة قبل موعد الصلاة بالمدة المضبوطة لها ، ثم تتحول إلى نافذة الأذان عند دخول الوقت. يمكن للزائر إغلاقها. تُحتسب فقط للصلوات المفعّلة في قسم «الصلوات».</p>
         <div className="addrow">
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setRemindTest(true)} disabled={!form.remind}>تجربة التنبيه</button>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => { setRemindTest(true); playAlert("remind", settings.sounds.volume); }} disabled={!form.remind}>تجربة التنبيه</button>
         </div>
       </section>
 
@@ -143,11 +146,13 @@ export default function AdhanTab() {
         </div>
       </section>
 
+      <SoundSettings />
+
       {error && <p className="field-error" role="alert">{error}</p>}
       {done && <p className="hint" role="status">تم حفظ إعدادات الأذان ✓</p>}
       <div className="addrow">
         <button type="button" className="btn" onClick={() => void save()} disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات الأذان"}</button>
-        <button type="button" className="btn btn--ghost" onClick={() => setTest(form.countdownMin * 60)}>تجربة النافذة</button>
+        <button type="button" className="btn btn--ghost" onClick={() => { setTest(form.countdownMin * 60); if (settings.sounds.adhan && !form.audioUrl) playAlert("adhan", settings.sounds.volume); }}>تجربة النافذة</button>
       </div>
 
       {remindTest && (

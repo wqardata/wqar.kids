@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { collection, deleteDoc, doc, getDocs, limit, query, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
+import SoundSettings from "@/app/admin/SoundSettings";
 import { AUDIENCES, audienceLabel, cleanLink, newNoticeId, NOTICE_SHOW, timeAgo, toNotice, type Audience, type Notice } from "@/lib/notifications";
 
 const TITLE_MAX = 80;
@@ -132,6 +133,8 @@ export default function NotificationsTab() {
         </div>
         <p className="hint">يرى الأعضاء المسجَّلون آخر {NOTICE_SHOW} إشعارات من فئتهم (ويُحذف الأقدم تلقائيًا عند إرسال جديد)، ويستطيع كل عضو إزالة الإشعار من قائمته بعد قراءته، ويظهر عدّاد على الجرس لما لم يفتحوه بعد. الزائر غير المسجَّل يرى إشعارات فئة «غير المسجَّلين» فقط. بلاغات الزوار الجديدة تظهر للمشرفين فقط على جرسهم تلقائيًا.</p>
       </form>
+
+      <SoundSettings />
 
       <div className="panel">
         <h2>الإشعارات المرسلة{items.length > 0 && ` (${items.length})`}</h2>

@@ -2,7 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { signupText, useSettings, type SignupTexts } from "@/lib/settings";
+import { signupText, useSettings, type LoginMethods, type SignupTexts } from "@/lib/settings";
 
 function GoogleLogo() {
   return (
@@ -48,15 +48,18 @@ function message(e: unknown): string {
 /**
  * `preview`: معاينة لوحة التحكم — تعرض الصفحة بالنصوص المعطاة (قبل حفظها) دون أي تفاعل أو تحويل أو اتصال بالحساب.
  */
-export default function LoginPanel({ initialMode = "signin", preview }: { initialMode?: Mode; preview?: SignupTexts }) {
+export default function LoginPanel({ initialMode = "signin", preview, previewMethods }: { initialMode?: Mode; preview?: SignupTexts; previewMethods?: LoginMethods }) {
   const { settings } = useSettings();
   const T = preview ?? settings.signup;
+  const methods = previewMethods ?? settings.loginMethods;
   const tx = (t: string) => signupText(t, settings.siteName);
   const { user: realUser, loading, configured: realConfigured, canAdd, banned, denied, signIn, signOut, signInEmail, resetPassword } = useAuth();
   const user = preview ? null : realUser;
   const configured = preview ? true : realConfigured;
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const [rawMode, setMode] = useState<Mode>(initialMode);
+  // لو أُخفي الدخول بالبريد فلا وجود لاستعادة كلمة المرور.
+  const mode: Mode = methods.email ? rawMode : "signin";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -128,16 +131,17 @@ export default function LoginPanel({ initialMode = "signin", preview }: { initia
       <h1>{tx(T.title)}</h1>
       <p className="note">{tx(mode === "reset" ? T.noteReset : T.noteSignin)}</p>
 
-      {mode !== "reset" && (
+      {mode !== "reset" && methods.google && (
         <>
           <button type="button" className="gbtn" onClick={() => void run(signIn)} disabled={busy || loading}>
             <GoogleLogo />
             <span>{busy ? "جارٍ الاتصال…" : tx(T.google)}</span>
           </button>
-          <p className="or" aria-hidden="true"><span>{tx(T.or)}</span></p>
+          {methods.email && <p className="or" aria-hidden="true"><span>{tx(T.or)}</span></p>}
         </>
       )}
 
+      {methods.email ? (
       <form className="auth-form" onSubmit={onSubmit}>
         <label>
           {tx(T.emailLabel)}
@@ -170,14 +174,21 @@ export default function LoginPanel({ initialMode = "signin", preview }: { initia
           {busy ? "جارٍ التنفيذ…" : tx(mode === "signin" ? T.submitSignin : T.submitReset)}
         </button>
       </form>
+      ) : (
+        <>
+          {denied && !error && <p className="field-error" role="alert">هذا البريد غير مُضاف في الموقع. الحسابات تُضاف من قِبل الإدارة فقط؛ تواصل معنا لإضافتك.</p>}
+          {banned && !error && <p className="field-error" role="alert">تم إيقاف هذا الحساب من قِبل إدارة الموقع. تواصل معنا إن كان ذلك خطأ.</p>}
+          {error && <p className="field-error" role="alert">{error}</p>}
+        </>
+      )}
 
       <p className="switch">
-        {mode === "signin" && (
+        {methods.email && mode === "signin" && (
           <>
             <button type="button" className="linkbtn" onClick={() => switchMode("reset")}>{tx(T.forgot)}</button>
           </>
         )}
-        {mode !== "signin" && (
+        {methods.email && mode !== "signin" && (
           <button type="button" className="linkbtn" onClick={() => switchMode("signin")}>{tx(T.toSignin)}</button>
         )}
       </p>
