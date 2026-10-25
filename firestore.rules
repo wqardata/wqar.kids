@@ -32,8 +32,6 @@ service cloud.firestore {
     match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
     match /series/{id}     { allow read: if true; allow write: if isAdmin(); }
     match /settings/{id}   { allow read: if true; allow write: if isAdmin(); }
-    // البث المباشر: live/current (العام) + live/day0…day6 (أيام الأسبوع) + live/config (النمط). القواعد نفسها تكفي، لا تحتاج تحديثًا.
-    match /live/{id}       { allow read: if true; allow write: if isAdmin(); }
 
     // بلاغات الزوار: أي شخص (مسجَّل أو غير مسجَّل) يُنشئ بلاغًا بحقول محدودة الحجم؛ القراءة والإدارة للمشرف فقط.
     match /reports/{id} {
@@ -89,13 +87,21 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // التسجيل الذاتي مُغلق: المالك يضيف أعضاء بإنشاء allowed/{البريد بأحرف صغيرة}. صاحب البريد يقرأ مستنده فقط (للتحقق عند الدخول).
+    match /allowed/{email} {
+      allow read: if request.auth != null && (isOwner() || request.auth.token.email.lower() == email);
+      allow write: if isOwner();
+    }
+
     // الأعضاء المسجَّلون: users/{uid}.
-    //  - العضو يقرأ سجله وينشئه عند أول دخول (دور viewer فقط) ويعدّل اسمه وصورته فقط.
+    //  - العضو يقرأ سجله وينشئه عند أول دخول (دور viewer فقط، وبشرط وجود بريده في allowed) ويعدّل اسمه وصورته فقط.
     //  - المالك وحده يقرأ كل الأعضاء ويغيّر الدور والحظر ويحذف السجل.
     match /users/{uid} {
       allow read: if request.auth != null && (request.auth.uid == uid || isOwner());
 
       allow create: if request.auth != null && request.auth.uid == uid
+        // لا يُنشأ سجل عضو إلا للمالك أو لبريد أضافه المالك إلى allowed.
+        && (isOwner() || exists(/databases/$(database)/documents/allowed/$(request.auth.token.email.lower())))
         && request.resource.data.role == 'viewer'
         && request.resource.data.banned == false
         && request.resource.data.keys().hasOnly(['email', 'name', 'avatar', 'role', 'banned', 'createdAt', 'lastLoginAt'])
