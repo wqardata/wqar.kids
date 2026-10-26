@@ -38,6 +38,42 @@ export type SiteTotals = {
 
 /** مجاميع الموقع كلها بتجميع من الخادم (قراءة واحدة تقريبًا لكل ألف فيديو بدل قراءة كل الفيديوهات). */
 export async function fetchTotals(): Promise<SiteTotals> {
+  try {
+    return await fetchTotalsAggregate();
+  } catch (e) {
+    console.warn("[stats] التجميع من الخادم فشل، نحسب من قراءة الفيديوهات", e);
+    return fetchTotalsByReading();
+  }
+}
+
+/** بديل أبطأ (قراءة لكل فيديو) يعمل حتى لو فشل التجميع من الخادم لأي سبب. */
+async function fetchTotalsByReading(): Promise<SiteTotals> {
+  const snap = await getDocs(collection(getDb(), "videos"));
+  let views = 0;
+  let likes = 0;
+  let hidden = 0;
+  let shorts = 0;
+  for (const d of snap.docs) {
+    const x = d.data();
+    views += Number(x.views) || 0;
+    likes += Number(x.likes) || 0;
+    if (x.hidden === true) hidden++;
+    if (x.isShort === true) shorts++;
+  }
+  let reportsOpen = 0;
+  try {
+    reportsOpen = (await getAggregateFromServer(query(collection(getDb(), "reports"), where("status", "==", "open")), { n: count() })).data().n;
+  } catch {
+    try {
+      reportsOpen = (await getDocs(query(collection(getDb(), "reports"), where("status", "==", "open")))).size;
+    } catch {
+      /* لا بأس */
+    }
+  }
+  return { views: Math.max(0, Math.round(views)), likes: Math.max(0, Math.round(likes)), videos: snap.size, hidden, shorts, reportsOpen };
+}
+
+async function fetchTotalsAggregate(): Promise<SiteTotals> {
   const col = collection(getDb(), "videos");
   const [all, hidden, shorts, reports] = await Promise.all([
     getAggregateFromServer(col, { views: sum("views"), likes: sum("likes"), n: count() }),
