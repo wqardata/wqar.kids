@@ -4,7 +4,11 @@ export { parseDriveId };
 
 /** رابط التشغيل المباشر من درايف (لا يمرّ على خادم الموقع فلا يستهلك نقل بيانات فيرسل). */
 export function driveAudioUrl(id: string): string {
-  return `https://drive.usercontent.google.com/download?id=${encodeURIComponent(id)}&export=download&confirm=t`;
+  const safe = encodeURIComponent(id);
+  // مع NEXT_PUBLIC_DRIVE_API_KEY يُستعمل رابط Drive API (المسار الرسمي للملفات العامة، وأثبت في المتصفح)؛ وإلا رابط التنزيل العام.
+  const key = process.env.NEXT_PUBLIC_DRIVE_API_KEY;
+  if (key) return `https://www.googleapis.com/drive/v3/files/${safe}?alt=media&supportsAllDrives=true&key=${encodeURIComponent(key)}`;
+  return `https://drive.usercontent.google.com/download?id=${safe}&export=download&confirm=t`;
 }
 
 /**
