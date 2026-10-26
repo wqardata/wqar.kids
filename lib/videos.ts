@@ -67,6 +67,8 @@ export type VideoDoc = {
   id: string;
   title: string;
   driveId: string;
+  /** معرّف فيديو يوتيوب (فارغ = فيديو درايف). */
+  youtubeId: string;
   thumbnail: string;
   description: string;
   categoryId: string;
@@ -159,6 +161,7 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
     id,
     title: s("title"),
     driveId: s("driveId"),
+    youtubeId: /^[A-Za-z0-9_-]{11}$/.test(s("youtubeId")) ? s("youtubeId") : "",
     thumbnail: s("thumbnail"),
     description: s("description"),
     categoryId: s("categoryId"),
