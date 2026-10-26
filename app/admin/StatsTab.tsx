@@ -64,6 +64,13 @@ function TrafficChart({ data }: { data: DayPoint[] }) {
   );
 }
 
+/** رمز الخطأ الحقيقي (مثل permission-denied أو failed-precondition) ليُعرف السبب بدل رسالة عامة. */
+function why(e: unknown): string {
+  console.error("[stats]", e);
+  const x = e as { code?: string; message?: string } | null;
+  return String(x?.code ?? x?.message ?? "unknown").slice(0, 120);
+}
+
 export default function StatsTab() {
   const [totals, setTotals] = useState<SiteTotals | null>(null);
   const [daily, setDaily] = useState<DayPoint[]>([]);
@@ -77,8 +84,8 @@ export default function StatsTab() {
     setTotalsErr("");
     setDailyErr("");
     // كل جزء مستقل: فشل مخطط الإقبال (القواعد القديمة مثلًا) لا يُخفي المجاميع.
-    const a = fetchTotals().then(setTotals).catch(() => setTotalsErr("تعذّر حساب المجاميع."));
-    const b = fetchDaily(90).then(setDaily).catch(() => setDailyErr("تعذّر تحميل مخطط الإقبال. حدّث قواعد Firestore (stats) ثم Publish."));
+    const a = fetchTotals().then(setTotals).catch((e) => setTotalsErr(`تعذّر حساب المجاميع. (${why(e)})`));
+    const b = fetchDaily(90).then(setDaily).catch((e) => setDailyErr(`تعذّر تحميل مخطط الإقبال. حدّث قواعد Firestore (stats) ثم Publish. (${why(e)})`));
     void Promise.all([a, b]).finally(() => setLoading(false));
   }, []);
 
