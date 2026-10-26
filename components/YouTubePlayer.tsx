@@ -214,24 +214,24 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
           {!playing && ready && (
             <button type="button" className="dp-center" onClick={toggle} aria-label="تشغيل">{I.play}</button>
           )}
+      {menu && (
+        <div className="dp-menu" role="menu" aria-label="الإعدادات">
+          <button type="button" className="dp-menu-head" onClick={() => setMenu(false)}><span>الجودة</span></button>
+          {[...levels, "default"].map((q) => (
+            <button key={q} type="button" role="menuitemradio" aria-checked={quality === q} onClick={() => pickQuality(q)}>
+              <span>{Q_LABEL[q]}{q === DEFAULT_QUALITY ? " (الافتراضي)" : ""}</span>
+            </button>
+          ))}
+          <button type="button" className="dp-menu-head" onClick={() => setMenu(false)}><span>السرعة</span></button>
+          {[0.5, 0.75, 1, 1.25, 1.5, 2].map((r) => (
+            <button key={r} type="button" role="menuitemradio" aria-checked={rate === r} onClick={() => pickRate(r)}>
+              <span dir="ltr">{r === 1 ? "عادية" : `${r}×`}</span>
+            </button>
+          ))}
+          <p className="dp-menu-note">قد يتجاهل يوتيوب الجودة المطلوبة إذا كانت الشبكة بطيئة أو لم تتوفر.</p>
+        </div>
+      )}
           <div className="dp-ui">
-            {menu && (
-              <div className="dp-menu" role="menu" aria-label="الإعدادات">
-                <button type="button" className="dp-menu-head" onClick={() => setMenu(false)}><span>الجودة</span></button>
-                {[...levels, "default"].map((q) => (
-                  <button key={q} type="button" role="menuitemradio" aria-checked={quality === q} onClick={() => pickQuality(q)}>
-                    <span>{Q_LABEL[q]}{q === DEFAULT_QUALITY ? " (الافتراضي)" : ""}</span>
-                  </button>
-                ))}
-                <button type="button" className="dp-menu-head" onClick={() => setMenu(false)}><span>السرعة</span></button>
-                {[0.5, 0.75, 1, 1.25, 1.5, 2].map((r) => (
-                  <button key={r} type="button" role="menuitemradio" aria-checked={rate === r} onClick={() => pickRate(r)}>
-                    <span dir="ltr">{r === 1 ? "عادية" : `${r}×`}</span>
-                  </button>
-                ))}
-                <p className="dp-menu-note">قد يتجاهل يوتيوب الجودة المطلوبة إذا كانت الشبكة بطيئة أو لم تتوفر.</p>
-              </div>
-            )}
             <div className="dp-seek" style={{ ["--p" as string]: `${p}%`, ["--b" as string]: `${Math.max(p, buf * 100)}%` }}>
               <div className="dp-track" />
               <input type="range" min={0} max={Math.max(1, dur)} step={0.5} value={Math.min(cur, Math.max(1, dur))} onChange={(e) => seek(Number(e.target.value))} aria-label="موضع التشغيل" disabled={!ready || dur <= 0} />

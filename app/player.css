@@ -97,3 +97,8 @@
 .yt-surface { z-index: 2; }
 .player--yt .dp-center { z-index: 4; }
 .player--yt .dp-ui { z-index: 5; }
+/* قائمة الإعدادات: تتبع المشغّل كله (لا شريط التحكم الصغير) فلا تُقصّ، وعناصرها مضغوطة */
+.player--yt .dp-menu { z-index: 6; bottom: 64px; margin: 0; max-height: calc(100% - 76px); width: min(220px, calc(100% - 20px)); padding: 4px; text-align: start; }
+.player--yt .dp-menu button { min-height: 34px; padding: 0 10px; font-size: .88rem; }
+.player--yt .dp-menu .dp-menu-head { min-height: 32px; font-size: .8rem; opacity: .85; }
+.player--yt .dp-menu-note { font-size: .7rem; margin: 4px 8px; }
