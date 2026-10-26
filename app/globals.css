@@ -310,6 +310,17 @@ html, body { overflow-x: clip; }
   .player--frame { aspect-ratio: auto; height: max(56.25vw, 340px); }
 }
 
+/* تصغير واجهة مشغّل درايف على الجوال: نُظهر الإطار بعرض أكبر ثم نصغّره بـ scale، فيرسم درايف أزراره بحجم مناسب
+   بدل الأزرار الضخمة المتراكبة. لتصغير الأزرار أكثر قلّل --dz (مثلًا .65)، ولتكبيرها زِده (حتى 1 = بلا تصغير). */
+@media (max-width: 599px) {
+  .player--frame { --dz: .7; overflow: hidden; }
+  .player--frame iframe[src*="drive.google.com"] {
+    inset: 0 auto auto 0; width: calc(100% / var(--dz)); height: calc(100% / var(--dz));
+    transform: scale(var(--dz)); transform-origin: 0 0;
+  }
+  .mp--mini .player--frame iframe[src*="drive.google.com"] { inset: 0; width: 100%; height: 100%; transform: none; }
+}
+
 /* ---------- تبويب المظهر ---------- */
 .panel--wide { max-width: 760px; }
 .pv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
