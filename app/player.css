@@ -98,11 +98,11 @@
 .player--yt .dp-center { z-index: 4; }
 .player--yt .dp-ui { z-index: 5; }
 /* قائمة الإعدادات لمشغّل يوتيوب: أزرار صغيرة تلتف بعرض المشغّل، فتصلح لارتفاعه الصغير على الجوال */
-.yt-menu { position: absolute; z-index: 6; inset-inline: 8px; bottom: 62px; max-height: calc(100% - 70px); overflow-y: auto; padding: 8px; border-radius: 12px; display: grid; gap: 8px;
+.yt-menu { position: absolute; z-index: 6; inset-inline: 8px; top: 8px; bottom: 62px; overflow-y: auto; padding: 14px; border-radius: 14px; display: grid; gap: 16px; align-content: center;
   background: rgba(18, 26, 35, .94); border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 8px 24px rgba(0, 0, 0, .45); direction: rtl; }
-.yt-menu-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.yt-menu-row b { flex: none; min-width: 52px; font-size: .78rem; opacity: .8; }
-.yt-menu-row button { font: inherit; font-size: .8rem; min-width: 52px; height: 30px; padding: 0 10px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 999px; background: transparent; color: #fff; cursor: pointer; }
+.yt-menu-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.yt-menu-row b { flex: 1 1 100%; font-size: .85rem; opacity: .85; }
+.yt-menu-row button { font: inherit; font-size: .88rem; min-width: 56px; height: 36px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 999px; background: transparent; color: #fff; cursor: pointer; }
 .yt-menu-row button:hover { background: rgba(255, 255, 255, .14); }
 .yt-menu-row button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700; }
 .yt-menu-row button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
