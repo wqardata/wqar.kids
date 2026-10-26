@@ -15,6 +15,7 @@ import { YT_ID } from "@/lib/youtube";
 type YTPlayer = {
   playVideo(): void; pauseVideo(): void; seekTo(s: number, allowSeekAhead: boolean): void;
   getCurrentTime(): number; getDuration(): number; getVideoLoadedFraction(): number;
+  setPlaybackQuality(q: string): void;
   mute(): void; unMute(): void; isMuted(): boolean; destroy(): void;
 };
 type YTApi = { Player: new (el: HTMLIFrameElement, o: { events: { onReady: () => void; onStateChange: (e: { data: number }) => void; onError: () => void } }) => YTPlayer };
@@ -37,6 +38,9 @@ function loadApi(): Promise<YTApi> {
   });
   return apiPromise;
 }
+
+/** الجودة الافتراضية: small = 240p. يوتيوب يعامل هذا الطلب كاقتراح فقط وقد يتجاهله (مثلًا مع تغيّر الشبكة). */
+const DEFAULT_QUALITY = "small";
 
 const ENDED = 0, PLAYING = 1, PAUSED = 2, BUFFERING = 3;
 
@@ -91,8 +95,12 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
       if (dead) return;
       player.current = new YT.Player(f, {
         events: {
-          onReady: () => { if (!dead) setReady(true); },
-          onStateChange: (e) => { if (!dead) setState(e.data); },
+          onReady: () => { if (!dead) { setReady(true); try { player.current?.setPlaybackQuality(DEFAULT_QUALITY); } catch { /* غير مدعوم */ } } },
+          onStateChange: (e) => {
+            if (dead) return;
+            setState(e.data);
+            if (e.data === PLAYING || e.data === BUFFERING) { try { player.current?.setPlaybackQuality(DEFAULT_QUALITY); } catch { /* غير مدعوم */ } }
+          },
           onError: () => { if (!dead) setFailed(true); },
         },
       });
