@@ -215,20 +215,23 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
             <button type="button" className="dp-center" onClick={toggle} aria-label="تشغيل">{I.play}</button>
           )}
       {menu && (
-        <div className="dp-menu" role="menu" aria-label="الإعدادات">
-          <button type="button" className="dp-menu-head" onClick={() => setMenu(false)}><span>الجودة</span></button>
-          {[...levels, "default"].map((q) => (
-            <button key={q} type="button" role="menuitemradio" aria-checked={quality === q} onClick={() => pickQuality(q)}>
-              <span>{Q_LABEL[q]}{q === DEFAULT_QUALITY ? " (الافتراضي)" : ""}</span>
-            </button>
-          ))}
-          <button type="button" className="dp-menu-head" onClick={() => setMenu(false)}><span>السرعة</span></button>
-          {[0.5, 0.75, 1, 1.25, 1.5, 2].map((r) => (
-            <button key={r} type="button" role="menuitemradio" aria-checked={rate === r} onClick={() => pickRate(r)}>
-              <span dir="ltr">{r === 1 ? "عادية" : `${r}×`}</span>
-            </button>
-          ))}
-          <p className="dp-menu-note">قد يتجاهل يوتيوب الجودة المطلوبة إذا كانت الشبكة بطيئة أو لم تتوفر.</p>
+        <div className="yt-menu" role="menu" aria-label="الإعدادات">
+          <div className="yt-menu-row" role="group" aria-label="الجودة">
+            <b>الجودة</b>
+            {[...levels, "default"].map((q) => (
+              <button key={q} type="button" role="menuitemradio" aria-checked={quality === q} onClick={() => pickQuality(q)}>
+                {Q_LABEL[q]}
+              </button>
+            ))}
+          </div>
+          <div className="yt-menu-row" role="group" aria-label="السرعة">
+            <b>السرعة</b>
+            {[0.5, 0.75, 1, 1.25, 1.5, 2].map((r) => (
+              <button key={r} type="button" role="menuitemradio" aria-checked={rate === r} onClick={() => pickRate(r)} dir="ltr">
+                {r === 1 ? "1×" : `${r}×`}
+              </button>
+            ))}
+          </div>
         </div>
       )}
           <div className="dp-ui">
