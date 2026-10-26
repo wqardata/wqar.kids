@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { collection, deleteDoc, doc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, serverTimestamp, updateDoc, where, type QueryDocumentSnapshot } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
+import { useRefreshOnReturn } from "@/lib/notifications";
 
 type Report = { id: string; videoId: string; videoTitle: string; reason: string; note: string; status: "open" | "done"; at: number | null };
 
@@ -13,34 +14,48 @@ export default function ReportsTab() {
   const [busy, setBusy] = useState("");
   const [showDone, setShowDone] = useState(false);
 
-  useEffect(() => {
-    let off = false;
-    getDocs(query(collection(getDb(), "reports"), orderBy("createdAt", "desc"), limit(100)))
-      .then((snap) => {
-        if (off) return;
-        setItems(
-          snap.docs.map((d) => {
-            const x = d.data();
-            const s = (k: string) => (typeof x[k] === "string" ? (x[k] as string) : "");
-            const t = x.createdAt as { toMillis?: () => number } | null;
-            return {
-              id: d.id,
-              videoId: s("videoId"),
-              videoTitle: s("videoTitle"),
-              reason: s("reason"),
-              note: s("note"),
-              status: x.status === "done" ? "done" : "open",
-              at: t && typeof t.toMillis === "function" ? t.toMillis() : null,
-            } as Report;
-          }),
-        );
-      })
-      .catch(() => !off && setError("تعذّر تحميل البلاغات. تأكد من قواعد Firestore (reports)."))
-      .finally(() => !off && setLoading(false));
-    return () => {
-      off = true;
+  // نستعلم بنفس شرط عدّاد الجرس (status == open) دون orderBy: بلاغ بلا createdAt كان يُعدّ في الجرس ويغيب هنا.
+  // الاشتراك مباشر (يظهر البلاغ الجديد فورًا) + تحديث صريح عند عودة التطبيق من الخلفية لأن الاشتراك يتجمّد في الجوال.
+  const reload = useCallback(() => {
+    const toReport = (d: QueryDocumentSnapshot): Report => {
+      const x = d.data();
+      const s = (k: string) => (typeof x[k] === "string" ? (x[k] as string) : "");
+      const t = x.createdAt as { toMillis?: () => number } | null;
+      return {
+        id: d.id,
+        videoId: s("videoId"),
+        videoTitle: s("videoTitle"),
+        reason: s("reason"),
+        note: s("note"),
+        status: x.status === "done" ? "done" : "open",
+        at: t && typeof t.toMillis === "function" ? t.toMillis() : null,
+      };
     };
-  }, []);
+    const q = (status: string) => getDocs(query(collection(getDb(), "reports"), where("status", "==", status), limit(200)));
+    Promise.all([q("open"), showDone ? q("done") : Promise.resolve(null)])
+      .then(([o, dn]) => {
+        setItems([...o.docs, ...(dn?.docs ?? [])].map(toReport));
+        setError("");
+      })
+      .catch(() => setError("تعذّر تحميل البلاغات. تأكد من قواعد Firestore (reports)."))
+      .finally(() => setLoading(false));
+  }, [showDone]);
+
+  useEffect(() => {
+    reload();
+    // أي تغيير في البلاغات المفتوحة (بلاغ جديد من زائر) = إعادة جلب القائمة.
+    let first = true;
+    const unsub = onSnapshot(
+      query(collection(getDb(), "reports"), where("status", "==", "open")),
+      () => {
+        if (first) { first = false; return; }
+        reload();
+      },
+      () => {},
+    );
+    return unsub;
+  }, [reload]);
+  useRefreshOnReturn(reload, true, 15_000);
 
   async function run(id: string, fn: () => Promise<void>, after: () => void) {
     setBusy(id);
@@ -57,11 +72,12 @@ export default function ReportsTab() {
 
   const open = items.filter((r) => r.status === "open").length;
 
-  const shown = items.filter((r) => showDone || r.status === "open");
+  const shown = items.filter((r) => showDone || r.status === "open").sort((a, b) => (b.at ?? Number.MAX_SAFE_INTEGER) - (a.at ?? Number.MAX_SAFE_INTEGER));
 
   return (
     <div className="panel">
       <h2>البلاغات{open > 0 && ` (${open} جديد)`}</h2>
+      <button type="button" className="btn btn--ghost btn--sm" onClick={reload}>تحديث</button>
       <label className="check"><input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} /> إظهار البلاغات المعالَجة</label>
       {error && <p className="field-error" role="alert">{error}</p>}
       {loading ? (

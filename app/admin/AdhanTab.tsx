@@ -2,9 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import AdhanCard from "@/components/AdhanCard";
 import AdhanRemind from "@/components/AdhanRemind";
-import { METHODS, PRAYERS, autoCalc, cleanAdhan, type AdhanSettings, type PrayerId } from "@/lib/adhanCore";
+import { METHODS, PRAYERS, PRAYER_AUDIO_MAX, audioSources, autoCalc, cleanAdhan, cleanAudioSrc, type AdhanSettings, type PrayerId } from "@/lib/adhanCore";
 import { useAutoLocation } from "@/lib/adhanLocation";
 import { timesForDay } from "@/lib/prayer";
+import { resolveAudioSrc } from "@/lib/adhkarAudio";
 import { saveSettings, useSettings } from "@/lib/settings";
 import { playAlert } from "@/lib/sounds";
 import SoundSettings from "@/app/admin/SoundSettings";
@@ -13,6 +14,32 @@ import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
 
 function clock(d: Date): string {
   return new Intl.DateTimeFormat("ar-EG", { hour: "numeric", minute: "2-digit", hour12: true }).format(d);
+}
+
+/** نسخة صوت واحدة لصلاة: حقل الرابط + تحقق + تجربة قبل الحفظ. */
+function AudioCopy({ id, label, value, onChange, onRemove }: { id: string; label: string; value: string; onChange: (v: string) => void; onRemove?: () => void }) {
+  const clean = cleanAudioSrc(value);
+  const [testing, setTesting] = useState(false);
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="field adhan-audio-copy">
+      <label htmlFor={id}>{label}</label>
+      <div className="addrow">
+        <input id={id} dir="ltr" style={{ flex: 1, minWidth: 180 }} maxLength={400} value={value} placeholder="https://drive.google.com/file/d/…/view"
+          onChange={(e) => { setTesting(false); setFailed(false); onChange(e.target.value); }} />
+        {onRemove && <button type="button" className="btn btn--ghost btn--sm danger" onClick={onRemove}>حذف</button>}
+      </div>
+      {value.trim() && !clean && <p className="field-error" role="alert">الرابط غير صالح؛ سيُهمل عند الحفظ.</p>}
+      {clean && (
+        <div className="addrow">
+          <small>✓ تم التعرّف على الملف</small>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => { setFailed(false); setTesting((t) => !t); }}>{testing ? "إخفاء التجربة" : "▶ تجربة"}</button>
+        </div>
+      )}
+      {clean && testing && <audio controls autoPlay preload="none" src={resolveAudioSrc(clean)} onError={() => setFailed(true)} style={{ width: "100%" }} />}
+      {failed && <p className="field-error" role="alert">تعذّر تشغيل الملف. تأكد أن مشاركته «أي شخص لديه الرابط – مشاهد» وأنه ملف صوتي (mp3 أو m4a).</p>}
+    </div>
+  );
 }
 
 /** تبويب «الأذان»: كل ما يخصّ نافذة الأذان، في مربعات منفصلة. */
@@ -31,6 +58,7 @@ export default function AdhanTab() {
   };
   const setPrayer = (id: PrayerId, on: boolean) => set("prayers", { ...form.prayers, [id]: on });
   const setRemind = (id: PrayerId, n: number) => set("remindMin", { ...form.remindMin, [id]: Math.min(60, Math.max(0, Math.round(n) || 0)) });
+  const setCopies = (id: PrayerId, list: string[]) => set("prayerAudio", { ...form.prayerAudio, [id]: list });
   const [remindTest, setRemindTest] = useState(false);
 
   useEffect(() => {
@@ -149,10 +177,35 @@ export default function AdhanTab() {
       <MovableSection id="adhan.takbir">
       <section className="panel auth-form" aria-labelledby="ad-h-snd">
         <h2 id="ad-h-snd">صوت التكبيرات</h2>
+        <p className="hint">لكل صلاة ملف صوت خاص بها من درايف (يجب أن يكون مشاركًا «أي شخص لديه الرابط – مشاهد»). يمكنك إضافة حتى {PRAYER_AUDIO_MAX} نسخ لكل صلاة (نفس الصوت مرفوع أكثر من مرة): يُختار أحدها عشوائيًا عند كل أذان فيتوزّع الزوار عليها، وإن لم تعمل نسخة (مثلًا تجاوز درايف حد تنزيلها) يُجرَّب التالي تلقائيًا.</p>
+        {PRAYERS.map((p) => {
+          const list = form.prayerAudio[p.id];
+          const rows = list.length ? list : [""];
+          return (
+            <fieldset key={p.id} className="adhkar-bd">
+              <legend>صوت أذان {p.label}</legend>
+              {rows.map((v, k) => (
+                <AudioCopy
+                  key={k}
+                  id={`ad-pa-${p.id}-${k}`}
+                  label={k === 0 ? "رابط الملف" : `نسخة احتياطية ${k + 1}`}
+                  value={v}
+                  onChange={(nv) => { const a = [...rows]; a[k] = nv; setCopies(p.id, a); }}
+                  onRemove={rows.length > 1 ? () => setCopies(p.id, rows.filter((_, j) => j !== k)) : undefined}
+                />
+              ))}
+              {rows.length < PRAYER_AUDIO_MAX && (
+                <div className="addrow">
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => setCopies(p.id, [...rows, ""])}>＋ إضافة نسخة أخرى لـ{p.label}</button>
+                </div>
+              )}
+            </fieldset>
+          );
+        })}
         <div className="field">
-          <label htmlFor="ad-audio">رابط ملف الصوت (mp3) أو مساره داخل الموقع</label>
+          <label htmlFor="ad-audio">صوت عام احتياطي (اختياري): رابط ملف الصوت (mp3) أو مساره داخل الموقع</label>
           <input id="ad-audio" dir="ltr" placeholder="/audio/takbeer.mp3" value={form.audioUrl} onChange={(e) => set("audioUrl", e.target.value)} maxLength={400} />
-          <p className="hint">ضع ملف التكبيرات الذي تملك حق استخدامه في المجلد <code dir="ltr">public/audio/</code> ثم اكتب مساره هنا. فارغ = نافذة بلا صوت. المتصفحات تمنع التشغيل التلقائي قبل أن يتفاعل الزائر مع الموقع، فيظهر له زر «اضغط لتشغيل التكبيرات».</p>
+          <p className="hint">ضع ملف التكبيرات الذي تملك حق استخدامه في المجلد <code dir="ltr">public/audio/</code> ثم اكتب مساره هنا. يُستعمل لأي صلاة ليس لها صوت خاص أعلاه. فارغ = نافذة بلا صوت لتلك الصلاة. المتصفحات تمنع التشغيل التلقائي قبل أن يتفاعل الزائر مع الموقع، فيظهر له زر «اضغط لتشغيل التكبيرات».</p>
         </div>
         <div className="field">
           <label htmlFor="ad-vol">مستوى الصوت: {form.volume}%</label>
@@ -168,7 +221,7 @@ export default function AdhanTab() {
       {done && <p className="hint" role="status">تم حفظ إعدادات الأذان ✓</p>}
       <div className="addrow">
         <button type="button" className="btn" onClick={() => void save()} disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات الأذان"}</button>
-        <button type="button" className="btn btn--ghost" onClick={() => { setTest(form.countdownMin * 60); if (settings.sounds.adhan && !form.audioUrl) playAlert("adhan", settings.sounds.volume); }}>تجربة النافذة</button>
+        <button type="button" className="btn btn--ghost" onClick={() => { setTest(form.countdownMin * 60); if (settings.sounds.adhan && audioSources(cleanAdhan(form), "dhuhr").length === 0) playAlert("adhan", settings.sounds.volume); }}>تجربة النافذة</button>
       </div>
 
       {remindTest && (
@@ -177,7 +230,7 @@ export default function AdhanTab() {
 
       {test !== null && (
         <div className="adhan-overlay">
-          <AdhanCard cfg={{ ...form, closable: true }} prayerLabel="الظهر" remainingSec={test} playAudio onClose={() => setTest(null)} />
+          <AdhanCard cfg={{ ...cleanAdhan(form), closable: true }} prayerLabel="الظهر" prayerId="dhuhr" remainingSec={test} playAudio onClose={() => setTest(null)} />
         </div>
       )}
       </OwnerFooter>

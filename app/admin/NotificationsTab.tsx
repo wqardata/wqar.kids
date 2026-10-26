@@ -1,11 +1,11 @@
 "use client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { collection, deleteDoc, doc, getDocs, limit, query, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import SoundSettings from "@/app/admin/SoundSettings";
 import { usePreviewDraft } from "@/lib/preview";
 import { NOTICE_COUNT_MAX, NOTICE_COUNT_MIN, cleanNoticeCount, saveSettings, useSettings } from "@/lib/settings";
-import { AUDIENCES, audienceLabel, cleanLink, newNoticeId, NOTICE_KEEP, timeAgo, toNotice, type Audience, type Notice } from "@/lib/notifications";
+import { AUDIENCES, DEFAULT_AUDIENCE, audienceLabel, cleanLink, newNoticeId, NOTICE_KEEP, timeAgo, toNotice, type Audience, type Notice } from "@/lib/notifications";
 import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
 
 const TITLE_MAX = 80;
@@ -60,8 +60,15 @@ export default function NotificationsTab() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [link, setLink] = useState("");
-  const [audiences, setAudiences] = useState<Audience[]>(["all"]);
-  const toggleAud = (id: Audience) => setAudiences((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  const [audiences, setAudiences] = useState<Audience[]>([DEFAULT_AUDIENCE]);
+  // «الجميع» تشمل الزوار والأعضاء والمشرفين، فاختيارها يلغي بقية الفئات (والعكس) بدل الجمع بينها فيتكرّر الإشعار.
+  const toggleAud = (id: Audience) =>
+    setAudiences((p) => {
+      if (p.includes(id)) return p.filter((x) => x !== id);
+      if (id === "all") return ["all"];
+      return [...p.filter((x) => x !== "all"), id];
+    });
+  const sendingRef = useRef(false); // قفل فوري: الضغط المزدوج أو Enter مرتين قبل أن يُحدَّث state كان يرسل نسختين
   const [sending, setSending] = useState(false);
   const [items, setItems] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +81,7 @@ export default function NotificationsTab() {
       const snap = await getDocs(query(collection(getDb(), "notifications"), limit(100)));
       setItems(snap.docs.map((d) => toNotice(d.id, d.data())).sort((a, b) => b.at - a.at));
     } catch {
-      setError("تعذّر تحميل الإشعارات. الصق firestore.rules المحدّث (قسم notifications فيه فئة guests) في Firebase ثم Publish، وتأكد أن بريدك في isOwner() وموثَّق.");
+      setError("تعذّر تحميل الإشعارات. الصق firestore.rules المحدّث (قسم notifications: «الجميع» و«الزوار» مقروءتان بلا تسجيل دخول) في Firebase ثم Publish، وتأكد أن بريدك في isOwner() وموثَّق.");
     } finally {
       setLoading(false);
     }
@@ -86,16 +93,18 @@ export default function NotificationsTab() {
 
   async function send(e: FormEvent) {
     e.preventDefault();
+    if (sendingRef.current) return;
     setError("");
     setMsg("");
     const t = title.trim();
     if (!t) return setError("اكتب عنوان الإشعار.");
     if (audiences.length === 0) return setError("اختر فئة واحدة على الأقل.");
-    // «الجميع» تشمل المشاهدين والمشرفين: اختيارها مع «المشاهدون» أو «المشرفون» يكرّر الإشعار على العضو نفسه.
-    if (audiences.includes("all") && (audiences.includes("viewers") || audiences.includes("admins"))) return setError("«كل الأعضاء» تشمل المشاهدين والمشرفين، فلا تجمعها معهما.");
+    // «الجميع» تشمل كل الفئات: اختيارها مع أي فئة أخرى يكرّر الإشعار على الشخص نفسه.
+    if (audiences.includes("all") && audiences.length > 1) return setError("«الجميع» تشمل الزوار والأعضاء والمشرفين، فلا تجمعها مع فئة أخرى.");
     const l = link.trim();
     const cl = cleanLink(l);
     if (l && !cl) return setError("الرابط يجب أن يبدأ بـ https:// أو بـ / (صفحة داخل الموقع مثل /new).");
+    sendingRef.current = true;
     setSending(true);
     try {
       // وثيقة لكل فئة مختارة (القواعد والاستعلامات تقرأ فئة واحدة لكل وثيقة).
@@ -130,17 +139,33 @@ export default function NotificationsTab() {
     } catch {
       setError("تعذّر الإرسال. تأكد من صلاحياتك وقواعد Firestore (notifications).");
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }
 
-  async function remove(n: Notice) {
-    if (!window.confirm(`حذف الإشعار «${n.title}»؟ سيختفي عند الجميع.`)) return;
-    setBusy(n.id);
+  // إشعار أُرسل لعدة فئات = وثيقة لكل فئة في Firestore؛ نعرضه هنا صفًّا واحدًا بفئاته مجمّعة (نفس النص والرابط وفي نفس اللحظة).
+  const groups = useMemo(() => {
+    const out: { key: string; head: Notice; ids: string[]; audiences: Audience[] }[] = [];
+    for (const n of items) {
+      const g = out.find((x) => x.head.title === n.title && x.head.body === n.body && x.head.link === n.link && Math.abs(x.head.at - n.at) <= 15_000);
+      if (g) {
+        g.ids.push(n.id);
+        if (!g.audiences.includes(n.audience)) g.audiences.push(n.audience);
+      } else out.push({ key: n.id, head: n, ids: [n.id], audiences: [n.audience] });
+    }
+    const order = AUDIENCES.map((a) => a.id);
+    for (const g of out) g.audiences.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    return out;
+  }, [items]);
+
+  async function remove(g: { key: string; head: Notice; ids: string[] }) {
+    if (!window.confirm(`حذف الإشعار «${g.head.title}»؟ سيختفي عند الجميع.`)) return;
+    setBusy(g.key);
     setError("");
     try {
-      await deleteDoc(doc(getDb(), "notifications", n.id));
-      setItems((p) => p.filter((x) => x.id !== n.id));
+      await Promise.all(g.ids.map((id) => deleteDoc(doc(getDb(), "notifications", id))));
+      setItems((p) => p.filter((x) => !g.ids.includes(x.id)));
     } catch {
       setError("تعذّر الحذف. تأكد من الصلاحيات.");
     } finally {
@@ -179,7 +204,7 @@ export default function NotificationsTab() {
         <div className="addrow">
           <button type="submit" className="btn" disabled={sending || !title.trim() || audiences.length === 0}>{sending ? "جارٍ الإرسال…" : "إرسال الإشعار"}</button>
         </div>
-        <p className="hint">يرى الأعضاء المسجَّلون أحدث الإشعارات من فئتهم بالعدد المضبوط في «عرض الإشعارات» أدناه (ويُحذف الأقدم تلقائيًا عند تجاوز {NOTICE_KEEP})، ويستطيع كل عضو إزالة الإشعار من قائمته بعد قراءته، ويظهر عدّاد على الجرس لما لم يفتحوه بعد. الزائر غير المسجَّل يرى إشعارات فئة «غير المسجَّلين» فقط. بلاغات الزوار الجديدة تظهر للمشرفين فقط على جرسهم تلقائيًا.</p>
+        <p className="hint">يرى الأعضاء المسجَّلون أحدث الإشعارات من فئتهم بالعدد المضبوط في «عرض الإشعارات» أدناه (ويُحذف الأقدم تلقائيًا عند تجاوز {NOTICE_KEEP})، ويستطيع كل عضو إزالة الإشعار من قائمته بعد قراءته، ويظهر عدّاد على الجرس لما لم يفتحوه بعد. الزائر غير المسجَّل يرى إشعارات فئتي «الزوار» و«الجميع». بلاغات الزوار الجديدة تظهر للمشرفين فقط على جرسهم تلقائيًا.</p>
       </form>
       </MovableSection>
 
@@ -189,22 +214,22 @@ export default function NotificationsTab() {
 
       <MovableSection id="notif.sent">
       <div className="panel">
-        <h2>الإشعارات المرسلة{items.length > 0 && ` (${items.length})`}</h2>
+        <h2>الإشعارات المرسلة{groups.length > 0 && ` (${groups.length})`}</h2>
         {loading ? (
           <p className="empty-note" role="status">جارٍ التحميل…</p>
-        ) : items.length === 0 ? (
+        ) : groups.length === 0 ? (
           <p className="empty-note">لم تُرسل إشعارات بعد.</p>
         ) : (
           <ul className="alist">
-            {items.map((n) => (
-              <li key={n.id} className="arow report-row">
+            {groups.map((g) => (
+              <li key={g.key} className="arow report-row">
                 <div className="arow-info">
-                  <strong>{n.title}</strong>
-                  <small>{audienceLabel(n.audience)} • {timeAgo(n.at)}{n.link ? ` • ${n.link}` : ""}</small>
-                  {n.body && <p className="desc-note">{n.body}</p>}
+                  <strong>{g.head.title}</strong>
+                  <small>{g.audiences.map(audienceLabel).join(" + ")} • {timeAgo(g.head.at)}{g.head.link ? ` • ${g.head.link}` : ""}</small>
+                  {g.head.body && <p className="desc-note">{g.head.body}</p>}
                 </div>
                 <div className="arow-actions">
-                  <button type="button" className="btn btn--ghost btn--sm danger" disabled={busy === n.id} onClick={() => void remove(n)}>حذف</button>
+                  <button type="button" className="btn btn--ghost btn--sm danger" disabled={busy === g.key} onClick={() => void remove(g)}>حذف</button>
                 </div>
               </li>
             ))}

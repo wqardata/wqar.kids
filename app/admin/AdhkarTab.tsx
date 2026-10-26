@@ -1,9 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
+import { driveAudioUrl, parseDriveId } from "@/lib/adhkarAudio";
 import AdhkarPrompt from "@/components/AdhkarPrompt";
 import AdhkarReader from "@/components/AdhkarReader";
 import {
-  ADHKAR_KINDS, ITEMS_MAX, OFFSET_MAX, adhkarWindows, type Boundary, NOTE_MAX, REPEAT_MAX, TEXT_MAX, cleanAdhkar, newDhikrId,
+  ADHKAR_KINDS, AUDIO_RAW_MAX, ITEMS_MAX, OFFSET_MAX, adhkarWindows, type Boundary, NOTE_MAX, REPEAT_MAX, TEXT_MAX, cleanAdhkar, newDhikrId,
   type AdhkarKind, type AdhkarSettings, type Dhikr,
 } from "@/lib/adhkarCore";
 import { PRAYERS, type PrayerId } from "@/lib/adhanCore";
@@ -67,6 +68,37 @@ function BoundaryEditor({ id, label, value, onChange }: { id: string; label: str
   );
 }
 
+/** رابط الصوت لذكر واحد (من درايف): يتحقق من الرابط ويتيح تجربته قبل الحفظ. */
+function AudioField({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
+  const fileId = parseDriveId(value);
+  const [testing, setTesting] = useState(false);
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="field adhkar-ed-audio">
+      <label htmlFor={id}>رابط الصوت من درايف (اختياري)</label>
+      <input
+        id={id}
+        dir="ltr"
+        value={value}
+        maxLength={AUDIO_RAW_MAX}
+        placeholder="https://drive.google.com/file/d/…/view"
+        onChange={(e) => { setTesting(false); setFailed(false); onChange(e.target.value); }}
+      />
+      {value.trim() && !fileId && <p className="field-error" role="alert">الرابط غير صالح؛ سيُهمل عند الحفظ. الصق رابط ملف من درايف.</p>}
+      {fileId && (
+        <div className="addrow">
+          <small>✓ تم التعرّف على الملف</small>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => { setFailed(false); setTesting((t) => !t); }}>{testing ? "إخفاء التجربة" : "▶ تجربة الصوت"}</button>
+        </div>
+      )}
+      {fileId && testing && (
+        <audio controls autoPlay preload="none" src={driveAudioUrl(fileId)} onError={() => setFailed(true)} style={{ width: "100%" }} />
+      )}
+      {failed && <p className="field-error" role="alert">تعذّر تشغيل الملف. تأكد أن مشاركته «أي شخص لديه الرابط – مشاهد» وأنه ملف صوتي (mp3 أو m4a).</p>}
+    </div>
+  );
+}
+
 /** تبويب «إعدادات الأذكار»: التفعيل والأوقات، وقوائم أذكار الصباح والمساء التي يضيفها المشرف، ومعاينة حيّة. */
 export default function AdhkarTab() {
   const { settings, update, ready } = useSettings();
@@ -94,7 +126,7 @@ export default function AdhkarTab() {
     setItems(a);
   };
   const remove = (id: string) => setItems(items.filter((x) => x.id !== id));
-  const add = () => items.length < ITEMS_MAX && setItems([...items, { id: newDhikrId(), text: "", repeat: 1, note: "" }]);
+  const add = () => items.length < ITEMS_MAX && setItems([...items, { id: newDhikrId(), text: "", repeat: 1, note: "", audio: "" }]);
 
   async function save() {
     setError("");
@@ -191,13 +223,14 @@ export default function AdhkarTab() {
                 <input value={it.note} maxLength={NOTE_MAX} placeholder="الفضل أو المصدر (اختياري)" onChange={(e) => patch(it.id, { note: e.target.value })} style={{ width: "100%" }} />
               </label>
             </div>
+            <AudioField id={`ak-a-${it.id}`} value={it.audio} onChange={(v) => patch(it.id, { audio: v })} />
           </div>
         ))}
 
         <div className="addrow">
           <button type="button" className="btn btn--ghost btn--sm" onClick={add} disabled={items.length >= ITEMS_MAX}>＋ إضافة ذكر إلى {k.label}</button>
         </div>
-        <p className="hint">الأذكار الفارغة تُهمل عند الحفظ. الترتيب هنا هو ترتيب ظهورها للزائر. الأذكار المبدئية معروفة، لكن راجعها وعدّلها بما تعتمده.</p>
+        <p className="hint">الأذكار الفارغة تُهمل عند الحفظ. الترتيب هنا هو ترتيب ظهورها للزائر. الصوت (إن وُجد) يبدأ تلقائيًا عند عرض الذكر، وتظهر بجانبه أيقونة صوت يكتمه الزائر بالضغط عليها؛ يجب أن يكون ملف درايف مشارَكًا «أي شخص لديه الرابط – مشاهد». الأذكار المبدئية معروفة، لكن راجعها وعدّلها بما تعتمده.</p>
       </section>
       </MovableSection>
 

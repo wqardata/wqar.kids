@@ -79,18 +79,18 @@ export default function StatsTab() {
   const [totalsErr, setTotalsErr] = useState("");
   const [dailyErr, setDailyErr] = useState("");
 
-  const load = useCallback(() => {
+  const load = useCallback((manual = false) => {
     setLoading(true);
     setTotalsErr("");
     setDailyErr("");
     // كل جزء مستقل: فشل مخطط الإقبال (القواعد القديمة مثلًا) لا يُخفي المجاميع.
-    const a = fetchTotals().then(setTotals).catch((e) => setTotalsErr(`تعذّر حساب المجاميع. (${why(e)})`));
-    const b = fetchDaily(90).then(setDaily).catch((e) => setDailyErr(`تعذّر تحميل مخطط الإقبال. حدّث قواعد Firestore (stats) ثم Publish. (${why(e)})`));
+    const a = fetchTotals(manual).then(setTotals).catch((e) => setTotalsErr(`تعذّر حساب المجاميع بالتجميع من الخادم. اضغط «تحديث» لحسابها بقراءة الفيديوهات (تستهلك قراءات أكثر). (${why(e)})`));
+    const b = fetchDaily(90, manual).then(setDaily).catch((e) => setDailyErr(`تعذّر تحميل مخطط الإقبال. حدّث قواعد Firestore (stats) ثم Publish. (${why(e)})`));
     void Promise.all([a, b]).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    load();
+    load(false);
   }, [load]);
 
   const shownDaily = useMemo(() => daily.slice(-range), [daily, range]);
@@ -107,7 +107,7 @@ export default function StatsTab() {
       <div className="stats">
       <div className="stats-head">
         <h2>نظرة عامة</h2>
-        <button type="button" className="btn btn--ghost btn--sm" onClick={load} disabled={loading}>
+        <button type="button" className="btn btn--ghost btn--sm" onClick={() => load(true)} disabled={loading}>
           {loading ? "جارٍ التحديث…" : "تحديث"}
         </button>
       </div>
