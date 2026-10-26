@@ -28,7 +28,12 @@ export function fail(status: number, error: string) {
 }
 
 /** يمرّر بايتات ملف درايف (مع دعم Range) أو يعيد خطأ JSON. */
-export async function streamDrive(req: NextRequest, id: string, cacheControl = "private, no-store"): Promise<Response> {
+export async function streamDrive(
+  req: NextRequest,
+  id: string,
+  cacheControl = "private, no-store",
+  opts: { fallbackType?: string; audioOnly?: boolean } = {},
+): Promise<Response> {
   const range = clampRange(req.headers.get("range"));
   let lastStatus = 502;
   for (const url of sources(id)) {
@@ -46,14 +51,15 @@ export async function streamDrive(req: NextRequest, id: string, cacheControl = "
     lastStatus = up.status;
     const type = (up.headers.get("content-type") ?? "").toLowerCase();
     // 200/206 = بيانات، 416 = نطاق غير مُرضٍ (يُمرَّر كما هو). صفحات HTML/JSON تعني خطأ أو ملفًا خاصًا.
-    const isData = (up.status === 200 || up.status === 206) && !type.startsWith("text/") && !type.includes("json");
+    const typeOk = !opts.audioOnly || !type || /^(audio\/|application\/octet-stream|video\/(mp4|webm|ogg))/.test(type);
+    const isData = (up.status === 200 || up.status === 206) && !type.startsWith("text/") && !type.includes("json") && typeOk;
     if (!isData && up.status !== 416) {
       up.body?.cancel().catch(() => {});
       continue;
     }
 
     const headers = new Headers({
-      "content-type": !type || type.startsWith("application/octet-stream") ? "video/mp4" : type,
+      "content-type": !type || type.startsWith("application/octet-stream") ? opts.fallbackType ?? "video/mp4" : type,
       "accept-ranges": "bytes",
       "cache-control": cacheControl,
     });

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdhanCard from "@/components/AdhanCard";
-import type { AdhanSettings } from "@/lib/adhanCore";
+import { audioSources, type AdhanSettings } from "@/lib/adhanCore";
 import type { SoundSettings } from "@/lib/settingsCore";
 import AdhanRemind from "@/components/AdhanRemind";
 import { useAutoLocation } from "@/lib/adhanLocation";
@@ -63,10 +63,12 @@ export default function AdhanPopup() {
     <div className="adhan-overlay">
       <AdhanLock />
       <AdhanOpenFlag />
-      <AdhanChime enabled={settings.sounds.adhan && !cfg.audioUrl && now - active.at.getTime() < AUTOPLAY_WINDOW_MS} volume={settings.sounds.volume} />
+      <AdhanBackExit />
+      <AdhanChime enabled={settings.sounds.adhan && audioSources(cfg, active.id).length === 0 && now - active.at.getTime() < AUTOPLAY_WINDOW_MS} volume={settings.sounds.volume} />
       <AdhanCard
         cfg={cfg}
         prayerLabel={active.label}
+        prayerId={active.id}
         remainingSec={(active.at.getTime() + windowMs - now) / 1000}
         playAudio={now - active.at.getTime() < AUTOPLAY_WINDOW_MS}
         onClose={close}
@@ -99,6 +101,27 @@ function AdhanOpenFlag() {
   useEffect(() => {
     setAdhanOpen(true);
     return () => setAdhanOpen(false);
+  }, []);
+  return null;
+}
+
+/**
+ * أثناء شاشة الأذان: زر الرجوع في الهاتف يخرج من التطبيق كله بدل التراجع صفحة صفحة.
+ * الصفحة لا تستطيع إغلاق نفسها، فنكرّر history.back() مع كل popstate حتى نصل لأول سجل؛ عندها يغلق الرجوعُ الأخير التطبيق (PWA) أو يغادر الموقع.
+ */
+function AdhanBackExit() {
+  useEffect(() => {
+    let leaving = false;
+    const onPop = () => {
+      if (!leaving) {
+        leaving = true;
+        try { window.close(); } catch { /* لا بأس */ }
+      }
+      // إن بقينا هنا (النافذة لم تُغلق) نواصل الرجوع.
+      setTimeout(() => history.back(), 0);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
   return null;
 }

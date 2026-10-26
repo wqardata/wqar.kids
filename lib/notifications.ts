@@ -8,11 +8,13 @@ import { DEFAULT_NOTICE_COUNT, NOTICE_COUNT_MAX, cleanUrl } from "./settingsCore
 
 export type Audience = "all" | "viewers" | "admins" | "guests";
 export const AUDIENCES: readonly { id: Audience; label: string; note: string }[] = [
-  { id: "all", label: "كل الأعضاء المسجَّلين", note: "المشاهدون والمشرفون" },
-  { id: "viewers", label: "المشاهدون فقط", note: "الأعضاء العاديون دون المشرفين" },
-  { id: "admins", label: "المشرفون فقط", note: "من لهم صلاحية لوحة التحكم" },
-  { id: "guests", label: "غير المسجَّلين", note: "الزوار الذين لم يسجّلوا دخولًا" },
+  { id: "guests", label: "الزوار", note: "غير المسجَّلين (لم يسجّلوا دخولًا)" },
+  { id: "viewers", label: "الأعضاء", note: "الأعضاء العاديون دون المشرفين" },
+  { id: "admins", label: "المشرفون", note: "من لهم صلاحية لوحة التحكم" },
+  { id: "all", label: "الجميع", note: "الزوار والأعضاء والمشرفون" },
 ];
+/** الفئة المختارة افتراضيًا عند إرسال إشعار جديد. */
+export const DEFAULT_AUDIENCE: Audience = "all";
 export const audienceLabel = (a: Audience) => AUDIENCES.find((x) => x.id === a)?.label ?? a;
 
 export type Notice = { id: string; title: string; body: string; link: string; audience: Audience; at: number };
@@ -71,9 +73,9 @@ export function toNotice(id: string, d: Record<string, unknown>): Notice {
   };
 }
 
-/** الفئات التي يقرؤها كل نوع من الزوّار: الزائر «guests»، العضو «all + viewers»، والمشرف «all + admins». */
+/** الفئات التي يقرؤها كل نوع من الزوّار: «all» (الجميع) للكل، ثم فئته الخاصة: الزائر «guests»، العضو «viewers»، المشرف «admins». */
 export function audiencesFor(uid: string | null, isAdmin: boolean): Audience[] {
-  if (!uid) return ["guests"];
+  if (!uid) return ["all", "guests"];
   return isAdmin ? ["all", "admins"] : ["all", "viewers"];
 }
 

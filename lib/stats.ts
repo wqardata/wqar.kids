@@ -36,14 +36,45 @@ export type SiteTotals = {
   reportsOpen: number;
 };
 
-/** مجاميع الموقع كلها بتجميع من الخادم (قراءة واحدة تقريبًا لكل ألف فيديو بدل قراءة كل الفيديوهات). */
-export async function fetchTotals(): Promise<SiteTotals> {
+// نتائج الإحصائيات تُخزَّن في المتصفح عدّة دقائق: فتح اللوحة مرارًا لا يكرّر القراءات. زر «تحديث» يتجاوز التخزين دائمًا.
+const STATS_TTL = 10 * 60_000;
+function cacheRead<T>(key: string): T | null {
   try {
-    return await fetchTotalsAggregate();
-  } catch (e) {
-    console.warn("[stats] التجميع من الخادم فشل، نحسب من قراءة الفيديوهات", e);
-    return fetchTotalsByReading();
+    const raw = localStorage.getItem(`stats-cache:${key}`);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { at: number; data: T };
+    return Date.now() - v.at < STATS_TTL ? v.data : null;
+  } catch {
+    return null;
   }
+}
+function cacheWrite(key: string, data: unknown) {
+  try {
+    localStorage.setItem(`stats-cache:${key}`, JSON.stringify({ at: Date.now(), data }));
+  } catch {
+    /* التخزين غير متاح */
+  }
+}
+
+/**
+ * مجاميع الموقع بتجميع من الخادم (قراءة واحدة تقريبًا لكل ألف فيديو).
+ * `manual` = ضغط المشرف «تحديث»: يتجاوز التخزين المؤقت، وهو وحده من يُسمح له بالبديل الأغلى (قراءة كل الفيديوهات) إن فشل التجميع.
+ */
+export async function fetchTotals(manual = false): Promise<SiteTotals> {
+  if (!manual) {
+    const hit = cacheRead<SiteTotals>("totals");
+    if (hit) return hit;
+  }
+  let out: SiteTotals;
+  try {
+    out = await fetchTotalsAggregate();
+  } catch (e) {
+    if (!manual) throw e; // لا نلجأ للقراءة الكاملة تلقائيًا؛ يقرّر المشرف بزر «تحديث»
+    console.warn("[stats] التجميع من الخادم فشل، نحسب من قراءة الفيديوهات", e);
+    out = await fetchTotalsByReading();
+  }
+  cacheWrite("totals", out);
+  return out;
 }
 
 /** بديل أبطأ (قراءة لكل فيديو) يعمل حتى لو فشل التجميع من الخادم لأي سبب. */
@@ -95,7 +126,11 @@ async function fetchTotalsAggregate(): Promise<SiteTotals> {
 export type DayPoint = { day: string; views: number };
 
 /** مشاهدات آخر `days` يومًا (تشمل اليوم)، مع تعبئة الأيام الخالية بصفر، من الأقدم إلى الأحدث. */
-export async function fetchDaily(days: number): Promise<DayPoint[]> {
+export async function fetchDaily(days: number, manual = false): Promise<DayPoint[]> {
+  if (!manual) {
+    const hit = cacheRead<DayPoint[]>(`daily-${days}-${dayKey()}`);
+    if (hit) return hit;
+  }
   const start = dayKey(Date.now() - (days - 1) * 86_400_000);
   const snap = await getDocs(query(collection(getDb(), "stats"), where("day", ">=", start), orderBy("day"), limit(days + 5)));
   const by = new Map<string, number>();
@@ -108,5 +143,6 @@ export async function fetchDaily(days: number): Promise<DayPoint[]> {
     const k = dayKey(Date.now() - i * 86_400_000);
     out.push({ day: k, views: by.get(k) ?? 0 });
   }
+  cacheWrite(`daily-${days}-${dayKey()}`, out);
   return out;
 }

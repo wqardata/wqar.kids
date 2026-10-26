@@ -36,28 +36,55 @@ function getCtx(): AudioContext | null {
   return ctx;
 }
 
-/** يفتح الصوت عند أول تفاعل للزائر مع الصفحة. يُستدعى مرة واحدة من أي مكوّن يستعمل الأصوات. */
+let pending: { kind: AlertKind; volume: number; at: number } | null = null;
+let armed = false;
+
+/**
+ * يفتح الصوت عند تفاعل الزائر مع الصفحة. المستمعون دائمون: بعد عودة التطبيق من الخلفية يعلّق المتصفح السياق
+ * (suspended/interrupted) فنحتاج إعادة فتحه عند اللمسة التالية، ثم نشغّل التنبيه الذي فاتنا (إن وُجد).
+ */
 export function armSounds(): void {
-  if (typeof window === "undefined" || unlocked) return;
+  if (typeof window === "undefined" || armed) return;
+  armed = true;
   const unlock = () => {
     const c = getCtx();
     if (!c) return;
-    void c.resume().then(() => {
-      unlocked = isRunning(c);
-      if (unlocked) ["pointerdown", "keydown", "touchstart"].forEach((e) => window.removeEventListener(e, unlock));
-    }).catch(() => {});
+    if (isRunning(c)) {
+      flushPending();
+      return;
+    }
+    void c.resume().then(flushPending).catch(() => {});
   };
-  ["pointerdown", "keydown", "touchstart"].forEach((e) => window.addEventListener(e, unlock, { passive: true }));
+  ["pointerdown", "keydown", "touchstart", "click"].forEach((e) => window.addEventListener(e, unlock, { passive: true, capture: true }));
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") unlock();
+  });
 }
 
-/** يشغّل نغمة التنبيه. `volume` من 0 إلى 100. يعيد false إن لم يُسمح بالتشغيل (لم يتفاعل الزائر بعد). */
+function flushPending() {
+  const p = pending;
+  pending = null;
+  // تنبيه فات أثناء الغياب: نشغّله الآن فقط إن كان حديثًا (لا معنى لنغمة قديمة).
+  if (p && Date.now() - p.at < 120_000) playNow(p.kind, p.volume);
+}
+
+/** يشغّل نغمة التنبيه. `volume` من 0 إلى 100. يعيد false إن لم يكن الصوت مفتوحًا بعد (تُحفظ النغمة وتُشغَّل عند أول لمسة). */
 export function playAlert(kind: AlertKind, volume: number): boolean {
   const c = getCtx();
   if (!c || volume <= 0) return false;
-  if (isRunning(c) === false) {
-    void c.resume().catch(() => {});
-    if (!isRunning(c)) return false;
-  }
+  try { navigator.vibrate?.([120, 60, 120]); } catch { /* غير مدعوم */ }
+  if (isRunning(c)) return playNow(kind, volume);
+  // السياق معلّق: نحاول فتحه (ينجح إن كان للصفحة تفاعل سابق)، وإلا نؤجل النغمة إلى أول لمسة.
+  pending = { kind, volume, at: Date.now() };
+  void c.resume().then(() => {
+    if (isRunning(c)) flushPending();
+  }).catch(() => {});
+  return false;
+}
+
+function playNow(kind: AlertKind, volume: number): boolean {
+  const c = getCtx();
+  if (!c || !isRunning(c)) return false;
   const peak = 0.5 * Math.min(1, Math.max(0, volume / 100));
   const t0 = c.currentTime + 0.02;
   for (const n of TONES[kind]) {

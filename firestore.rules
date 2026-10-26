@@ -65,13 +65,13 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    // إشعارات الإدارة. الفئات: all (كل الأعضاء المسجَّلين) • viewers (المشاهدون) • admins (المشرفون) • guests (غير المسجَّلين).
-    // المشرف يكتب ويحذف ويقرأ الكل؛ الزائر غير المسجَّل يقرأ «guests» فقط؛ العضو المسجَّل يقرأ «all» و«viewers».
+    // إشعارات الإدارة. الفئات: all (الجميع: زوار وأعضاء ومشرفون) • viewers (الأعضاء) • admins (المشرفون) • guests (الزوار غير المسجَّلين).
+    // المشرف يكتب ويحذف ويقرأ الكل؛ الزائر غير المسجَّل يقرأ «all» و«guests»؛ العضو المسجَّل يقرأ «all» و«viewers».
     // التطبيق يستعلم عن كل فئة على حدة (audience == X) فتُثبت القواعد صلاحية كل استعلام دون الاعتماد على «in».
     match /notifications/{id} {
       allow read: if isAdmin()
-        || resource.data.audience == 'guests'
-        || (request.auth != null && resource.data.audience in ['all', 'viewers']);
+        || resource.data.audience in ['all', 'guests']
+        || (request.auth != null && resource.data.audience == 'viewers');
       allow create: if isAdmin()
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 80
         && request.resource.data.body is string && request.resource.data.body.size() <= 500

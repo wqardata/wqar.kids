@@ -1,6 +1,7 @@
 // إعدادات الأذكار (نقية: تعمل في الخادم والمتصفح). حساب المواقيت نفسه في lib/prayer.ts.
 import { PRAYERS, type PrayerId } from "./adhanCore";
 import type { Slot } from "./prayer";
+import { parseDriveId } from "./drive";
 
 export type AdhkarKind = "morning" | "evening";
 
@@ -17,6 +18,8 @@ export type Dhikr = {
   repeat: number;
   /** سطر صغير اختياري تحت الذكر: الفضل أو المصدر. */
   note: string;
+  /** معرّف ملف صوتي في درايف (يُستخرج من الرابط عند الحفظ)، أو "" بلا صوت. أثناء التحرير في اللوحة قد يحوي الرابط الخام. */
+  audio: string;
 };
 
 /** حدّ زمني: صلاة مع إزاحة بالدقائق (سالبة = قبلها)، أو ساعة ثابتة بتوقيت جهاز الزائر. */
@@ -49,8 +52,9 @@ export const TEXT_MAX = 1200;
 export const NOTE_MAX = 200;
 export const REPEAT_MAX = 1000;
 export const ITEMS_MAX = 60;
+export const AUDIO_RAW_MAX = 300;
 
-const d = (id: string, text: string, repeat = 1, note = ""): Dhikr => ({ id, text, repeat, note });
+const d = (id: string, text: string, repeat = 1, note = ""): Dhikr => ({ id, text, repeat, note, audio: "" });
 
 const AYAT_KURSI =
   "اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَّهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ مَن ذَا الَّذِي يَشْفَعُ عِندَهُ إِلَّا بِإِذْنِهِ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ ۖ وَلَا يُحِيطُونَ بِشَيْءٍ مِّنْ عِلْمِهِ إِلَّا بِمَا شَاءَ ۚ وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ ۖ وَلَا يَئُودُهُ حِفْظُهُمَا ۚ وَهُوَ الْعَلِيُّ الْعَظِيمُ";
@@ -120,6 +124,8 @@ function cleanItems(v: unknown, fallback: Dhikr[]): Dhikr[] {
       text,
       repeat: Number.isFinite(n) ? Math.min(REPEAT_MAX, Math.max(1, n)) : 1,
       note: typeof o.note === "string" ? o.note.trim().slice(0, NOTE_MAX) : "",
+      // رابط درايف أو المعرّف نفسه → المعرّف فقط؛ أي شيء آخر يُهمل (لا نشغّل روابط غير درايف).
+      audio: typeof o.audio === "string" ? parseDriveId(o.audio.slice(0, AUDIO_RAW_MAX)) ?? "" : "",
     });
   }
   return out;

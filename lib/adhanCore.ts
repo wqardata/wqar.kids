@@ -1,4 +1,5 @@
 // إعدادات الأذان (نقية: تعمل في الخادم والمتصفح). حساب المواقيت نفسه في lib/prayer.ts.
+import { DRIVE_ID, parseDriveId } from "./drive";
 
 export const PRAYERS = [
   { id: "fajr", label: "الفجر" },
@@ -68,6 +69,12 @@ export type AdhanSettings = {
   adjust: Record<PrayerId, number>;
   /** رابط ملف صوت التكبيرات (mp3) أو مساره داخل الموقع مثل /audio/takbeer.mp3. فارغ = بلا صوت. */
   audioUrl: string;
+  /**
+   * صوت خاص لكل صلاة: حتى PRAYER_AUDIO_MAX نسخ لكل صلاة (معرّف ملف درايف، أو رابط/مسار). يُختار أحدها عشوائيًا عند كل أذان،
+   * وإن فشل (مثل تجاوز حد تنزيل درايف) يُجرَّب التالي. الصلاة التي لا نسخة لها تستعمل audioUrl العام.
+   * أثناء التحرير في اللوحة قد تحوي القيمة الرابط الخام.
+   */
+  prayerAudio: Record<PrayerId, string[]>;
   volume: number; // 0..100
   /** مدة العدّ التنازلي بالدقائق (عادةً الوقت بين الأذان والإقامة). */
   countdownMin: number;
@@ -92,6 +99,7 @@ export const DEFAULT_ADHAN: AdhanSettings = {
   prayers: { fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true },
   adjust: { fajr: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 },
   audioUrl: "",
+  prayerAudio: { fajr: [], dhuhr: [], asr: [], maghrib: [], isha: [] },
   volume: 80,
   countdownMin: 10,
   text: "حان الآن موعد أذان {prayer} — حيّ على الصلاة",
@@ -117,6 +125,24 @@ export function cleanMediaUrl(s: unknown): string {
   }
 }
 
+export const PRAYER_AUDIO_MAX = 3;
+
+/** رابط درايف أو معرّفه ← المعرّف؛ رابط http(s) أو مسار داخلي ← كما هو؛ غير ذلك "". */
+export function cleanAudioSrc(s: unknown): string {
+  if (typeof s !== "string") return "";
+  const t = s.trim().slice(0, 400);
+  if (!t) return "";
+  if (/(drive|docs)\.google\.com|drive\.usercontent\.google\.com/.test(t) || DRIVE_ID.test(t)) return parseDriveId(t) ?? "";
+  return cleanMediaUrl(t);
+}
+
+/** مصادر صوت صلاة معيّنة: نسخها الخاصة إن وُجدت، وإلا الصوت العام. */
+export function audioSources(cfg: Pick<AdhanSettings, "audioUrl" | "prayerAudio">, prayer: PrayerId): string[] {
+  const own = (cfg.prayerAudio?.[prayer] ?? []).filter(Boolean);
+  if (own.length) return own;
+  return cfg.audioUrl ? [cfg.audioUrl] : [];
+}
+
 export function cleanAdhan(v: unknown): AdhanSettings {
   const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
   const D = DEFAULT_ADHAN;
@@ -125,11 +151,18 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fb;
   };
   const rec = (x: unknown) => (x && typeof x === "object" ? (x as Record<string, unknown>) : {});
-  const pr = rec(o.prayers), rm = rec(o.remindMin);
+  const pr = rec(o.prayers), rm = rec(o.remindMin), pa = rec(o.prayerAudio);
   const prayers = { ...D.prayers };
   const adjust = { ...D.adjust };
   const remindMin = { ...D.remindMin };
+  const prayerAudio: Record<PrayerId, string[]> = { fajr: [], dhuhr: [], asr: [], maghrib: [], isha: [] };
   for (const p of PRAYERS) {
+    const list = Array.isArray(pa[p.id]) ? (pa[p.id] as unknown[]) : [];
+    const seen = new Set<string>();
+    for (const x of list.slice(0, PRAYER_AUDIO_MAX)) {
+      const c = cleanAudioSrc(x);
+      if (c && !seen.has(c)) { seen.add(c); prayerAudio[p.id].push(c); }
+    }
     prayers[p.id] = pr[p.id] !== false;
     adjust[p.id] = 0; // لا تعديل يدوي للمواقيت: تُحسب من الموقع فقط
     remindMin[p.id] = Math.round(num(rm[p.id], 0, 60, D.remindMin[p.id]));
@@ -141,6 +174,7 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     prayers,
     adjust,
     audioUrl: cleanMediaUrl(o.audioUrl),
+    prayerAudio,
     volume: Math.round(num(o.volume, 0, 100, D.volume)),
     countdownMin: Math.round(num(o.countdownMin, 1, 60, D.countdownMin)),
     text,
