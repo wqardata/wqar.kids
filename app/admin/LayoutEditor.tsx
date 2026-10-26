@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DEFAULT_STRUCTURE,
   MAX_LABEL,
@@ -121,6 +121,33 @@ export default function LayoutEditor({
     const from = tabOf(arr, id);
     if (!from || from === to) return;
     setDraft({ ...draft, arrangement: { ...arr, [from]: arr[from].filter((x) => x !== id), [to]: [...(arr[to] ?? []), id] } });
+  };
+
+  // السحب والإفلات: يعيد ترتيب المربعات داخل البطاقة أو ينقلها إلى بطاقة أخرى. before = المربع الذي يُدرَج قبله (null = في آخر البطاقة).
+  const dragRef = useRef<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [drop, setDrop] = useState<{ tab: TabId; before: string | null } | null>(null);
+  const endDrag = () => {
+    dragRef.current = null;
+    setDragId(null);
+    setDrop(null);
+  };
+  const applyDrop = () => {
+    const id = dragRef.current;
+    const target = drop;
+    endDrag();
+    if (!id || !target) return;
+    const from = tabOf(arr, id);
+    if (!from || target.before === id) return;
+    touch();
+    const next: Arrangement = { ...arr, [from]: arr[from].filter((x) => x !== id) };
+    const base = [...(next[target.tab] ?? [])];
+    const at = target.before ? base.indexOf(target.before) : -1;
+    if (at < 0) base.push(id);
+    else base.splice(at, 0, id);
+    next[target.tab] = base;
+    if (sameArrangement(next, arr)) return;
+    setDraft({ ...draft, arrangement: next });
   };
 
   const addTab = () => {
@@ -294,28 +321,76 @@ export default function LayoutEditor({
         </div>
       </section>
 
-      <div className="layout-grid">
-        {visibleTabs.map((t) => {
+      {(() => {
+        const cards = visibleTabs.filter((t) => {
+          if (t.id !== UNSORTED_TAB) return true;
+          const n = (arr[t.id] ?? []).filter((id) => isOwner || !SECTION_BY_ID[id]?.ownerOnly).length;
+          return n > 0 || dragId !== null;
+        });
+        const half = Math.ceil(cards.length / 2);
+
+        const renderCard = (t: (typeof cards)[number]) => {
           const full = arr[t.id] ?? [];
           const list = full.filter((id) => isOwner || !SECTION_BY_ID[id]?.ownerOnly);
-          if (t.id === UNSORTED_TAB && list.length === 0) return null;
+          const over = drop?.tab === t.id;
           return (
-            <section key={t.id} className="panel layout-tab" aria-labelledby={`lt-${t.id}`}>
+            <section
+              key={t.id}
+              className={over ? "panel layout-tab layout-tab--over" : "panel layout-tab"}
+              aria-labelledby={`lt-${t.id}`}
+              onDragOver={(e) => {
+                if (!dragRef.current) return;
+                e.preventDefault();
+                if (!(drop?.tab === t.id && drop.before === null)) setDrop({ tab: t.id, before: null });
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDrop((d) => (d?.tab === t.id ? null : d));
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                applyDrop();
+              }}
+            >
               <h3 id={`lt-${t.id}`}>
                 {t.label} {t.id !== UNSORTED_TAB && <small>{groupLabel(t.group)}</small>}
               </h3>
               {list.length === 0 ? (
-                <p className="empty-note">لا توجد مربعات في هذا التبويب. انقل إليه من تبويب آخر.</p>
+                <p className={over ? "empty-note layout-empty layout-empty--over" : "empty-note layout-empty"}>
+                  {dragId ? "أفلت هنا لنقل المربع إلى هذا التبويب." : "لا توجد مربعات في هذا التبويب. انقل إليه من تبويب آخر."}
+                </p>
               ) : (
-                <ol className="layout-list">
+                <ol className={over && drop?.before === null ? "layout-list layout-list--end" : "layout-list"}>
                   {list.map((id, i) => {
                     const def = SECTION_BY_ID[id];
                     if (!def) return null;
                     const at = full.indexOf(id);
+                    const cls = ["layout-row"];
+                    if (dragId === id) cls.push("layout-row--drag");
+                    if (over && drop?.before === id && dragId !== id) cls.push("layout-row--before");
                     return (
-                      <li key={id} className="layout-row">
+                      <li
+                        key={id}
+                        className={cls.join(" ")}
+                        draggable
+                        onDragStart={(e) => {
+                          dragRef.current = id;
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", id);
+                          // بعد بدء السحب فعلًا، كي لا يُلغيه تغيّر الشكل.
+                          setTimeout(() => setDragId(id), 0);
+                        }}
+                        onDragEnd={endDrag}
+                        onDragOver={(e) => {
+                          if (!dragRef.current) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const r = e.currentTarget.getBoundingClientRect();
+                          const before = e.clientY < r.top + r.height / 2 ? id : (list[i + 1] ?? null);
+                          if (!(drop?.tab === t.id && drop.before === before)) setDrop({ tab: t.id, before });
+                        }}
+                      >
                         <div className="layout-name">
-                          <span>{def.label}</span>
+                          <span><i className="layout-grip" aria-hidden="true">⠿</i> {def.label}</span>
                           {def.home !== t.id && <small>{homeLabelOf(def.home)}</small>}
                         </div>
                         <div className="layout-ctl">
@@ -335,8 +410,15 @@ export default function LayoutEditor({
               )}
             </section>
           );
-        })}
-      </div>
+        };
+
+        return (
+          <div className="layout-cols">
+            <div className="layout-col">{cards.slice(0, half).map(renderCard)}</div>
+            <div className="layout-col">{cards.slice(half).map(renderCard)}</div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

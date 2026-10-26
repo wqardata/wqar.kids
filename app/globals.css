@@ -1148,7 +1148,17 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
 .tab--gear { padding-inline: 14px; display: inline-flex; align-items: center; margin-inline-start: auto; }
 .tabs--main { align-items: stretch; }
 .layout-ed { display: grid; gap: 16px; }
-.layout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; align-items: start; }
+/* عمودان من البطاقات (عمود واحد على الشاشات الضيقة) */
+.layout-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.layout-col { display: grid; gap: 14px; min-width: 0; align-content: start; }
+@media (max-width: 760px) { .layout-cols { grid-template-columns: minmax(0, 1fr); } }
+.layout-tab--over { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.layout-row[draggable="true"] { cursor: grab; }
+.layout-row--drag { opacity: .4; }
+.layout-row--before { box-shadow: 0 -3px 0 0 var(--accent); }
+.layout-list--end > .layout-row:last-child { box-shadow: 0 3px 0 0 var(--accent); }
+.layout-grip { font-style: normal; color: var(--mute); margin-inline-end: 4px; }
+.layout-empty--over { color: var(--accent); }
 .layout-tab { margin-bottom: 0; max-width: none; }
 .layout-tab h3 { margin: 0 0 10px; font-size: 1rem; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .layout-tab h3 small { color: var(--mute); font-weight: 400; }
