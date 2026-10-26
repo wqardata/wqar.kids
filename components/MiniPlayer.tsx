@@ -11,13 +11,13 @@ const DRAG_COMMIT = 70;
  * المشغّل المشترك على الجوال: عنصر واحد يبقى في مكانه من الشجرة، فلا يُعاد تحميل الفيديو عند التصغير أو الإرجاع.
  *  • أعلى صفحة الفيديو (full): يُوضع فوق «الفراغ» الذي تتركه الصفحة، وتحته مقبض يُسحب لأسفل فيُصغَّر.
  *  • عند الانتقال لأي صفحة أخرى (mini): شريط مصغّر أسفل الشاشة يواصل التشغيل؛ الضغط عليه يعيد صفحة الفيديو.
- * (إطار درايف من نطاق آخر فلا يمرّر اللمس للصفحة، لذلك السحب يكون من المقبض أسفل الفيديو لا من الفيديو نفسه.)
+ * (إطار درايف من نطاق آخر فلا يمرّر اللمس للصفحة، لذلك السحب يُلتقط من طبقة شفافة أعلى الفيديو ومن المقبض أسفله.)
  */
 export default function MiniPlayerHost() {
   const { track, mode, slotEl, close, minimize, restore } = useMiniPlayer();
   const [box, setBox] = useState<{ x: number; w: number } | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ y0: number } | null>(null);
+  const drag = useRef<{ y0: number; t0: number } | null>(null);
 
   // موضع المشغّل الأفقي وعرضه = موضع الفراغ في الصفحة (يتغيّر مع تدوير الشاشة أو طيّ القائمة).
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function MiniPlayerHost() {
   const full = mode === "full";
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
-    drag.current = { y0: e.clientY };
+    drag.current = { y0: e.clientY, t0: performance.now() };
     e.currentTarget.setPointerCapture(e.pointerId);
     hostRef.current?.classList.add("mp--drag");
   };
@@ -66,9 +66,11 @@ export default function MiniPlayerHost() {
     const el = hostRef.current;
     if (!drag.current || !el) return;
     const dy = e.clientY - drag.current.y0;
+    // سحبة سريعة قصيرة (فلك) تكفي كالسحبة الطويلة.
+    const flick = dy > 30 && dy / Math.max(1, performance.now() - drag.current.t0) > 0.5;
     drag.current = null;
     el.classList.remove("mp--drag");
-    if (dy > DRAG_COMMIT) {
+    if (dy > DRAG_COMMIT || flick) {
       el.style.transform = "translateY(90px)";
       el.style.opacity = "0";
       minimize();
@@ -93,6 +95,17 @@ export default function MiniPlayerHost() {
     <div ref={hostRef} className={`mp mp--${mode}`} style={style} role="region" aria-label="مشغّل الفيديو">
       <div className="mp-frame">
         <DrivePlayer driveId={track.driveId} title={track.title} hue={160} autoplay={track.autoplay} />
+        {full && (
+          // طبقة شفافة فوق أعلى الفيديو تلتقط السحب لأسفل (إطار درايف لا يمرّر اللمس للصفحة)؛ باقي الفيديو وأزرار التشغيل أسفله تبقى تعمل.
+          <div
+            className="mp-swipe"
+            role="presentation"
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onCancel}
+          />
+        )}
       </div>
       {full ? (
         <div className="mp-handle">
