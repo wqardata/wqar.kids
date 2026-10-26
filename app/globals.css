@@ -967,6 +967,11 @@ html, body { overflow-x: clip; }
 /* أسهم اتجاه السحب أسفل البطاقة: لليسار للتالي ولليمين للسابق. */
 .adhkar-swipe { direction: ltr; width: min(420px, 100%); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .adhkar-swipe-side { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; font-size: .92rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); transition: opacity .2s; }
+.adhkar-swipe-side { border: 0; font-family: inherit; cursor: pointer; min-height: 44px; -webkit-tap-highlight-color: transparent; }
+.adhkar-swipe-side:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.adhkar-swipe-side:active:not(:disabled) { transform: scale(.96); }
+.adhkar-swipe-side:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.adhkar-swipe-side:disabled { cursor: default; }
 .adhkar-swipe-side.off { opacity: .22; }
 .adhkar-swipe-side--next svg { animation: adhkar-nudge-l 1.6s ease-in-out infinite; }
 .adhkar-swipe-side--prev svg { animation: adhkar-nudge-r 1.6s ease-in-out infinite; }

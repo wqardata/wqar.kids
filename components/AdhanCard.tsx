@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { audioSources, type AdhanSettings, type PrayerId } from "@/lib/adhanCore";
-import { resolveAudioSrc } from "@/lib/adhkarAudio";
+import { audioCandidates } from "@/lib/adhkarAudio";
 
 export function fmtClock(sec: number): string {
   const s = Math.max(0, Math.ceil(sec));
@@ -35,8 +35,10 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
   const [start] = useState(() => Math.floor(Math.random() * Math.max(1, list.length)));
   const [tried, setTried] = useState(0);
   useEffect(() => setTried(0), [listKey]);
-  const failed = list.length > 0 && tried >= list.length;
-  const current = list.length && !failed ? resolveAudioSrc(list[(start + tried) % list.length]) : "";
+  // كل نسخة: الرابط المباشر ثم المسار عبر الموقع، ثم النسخة التالية.
+  const cands = list.length ? Array.from({ length: list.length }, (_, k) => audioCandidates(list[(start + k) % list.length])).flat() : [];
+  const failed = cands.length > 0 && tried >= cands.length;
+  const current = cands.length && !failed ? cands[tried] : "";
 
   useEffect(() => {
     const a = audio.current;
@@ -68,6 +70,8 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
   }
 
   const text = cfg.text.replaceAll("{prayer}", prayerLabel);
+  // التركيز الأولي على أول خيار «رجوع» (الأسلم للضغط العرضي)، وإلا على الأول.
+  const focusIdx = Math.max(0, cfg.parentOptions.findIndex((o) => o.action === "back"));
   return (
     <div className="adhan-card" role="alertdialog" aria-modal="true" aria-labelledby="adhan-text">
       {cfg.closable && (
@@ -86,14 +90,27 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
           )}
         </>
       )}
-      <button type="button" className="adhan-parent" onClick={() => setParentOpen(true)}>توجيه الوالدين</button>
-      {parentOpen && (
+      {cfg.parentOptions.length > 0 && (
+        <button type="button" className="adhan-parent" onClick={() => setParentOpen(true)}>توجيه الوالدين</button>
+      )}
+      {parentOpen && cfg.parentOptions.length > 0 && (
         <div className="adhan-parent-layer" onClick={() => setParentOpen(false)}>
           <div className="adhan-parent-box" role="dialog" aria-modal="true" aria-labelledby="adhan-parent-title" onClick={(e) => e.stopPropagation()}>
             <strong id="adhan-parent-title">توجيه الوالدين</strong>
-            <button type="button" className="btn" onClick={onClose}>ابني صلى بالفعل</button>
-            <button type="button" className="btn" onClick={onClose}>ابني أصغر من (6) سنوات</button>
-            <button type="button" className="btn btn--ghost" autoFocus onClick={() => setParentOpen(false)}>رجوع للتطبيق</button>
+            {cfg.parentOptions.map((o, k) => (
+              <button
+                key={o.id}
+                type="button"
+                className={o.action === "back" ? "btn btn--ghost" : "btn"}
+                autoFocus={k === focusIdx}
+                onClick={() => {
+                  setParentOpen(false);
+                  if (o.action === "continue") onClose(); // إغلاق نافذة الأذان ومتابعة المشاهدة
+                }}
+              >
+                {o.label}
+              </button>
+            ))}
           </div>
         </div>
       )}

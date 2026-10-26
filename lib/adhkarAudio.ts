@@ -12,10 +12,17 @@ export function driveAudioUrl(id: string): string {
 }
 
 /**
- * المسار الاحتياطي عبر فيرسل معطّل افتراضيًا كي لا يستهلك نقل البيانات (كل بايت يمرّ منه يُحتسب).
- * يُفعَّل فقط بوضع NEXT_PUBLIC_ADHKAR_AUDIO_PROXY=1 في متغيرات البيئة، وإن لم يُفعَّل فلا يُرسَل أي طلب إليه.
+ * المسار الاحتياطي عبر الموقع (فيرسل): مفعّل افتراضيًا لأن المتصفح كثيرًا ما يرفض رابط درايف المباشر (حدود درايف وملفات تعريف الارتباط)،
+ * بينما يقرؤه الخادم دون مشكلة. لا يُطلب إلا بعد فشل الرابط المباشر، وملفات الصوت صغيرة فاستهلاكه قليل.
+ * لتعطيله ضع NEXT_PUBLIC_ADHKAR_AUDIO_PROXY=0 في متغيرات البيئة.
  */
-export const AUDIO_PROXY_ON = process.env.NEXT_PUBLIC_ADHKAR_AUDIO_PROXY === "1";
+export const AUDIO_PROXY_ON = process.env.NEXT_PUBLIC_ADHKAR_AUDIO_PROXY !== "0";
+
+/** مصادر التشغيل المحتملة لقيمة محفوظة بالترتيب: الرابط المباشر ثم المسار عبر الموقع (لمعرّفات درايف فقط). */
+export function audioCandidates(v: string): string[] {
+  if (!DRIVE_ID.test(v)) return [v];
+  return AUDIO_PROXY_ON ? [driveAudioUrl(v), proxyAudioUrl(v)] : [driveAudioUrl(v)];
+}
 
 /** مسار احتياطي عبر الموقع إن رفض المتصفح الرابط المباشر (انظر app/api/drive-audio). */
 export function proxyAudioUrl(id: string): string {

@@ -1,5 +1,4 @@
 // إعدادات الأذان (نقية: تعمل في الخادم والمتصفح). حساب المواقيت نفسه في lib/prayer.ts.
-import { DRIVE_ID, parseDriveId } from "./drive";
 
 export const PRAYERS = [
   { id: "fajr", label: "الفجر" },
@@ -61,6 +60,18 @@ export function autoCalc(lat: number, lng: number): Calc {
   return { method: "mwl", asr: "standard" };
 }
 
+/** ما يحدث عند الضغط على خيار في «توجيه الوالدين»: continue = تُغلق نافذة الأذان ويتابع الزائر المشاهدة، back = يعود لنافذة الأذان. */
+export type ParentAction = "continue" | "back";
+export type ParentOption = { id: string; label: string; action: ParentAction };
+export const PARENT_OPTIONS_MAX = 8;
+export const PARENT_LABEL_MAX = 60;
+
+export const DEFAULT_PARENT_OPTIONS: ParentOption[] = [
+  { id: "done", label: "ابني صلى بالفعل", action: "continue" },
+  { id: "young", label: "ابني أصغر من (6) سنوات", action: "continue" },
+  { id: "back", label: "رجوع للتطبيق", action: "back" },
+];
+
 export type AdhanSettings = {
   enabled: boolean;
   /** الصلوات التي تظهر لها النافذة. */
@@ -69,12 +80,6 @@ export type AdhanSettings = {
   adjust: Record<PrayerId, number>;
   /** رابط ملف صوت التكبيرات (mp3) أو مساره داخل الموقع مثل /audio/takbeer.mp3. فارغ = بلا صوت. */
   audioUrl: string;
-  /**
-   * صوت خاص لكل صلاة: حتى PRAYER_AUDIO_MAX نسخ لكل صلاة (معرّف ملف درايف، أو رابط/مسار). يُختار أحدها عشوائيًا عند كل أذان،
-   * وإن فشل (مثل تجاوز حد تنزيل درايف) يُجرَّب التالي. الصلاة التي لا نسخة لها تستعمل audioUrl العام.
-   * أثناء التحرير في اللوحة قد تحوي القيمة الرابط الخام.
-   */
-  prayerAudio: Record<PrayerId, string[]>;
   volume: number; // 0..100
   /** مدة العدّ التنازلي بالدقائق (عادةً الوقت بين الأذان والإقامة). */
   countdownMin: number;
@@ -92,6 +97,8 @@ export type AdhanSettings = {
   remindText: string;
   /** إظهار نافذة الأذان وتنبيه «اقتربت صلاة» للمشرفين أيضًا. الافتراضي: معطّل (لا تقاطع المشرف أثناء عمله في لوحة التحكم). */
   adminShow: boolean;
+  /** خيارات نافذة «توجيه الوالدين» (قائمة فارغة = يُخفى زر «توجيه الوالدين»). */
+  parentOptions: ParentOption[];
 };
 
 export const DEFAULT_ADHAN: AdhanSettings = {
@@ -99,7 +106,6 @@ export const DEFAULT_ADHAN: AdhanSettings = {
   prayers: { fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true },
   adjust: { fajr: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 },
   audioUrl: "",
-  prayerAudio: { fajr: [], dhuhr: [], asr: [], maghrib: [], isha: [] },
   volume: 80,
   countdownMin: 10,
   text: "حان الآن موعد أذان {prayer} — حيّ على الصلاة",
@@ -109,6 +115,7 @@ export const DEFAULT_ADHAN: AdhanSettings = {
   remindMin: { fajr: 5, dhuhr: 5, asr: 5, maghrib: 5, isha: 5 },
   remindText: "اقتربت صلاة {prayer} — بعد {min} دقيقة",
   adminShow: false,
+  parentOptions: DEFAULT_PARENT_OPTIONS,
 };
 
 /** يقبل http/https أو مسارًا داخل الموقع يبدأ بـ / (لا //). */
@@ -125,21 +132,8 @@ export function cleanMediaUrl(s: unknown): string {
   }
 }
 
-export const PRAYER_AUDIO_MAX = 3;
-
-/** رابط درايف أو معرّفه ← المعرّف؛ رابط http(s) أو مسار داخلي ← كما هو؛ غير ذلك "". */
-export function cleanAudioSrc(s: unknown): string {
-  if (typeof s !== "string") return "";
-  const t = s.trim().slice(0, 400);
-  if (!t) return "";
-  if (/(drive|docs)\.google\.com|drive\.usercontent\.google\.com/.test(t) || DRIVE_ID.test(t)) return parseDriveId(t) ?? "";
-  return cleanMediaUrl(t);
-}
-
-/** مصادر صوت صلاة معيّنة: نسخها الخاصة إن وُجدت، وإلا الصوت العام. */
-export function audioSources(cfg: Pick<AdhanSettings, "audioUrl" | "prayerAudio">, prayer: PrayerId): string[] {
-  const own = (cfg.prayerAudio?.[prayer] ?? []).filter(Boolean);
-  if (own.length) return own;
+/** مصادر صوت الأذان: الصوت العام (رابط مباشر أو مسار داخل الموقع) إن وُجد. روابط درايف غير مدعومة. */
+export function audioSources(cfg: Pick<AdhanSettings, "audioUrl">, _prayer?: PrayerId): string[] {
   return cfg.audioUrl ? [cfg.audioUrl] : [];
 }
 
@@ -151,21 +145,29 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fb;
   };
   const rec = (x: unknown) => (x && typeof x === "object" ? (x as Record<string, unknown>) : {});
-  const pr = rec(o.prayers), rm = rec(o.remindMin), pa = rec(o.prayerAudio);
+  const pr = rec(o.prayers), rm = rec(o.remindMin);
   const prayers = { ...D.prayers };
   const adjust = { ...D.adjust };
   const remindMin = { ...D.remindMin };
-  const prayerAudio: Record<PrayerId, string[]> = { fajr: [], dhuhr: [], asr: [], maghrib: [], isha: [] };
   for (const p of PRAYERS) {
-    const list = Array.isArray(pa[p.id]) ? (pa[p.id] as unknown[]) : [];
-    const seen = new Set<string>();
-    for (const x of list.slice(0, PRAYER_AUDIO_MAX)) {
-      const c = cleanAudioSrc(x);
-      if (c && !seen.has(c)) { seen.add(c); prayerAudio[p.id].push(c); }
-    }
     prayers[p.id] = pr[p.id] !== false;
     adjust[p.id] = 0; // لا تعديل يدوي للمواقيت: تُحسب من الموقع فقط
     remindMin[p.id] = Math.round(num(rm[p.id], 0, 60, D.remindMin[p.id]));
+  }
+  // غياب الحقل (إعدادات قديمة) = الخيارات الافتراضية؛ وجوده قائمةً فارغة = لا خيارات (يُخفى الزر).
+  let parentOptions: ParentOption[] = DEFAULT_PARENT_OPTIONS.map((x) => ({ ...x }));
+  if (Array.isArray(o.parentOptions)) {
+    parentOptions = [];
+    const ids = new Set<string>();
+    for (const x of o.parentOptions.slice(0, PARENT_OPTIONS_MAX)) {
+      const r = rec(x);
+      const label = typeof r.label === "string" ? r.label.trim().replace(/\s+/g, " ").slice(0, PARENT_LABEL_MAX) : "";
+      if (!label) continue;
+      let id = typeof r.id === "string" ? r.id.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 20) : "";
+      if (!id || ids.has(id)) id = `o${parentOptions.length + 1}_${ids.size}`;
+      ids.add(id);
+      parentOptions.push({ id, label, action: r.action === "back" ? "back" : "continue" });
+    }
   }
   const text = typeof o.text === "string" && o.text.trim() ? o.text.trim().slice(0, 120) : D.text;
   const remindText = typeof o.remindText === "string" && o.remindText.trim() ? o.remindText.trim().slice(0, 120) : D.remindText;
@@ -173,8 +175,7 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     enabled: o.enabled !== false,
     prayers,
     adjust,
-    audioUrl: cleanMediaUrl(o.audioUrl),
-    prayerAudio,
+    audioUrl: /(drive|docs)\.google\.com|drive\.usercontent\.google\.com/.test(String(o.audioUrl ?? "")) ? "" : cleanMediaUrl(o.audioUrl),
     volume: Math.round(num(o.volume, 0, 100, D.volume)),
     countdownMin: Math.round(num(o.countdownMin, 1, 60, D.countdownMin)),
     text,
@@ -184,5 +185,6 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     remindMin,
     remindText,
     adminShow: o.adminShow === true,
+    parentOptions,
   };
 }

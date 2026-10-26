@@ -252,16 +252,16 @@ export default function AdhkarReader({ title, icon, items, onClose, onFinish }: 
       <footer className="adhkar-foot">
         {i >= last && <button type="button" className="adhkar-done" onClick={onFinish}>تم — تقبّل الله منك ✓</button>}
         {items.length > 1 && (
-          // أسهم اتجاه السحب: لليسار للتالي ولليمين للسابق (الحاوية LTR كي يطابق موضع كل سهم اتجاهه الفعلي على الشاشة).
-          <div className="adhkar-swipe" aria-hidden="true">
-            <span className={`adhkar-swipe-side adhkar-swipe-side--next${i >= last ? " off" : ""}`}>
+          // زرّا التنقل (ويبقى السحب يعمل): لليسار للتالي ولليمين للسابق (الحاوية LTR كي يطابق موضع كل زر اتجاهه الفعلي على الشاشة).
+          <div className="adhkar-swipe">
+            <button type="button" onClick={next} disabled={i >= last} aria-label="الذكر التالي" className={`adhkar-swipe-side adhkar-swipe-side--next${i >= last ? " off" : ""}`}>
               <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5m6-6-6 6 6 6" /></svg>
               <span>التالي</span>
-            </span>
-            <span className={`adhkar-swipe-side adhkar-swipe-side--prev${i <= 0 ? " off" : ""}`}>
+            </button>
+            <button type="button" onClick={prev} disabled={i <= 0} aria-label="الذكر السابق" className={`adhkar-swipe-side adhkar-swipe-side--prev${i <= 0 ? " off" : ""}`}>
               <span>السابق</span>
               <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>
-            </span>
+            </button>
           </div>
         )}
         {items.length > 1 && items.length <= 14 && (

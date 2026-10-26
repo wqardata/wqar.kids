@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
-import { driveAudioUrl, parseDriveId } from "@/lib/adhkarAudio";
+import { parseDriveId } from "@/lib/adhkarAudio";
+import TestAudio from "@/components/TestAudio";
 import AdhkarPrompt from "@/components/AdhkarPrompt";
 import AdhkarReader from "@/components/AdhkarReader";
 import {
@@ -92,7 +93,7 @@ function AudioField({ id, value, onChange }: { id: string; value: string; onChan
         </div>
       )}
       {fileId && testing && (
-        <audio controls autoPlay preload="none" src={driveAudioUrl(fileId)} onError={() => setFailed(true)} style={{ width: "100%" }} />
+        <TestAudio value={fileId} onFail={() => setFailed(true)} />
       )}
       {failed && <p className="field-error" role="alert">تعذّر تشغيل الملف. تأكد أن مشاركته «أي شخص لديه الرابط – مشاهد» وأنه ملف صوتي (mp3 أو m4a).</p>}
     </div>

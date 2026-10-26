@@ -90,6 +90,7 @@ export const SECTIONS: SectionDef[] = [
   S("adhan.prayers", "الصلوات", "adhan", "adhan", "/preview/adhan"),
   S("adhan.remind", "التنبيه قبل الأذان", "adhan", "adhan", "/preview/adhan"),
   S("adhan.window", "النافذة والنص والعدّاد", "adhan", "adhan", "/preview/adhan"),
+  S("adhan.parent", "خيارات «توجيه الوالدين»", "adhan", "adhan", "/preview/adhan"),
   S("adhan.takbir", "صوت التكبيرات", "adhan", "adhan", "/preview/adhan"),
   S("sound.adhan", "أصوات التنبيه (في الأذان)", "adhan", "adhan", "/preview/adhan"),
 
