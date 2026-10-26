@@ -3,10 +3,11 @@ import {
   useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type CSSProperties, type KeyboardEvent, type MouseEvent,
 } from "react";
+import "@/app/player.css";
 import Icon from "@/components/Icon";
 import PlayLoader from "@/components/PlayLoader";
 import { DRIVE_ID, driveThumbnail } from "@/lib/drive";
-import { driveVideoUrl } from "@/lib/driveVideo";
+import { driveVideoUrls } from "@/lib/driveVideo";
 
 /** نسخة أخرى من الفيديو بجودة مختلفة (ملف درايف مستقل). اختياري. */
 export type Quality = { label: string; driveId: string };
@@ -89,6 +90,8 @@ function Player({ driveId, title, autoplay, startAt, qualities }: { driveId: str
     [driveId, qualities],
   );
   const [qi, setQi] = useState(0);
+  const [si, setSi] = useState(0); // رقم الرابط الجاري تجربته من driveVideoUrls
+  const rateRef = useRef(1);
   const [frame, setFrame] = useState(false); // true = مشغّل درايف الأصلي (احتياطي أو باختيار المستخدم)
   const [frameLoaded, setFrameLoaded] = useState(false);
   const [menu, setMenu] = useState<Menu>(null);
@@ -107,13 +110,14 @@ function Player({ driveId, title, autoplay, startAt, qualities }: { driveId: str
   const [pipOk, setPipOk] = useState(false);
   const [flash, setFlash] = useState<{ side: number; n: number } | null>(null);
 
-  const src = driveVideoUrl(sources[qi]?.driveId ?? driveId);
+  const urls = useMemo(() => driveVideoUrls(sources[qi]?.driveId ?? driveId), [sources, qi, driveId]);
+  const src = urls[Math.min(si, urls.length - 1)];
   const showUi = ui || !playing || menu !== null;
 
   // التفضيلات المحفوظة (السرعة، مدة القفز، الصوت).
   useEffect(() => {
     const r = Number(lsGet(LS.rate)), k = Number(lsGet(LS.skip)), v = lsGet(LS.vol);
-    if (RATES.includes(r)) setRate(r);
+    if (RATES.includes(r)) { setRate(r); rateRef.current = r; }
     if (SKIPS.includes(k)) setSkip(k);
     if (v !== null && Number.isFinite(Number(v))) setVol(Math.min(1, Math.max(0, Number(v))));
     setMuted(lsGet(LS.muted) === "1");
@@ -126,12 +130,34 @@ function Player({ driveId, title, autoplay, startAt, qualities }: { driveId: str
     return () => { delete document.documentElement.dataset.dpm; };
   }, [frame]);
 
-  // إن لم تصل بيانات الفيديو خلال مهلة، ننتقل لمشغّل درايف الأصلي.
+  // فشل الرابط الحالي: جرّب الرابط التالي من نفس الموضع، وإن انتهت الروابط ننتقل لمشغّل درايف الأصلي.
+  const failover = useCallback(() => {
+    const v = vref.current;
+    if (v && v.currentTime > 0) resume.current = { t: v.currentTime, play: !v.paused };
+    if (si + 1 < urls.length) {
+      setReady(false);
+      setSi(si + 1);
+    } else {
+      setFrame(true);
+    }
+  }, [si, urls.length]);
+
+  // إن لم تصل بيانات الفيديو خلال مهلة، نجرّب الرابط التالي ثم مشغّل درايف الأصلي.
   useEffect(() => {
     if (frame || ready) return;
-    const t = setTimeout(() => setFrame(true), 12_000);
+    const t = setTimeout(failover, 8_000);
     return () => clearTimeout(t);
-  }, [frame, ready, qi]);
+  }, [frame, ready, failover]);
+
+  // سباق التهيئة: المتصفح يبدأ تحميل <video> من HTML الخادم قبل أن يربط React مستمعيه، فقد يفوته
+  // loadedmetadata/error فيبقى المشغّل على شاشة التحميل. نقرأ حالة العنصر الفعلية عند التركيب.
+  useEffect(() => {
+    const v = vref.current;
+    if (!v) return;
+    if (v.error) failover();
+    else if (v.readyState >= 1) onMeta();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // شاشة التحميل فوق إطار درايف: احتياط إن لم يصل حدث التحميل.
   useEffect(() => {
@@ -210,6 +236,7 @@ function Player({ driveId, title, autoplay, startAt, qualities }: { driveId: str
 
   const pickRate = (r: number) => {
     setRate(r);
+    rateRef.current = r;
     if (vref.current) vref.current.playbackRate = r;
     lsSet(LS.rate, String(r));
     setMenu(null);
@@ -225,6 +252,7 @@ function Player({ driveId, title, autoplay, startAt, qualities }: { driveId: str
     const v = vref.current;
     resume.current = { t: v?.currentTime ?? 0, play: v ? !v.paused : false };
     setReady(false);
+    setSi(0);
     setQi(i);
   };
 
@@ -280,7 +308,7 @@ function Player({ driveId, title, autoplay, startAt, qualities }: { driveId: str
     if (!v) return;
     setDur(v.duration);
     setReady(true);
-    v.playbackRate = rate;
+    v.playbackRate = rateRef.current;
     const r = resume.current;
     resume.current = null;
     if (r) {
@@ -325,7 +353,7 @@ function Player({ driveId, title, autoplay, startAt, qualities }: { driveId: str
           onLoad={() => setFrameLoaded(true)}
         />
         <PlayLoader show={!frameLoaded} />
-        <button type="button" className="dp-chip" onClick={() => { resume.current = { t: cur, play: false }; setReady(false); setFrame(false); }}>
+        <button type="button" className="dp-chip" onClick={() => { resume.current = { t: cur, play: false }; setReady(false); setSi(0); setFrame(false); }}>
           المشغّل المخصّص
         </button>
       </div>
@@ -366,7 +394,7 @@ function Player({ driveId, title, autoplay, startAt, qualities }: { driveId: str
         onPlaying={() => setBuffering(false)}
         onCanPlay={() => setBuffering(false)}
         onVolumeChange={onVolume}
-        onError={() => setFrame(true)}
+        onError={failover}
       />
       <div className="dp-surface" onClick={onSurface} />
       <PlayLoader show={!ready} />
