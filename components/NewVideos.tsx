@@ -1,0 +1,30 @@
+"use client";
+import { SkeletonGrid } from "@/components/Skeleton";
+import VideoGrid from "@/components/VideoGrid";
+import { useAllVideos, type VideoDoc } from "@/lib/videos";
+
+/** صفحة «الجديد»: أحدث ما أُضيف مرتبًا من الأحدث للأقدم (فيديوهات ثم مقاطع قصيرة). */
+export default function NewVideos() {
+  const { videos, ready } = useAllVideos();
+  return <NewList videos={videos} ready={ready} />;
+}
+
+/** قائمة «الجديد» لفيديوهات جاهزة (تُستعمل في تبويب «الجديد» بالرئيسية دون جلب ثانٍ). */
+export function NewList({ videos, ready }: { videos: readonly VideoDoc[]; ready: boolean }) {
+  const regular = videos.filter((v) => !v.isShort).slice(0, 60);
+  const shorts = videos.filter((v) => v.isShort).slice(0, 20);
+
+  if (!ready) return <SkeletonGrid />;
+  if (videos.length === 0) return ready ? <p className="empty-note">لا توجد فيديوهات بعد.</p> : null;
+  return (
+    <>
+      {regular.length > 0 && <VideoGrid items={regular} />}
+      {shorts.length > 0 && (
+        <section aria-labelledby="new-shorts">
+          <h2 id="new-shorts" className="page-title">مقاطع قصيرة جديدة</h2>
+          <VideoGrid items={shorts} shorts />
+        </section>
+      )}
+    </>
+  );
+}
