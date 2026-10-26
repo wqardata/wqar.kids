@@ -1185,3 +1185,7 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
 .tm-kind { flex: 0 0 auto; min-width: 42px; font-size: .75rem; color: var(--mute); }
 .tm-sys { margin: 0; }
 
+
+/* داخل إطار معاينة لوحة التحكم فقط: العنصر الذي يتأثر بالقسم الذي يحرّره المشرف الآن. */
+[data-pv-focus] { outline: 3px solid #f59e0b; outline-offset: 4px; border-radius: 10px; animation: pv-focus-pulse 1.4s ease-out 2; }
+@keyframes pv-focus-pulse { 0% { outline-color: #f59e0b; } 50% { outline-color: rgba(245, 158, 11, .25); } 100% { outline-color: #f59e0b; } }

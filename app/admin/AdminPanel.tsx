@@ -7,7 +7,7 @@ import Icon from "@/components/Icon";
 import SitePreview from "@/components/SitePreview";
 import { PreviewDraftProvider } from "@/lib/preview";
 import { useAdminArrangement } from "@/lib/adminLayoutStore";
-import { CUSTOMIZE_GROUP, SECTIONS, SECTION_BY_ID, UNSORTED_GROUP, tabOf, type OwnerId, type TabId } from "@/lib/adminSections";
+import { CUSTOMIZE_GROUP, PREVIEW_FOCUS, SECTIONS, SECTION_BY_ID, UNSORTED_GROUP, tabOf, type OwnerId, type TabId } from "@/lib/adminSections";
 import VideosTab from "./VideosTab";
 import SettingsTab from "./SettingsTab";
 import SignupTab from "./SignupTab";
@@ -72,6 +72,8 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
   // المعاينة مفتوحة افتراضيًا على الشاشات العريضة فقط (على الجوال تُفتح بزر).
   const [showPreview, setShowPreview] = useState(false);
+  // القسم الذي يعمل عليه المشرف الآن (آخر مربع نقر أو ركّز فيه): المعاينة تنزل إلى العنصر الذي يؤثّر عليه.
+  const [activeSection, setActiveSection] = useState("");
   useEffect(() => setShowPreview(window.matchMedia("(min-width: 1100px)").matches), []);
   // يُتذكَّر آخر تبويب فرعي في كل مجموعة عند التنقل بينها.
   // (القيمة غير الصالحة — كتبويب حُذف — تُستبدل بأول تبويب فرعي متاح.)
@@ -137,8 +139,14 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
   const tab = isLayout ? null : (sub as TabId);
   const list = tab ? shown[tab] ?? [] : [];
   const needed = new Set<OwnerId>(list.map((id) => SECTION_BY_ID[id].owner));
-  // المعاينة: أول قسم في التبويب يحدد صفحتها؛ التبويب الذي لا قسم فيه يطلب معاينة (كالإحصائيات) بلا تقسيم.
-  const previewPath = list.map((id) => SECTION_BY_ID[id].preview).find(Boolean) ?? "";
+  // المعاينة: القسم النشط في التبويب (وإلا أول قسم له معاينة) يحدد الصفحة والعنصر المميَّز؛ التبويب الذي لا قسم فيه يطلب معاينة (كالإحصائيات) بلا تقسيم.
+  const activeId = list.includes(activeSection) ? activeSection : (list.find((id) => SECTION_BY_ID[id].preview) ?? "");
+  const previewPath = (activeId && SECTION_BY_ID[activeId].preview) || list.map((id) => SECTION_BY_ID[id].preview).find(Boolean) || "";
+  const previewFocus = (activeId && PREVIEW_FOCUS[activeId]) || "";
+  const pickSection = (e: { target: EventTarget }) => {
+    const id = (e.target as HTMLElement).closest?.("[data-section]")?.getAttribute("data-section");
+    if (id) setActiveSection(id);
+  };
 
   return (
     <PreviewDraftProvider>
@@ -195,7 +203,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
         )}
 
         <div className={previewPath && showPreview ? "admin-split" : "admin-split admin-split--solo"}>
-          <div className="admin-split-main" id="admin-panel" role="tabpanel" aria-labelledby={visibleSubs.length > 1 ? `tab-${sub}` : `group-${current.id}`}>
+          <div className="admin-split-main" id="admin-panel" onFocusCapture={pickSection} onPointerDownCapture={pickSection} role="tabpanel" aria-labelledby={visibleSubs.length > 1 ? `tab-${sub}` : `group-${current.id}`}>
             {isLayout ? (
               <LayoutEditor view={sub === "layout-tabs" ? "tabs" : "arrange"} structure={structure} arrangement={arrangement} isOwner={isOwner} onSave={save} />
             ) : (
@@ -215,7 +223,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
           </div>
           {previewPath && showPreview && (
             <aside className="admin-split-side" aria-label="معاينة الموقع">
-              <SitePreview key={`${sub}|${previewPath}`} path={previewPath} />
+              <SitePreview path={previewPath} focus={previewFocus} />
             </aside>
           )}
         </div>
