@@ -10,6 +10,8 @@ import { isPreviewFrame } from "./previewFrame";
  */
 export const PREVIEW_MSG = "site-preview-settings";
 export const PREVIEW_READY = "site-preview-ready";
+/** من اللوحة إلى الإطار: محدِّد العنصر المراد إبرازه (والنزول إليه). */
+export const PREVIEW_FOCUS_MSG = "site-preview-focus";
 
 type Draft = Partial<SiteSettings>;
 const SetCtx = createContext<(key: string, d: Draft | null) => void>(() => {});
@@ -54,8 +56,50 @@ export default function PreviewReceiver() {
   const latest = useRef<Draft | null>(null);
   const applied = useRef<SiteSettings | null>(null); // آخر نسخة طبّقناها نحن (لنميّزها عن تحديث حقيقي من Firestore)
   const [inFrame, setInFrame] = useState(false);
+  const focusSel = useRef("");
+  const focusTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => setInFrame(isPreviewFrame()), []);
+
+  /** يميّز العنصر المطابق للمحدِّد (أول ظاهر). `scroll`: النزول إليه أيضًا. يعيد false إن لم يظهر بعد. */
+  const mark = useCallback((scroll: boolean): boolean => {
+    document.querySelectorAll("[data-pv-focus]").forEach((e) => e.removeAttribute("data-pv-focus"));
+    if (!focusSel.current) return true;
+    let el: HTMLElement | undefined;
+    try {
+      el = Array.from(document.querySelectorAll<HTMLElement>(focusSel.current)).find((e) => e.getClientRects().length > 0);
+    } catch {
+      return true; // محدِّد غير صالح: لا نكرّر المحاولة
+    }
+    if (!el) return false;
+    el.setAttribute("data-pv-focus", "");
+    if (scroll) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    return true;
+  }, []);
+
+  /** العنصر قد لا يكون مرسومًا بعد (تحميل الصفحة/البيانات): نعيد المحاولة لثوانٍ قليلة. */
+  const focusOn = useCallback(
+    (selector: string) => {
+      focusSel.current = selector;
+      if (focusTimer.current) clearInterval(focusTimer.current);
+      if (mark(true)) return;
+      let tries = 0;
+      focusTimer.current = setInterval(() => {
+        if (mark(true) || ++tries >= 16) {
+          if (focusTimer.current) clearInterval(focusTimer.current);
+          focusTimer.current = null;
+        }
+      }, 250);
+    },
+    [mark],
+  );
+
+  useEffect(
+    () => () => {
+      if (focusTimer.current) clearInterval(focusTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!inFrame) return;
@@ -64,17 +108,22 @@ export default function PreviewReceiver() {
       const next = latest.current ? merge({ ...base.current, ...latest.current }) : base.current;
       applied.current = next;
       update(next);
+      setTimeout(() => mark(false), 80); // الرسم يُعاد بعد التطبيق؛ نُبقي التمييز دون نزول جديد
     };
     const onMsg = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || e.source !== window.parent) return;
-      const d = e.data as { type?: string; settings?: Draft } | null;
+      const d = e.data as { type?: string; settings?: Draft; selector?: string } | null;
+      if (d?.type === PREVIEW_FOCUS_MSG) {
+        focusOn(typeof d.selector === "string" ? d.selector : "");
+        return;
+      }
       if (!d || d.type !== PREVIEW_MSG) return;
       latest.current = d.settings && typeof d.settings === "object" ? d.settings : null;
       apply();
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [inFrame, update]);
+  }, [inFrame, update, focusOn, mark]);
 
   // الأساس = آخر إعدادات محفوظة وصلت من الخادم (لا ما طبّقناه نحن). أول وصول: نخبر اللوحة أننا جاهزون لاستقبال المسودة.
   useEffect(() => {

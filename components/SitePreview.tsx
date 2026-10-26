@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { PREVIEW_FRAME_NAME } from "@/lib/previewFrame";
-import { PREVIEW_MSG, PREVIEW_READY, usePreviewDraftValue } from "@/lib/preview";
+import { PREVIEW_FOCUS_MSG, PREVIEW_MSG, PREVIEW_READY, usePreviewDraftValue } from "@/lib/preview";
 import { toVideo } from "@/lib/videos";
 
 const DEVICES = [
@@ -36,9 +36,9 @@ function useSampleVideo(enabled: boolean): string {
  * معاينة حيّة للموقع بعرض الكمبيوتر أو التابلت أو الموبايل. تعرض الصفحة الحقيقية داخل iframe بعرض الجهاز ثم تصغّرها لتناسب العمود،
  * وتطبّق عليها مسودة التبويب غير المحفوظة. `path`: الصفحة المعروضة؛ "@video" = أي فيديو من المكتبة.
  */
-export default function SitePreview({ path }: { path: string }) {
+export default function SitePreview({ path, focus = "" }: { path: string; focus?: string }) {
   const draft = usePreviewDraftValue();
-  const [device, setDevice] = useState<DeviceId>("mobile");
+  const [device, setDevice] = useState<DeviceId>("desktop");
   const [nonce, setNonce] = useState(0);
   const stage = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -58,12 +58,18 @@ export default function SitePreview({ path }: { path: string }) {
   const send = (d: typeof draft) => frame.current?.contentWindow?.postMessage({ type: PREVIEW_MSG, settings: d }, window.location.origin);
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  const sendFocus = () => frame.current?.contentWindow?.postMessage({ type: PREVIEW_FOCUS_MSG, selector: focusRef.current }, window.location.origin);
 
   // الإطار يخبرنا أنه جاهز (بعد كل تنقّل) فنرسل له المسودة الحالية.
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || e.source !== frame.current?.contentWindow) return;
-      if ((e.data as { type?: string } | null)?.type === PREVIEW_READY) send(draftRef.current);
+      if ((e.data as { type?: string } | null)?.type === PREVIEW_READY) {
+        send(draftRef.current);
+        sendFocus();
+      }
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
@@ -73,6 +79,11 @@ export default function SitePreview({ path }: { path: string }) {
   useEffect(() => {
     send(draft);
   }, [draft]);
+
+  // تغيّر القسم المركَّز عليه: ننزل إلى عنصره في الصفحة المعروضة.
+  useEffect(() => {
+    sendFocus();
+  }, [focus]);
 
   const dev = DEVICES.find((d) => d.id === device)!;
   const scale = box.w > 0 ? Math.min(1, box.w / dev.w) : 1;
@@ -100,7 +111,10 @@ export default function SitePreview({ path }: { path: string }) {
               src={src}
               title={`معاينة الموقع — ${dev.label}`}
               style={{ width: dev.w, height: innerH, transform: `scale(${scale})` }}
-              onLoad={() => send(draftRef.current)}
+              onLoad={() => {
+                send(draftRef.current);
+                sendFocus();
+              }}
             />
           </div>
         ) : (

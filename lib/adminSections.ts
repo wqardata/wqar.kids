@@ -109,6 +109,37 @@ export const SECTIONS: SectionDef[] = [
   S("series", "المجموعات (إدارة)", "series", "series", "/subscriptions"),
 ];
 
+/**
+ * العنصر الذي يتأثر بكل قسم داخل صفحة المعاينة (محدِّد CSS). عند التركيز على قسم تنزل المعاينة إلى هذا العنصر وتحيط به بإطار تمييز.
+ * أول عنصر ظاهر يطابق المحدِّد يُختار (مثلًا ".side, .bottom": الشريط الجانبي على الكمبيوتر والسفلي على الجوال). غير موجود = بلا تمييز.
+ */
+export const PREVIEW_FOCUS: Record<string, string> = {
+  "settings.info": ".top .brand",
+  "settings.logo": ".top .brand",
+  "settings.look": ".top .brand",
+  "settings.glass": ".top",
+  "signup.texts": "#main",
+  "signup.methods": ".gbtn",
+  "appearance.presets": "#main",
+  "behavior.play": ".watch-sticky",
+  "menu.nav": ".side, .bottom",
+  "watch.buttons": ".actions",
+  "watch.suggested": ".suggest",
+  "display.tabs": ".chips",
+  "display.cont": ".home-continue",
+  "display.rows": ".home-blocks",
+  "display.shorts": ".home-shorts",
+  "display.groups": "#main .grid",
+  "notif.send": ".bell",
+  "notif.count": ".bell",
+  "notif.sound": ".bell",
+  "notif.sent": ".bell",
+  videos: ".grid--home",
+  shorts: "#main .grid",
+  categories: ".chips",
+  series: "#main .grid",
+};
+
 export const SECTION_BY_ID: Record<string, SectionDef> = Object.fromEntries(SECTIONS.map((s) => [s.id, s]));
 
 /** تبويبات لا تُقبل هدفًا للنقل (للمالك فقط، فلا يراها بقية المشرفين). */
