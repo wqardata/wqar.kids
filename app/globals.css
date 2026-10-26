@@ -344,12 +344,13 @@ html, body { overflow-x: clip; }
 @media (max-width: 420px) { .pv-row { grid-template-columns: 1fr; } }
 
 /* ---------- إدارة التصنيفات والمجموعات ---------- */
-.nlist { max-width: 640px; }
-.nrow { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.nlist { max-width: none; width: 100%; }
+.nrow { min-height: 68px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
 .nrow-info { display: grid; min-width: 0; }
 .nrow-info strong { font-weight: 600; overflow-wrap: anywhere; }
 .nrow-info small { color: var(--mute); }
-.nrow-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.nrow-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.nrow-actions .btn { min-width: 84px; justify-content: center; text-align: center; }
 .nrow-edit { flex: 1; min-width: 0; }
 .nrow .btn { margin-top: 0; }
 
@@ -569,8 +570,8 @@ html, body { overflow-x: clip; }
 .card--pl:hover .pl-link { color: var(--accent); }
 @media (hover: none) { .pl-hover { display: none; } }
 .series-letter { position: absolute; inset: 0; display: grid; place-items: center; font-size: 3rem; font-weight: 700; color: #fff; }
-.nrow-lead { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.nrow-thumb { flex: none; width: 72px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: var(--line); display: block; }
+.nrow-lead { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 220px; }
+.nrow-thumb { flex: none; width: 80px; height: 45px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: var(--line); display: block; }
 .nrow-cover { flex: 1 1 100%; }
 
 /* ---------- لون العرض (تلقائي / فاتح / داكن) داخل نافذة الشخص ---------- */

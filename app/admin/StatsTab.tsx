@@ -17,6 +17,12 @@ function Tile({ label, value, note, tone }: { label: string; value: string; note
   );
 }
 
+/** «يوم/شهر» بأرقام لاتينية واتجاه ثابت من اليسار (تنسيق ar كان يعكس الأرقام داخل المخطط فيظهر 279/ بدل 27/9). */
+function dm(day: string | number | Date): string {
+  const d = new Date(day);
+  return `\u200E${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
+}
+
 /** مخطط أعمدة بسيط (SVG) لمشاهدات كل يوم. */
 function TrafficChart({ data }: { data: DayPoint[] }) {
   const W = 640;
@@ -40,7 +46,7 @@ function TrafficChart({ data }: { data: DayPoint[] }) {
         return (
           <g key={t}>
             <line x1={PAD.l} x2={W - PAD.r} y1={y} y2={y} className="stat-grid" />
-            <text x={PAD.l - 6} y={y + 4} textAnchor="end" className="stat-axis">{nf.format(t)}</text>
+            <text x={PAD.l - 6} y={y + 4} textAnchor="end" className="stat-axis">{`\u200E${t}`}</text>
           </g>
         );
       })}
@@ -54,7 +60,7 @@ function TrafficChart({ data }: { data: DayPoint[] }) {
             </rect>
             {i % every === 0 && (
               <text x={x + bw / 2} y={H - 8} textAnchor="middle" className="stat-axis">
-                {new Date(d.day).toLocaleDateString("ar", { day: "numeric", month: "numeric", timeZone: "UTC" })}
+                {dm(d.day)}
               </text>
             )}
           </g>

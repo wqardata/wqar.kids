@@ -1,7 +1,6 @@
 // إعدادات الأذكار (نقية: تعمل في الخادم والمتصفح). حساب المواقيت نفسه في lib/prayer.ts.
 import { PRAYERS, type PrayerId } from "./adhanCore";
 import type { Slot } from "./prayer";
-import { parseDriveId } from "./drive";
 
 export type AdhkarKind = "morning" | "evening";
 
@@ -125,7 +124,7 @@ function cleanItems(v: unknown, fallback: Dhikr[]): Dhikr[] {
       repeat: Number.isFinite(n) ? Math.min(REPEAT_MAX, Math.max(1, n)) : 1,
       note: typeof o.note === "string" ? o.note.trim().slice(0, NOTE_MAX) : "",
       // رابط درايف أو المعرّف نفسه → المعرّف فقط؛ أي شيء آخر يُهمل (لا نشغّل روابط غير درايف).
-      audio: typeof o.audio === "string" ? parseDriveId(o.audio.slice(0, AUDIO_RAW_MAX)) ?? "" : "",
+      audio: "", // الصوت من درايف لم يعد مدعومًا
     });
   }
   return out;
