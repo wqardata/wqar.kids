@@ -1,0 +1,239 @@
+"use client";
+import { useEffect, useMemo, useState } from "react";
+import AdhanCard from "@/components/AdhanCard";
+import AdhanRemind from "@/components/AdhanRemind";
+import { METHODS, PRAYERS, PRAYER_AUDIO_MAX, audioSources, autoCalc, cleanAdhan, cleanAudioSrc, type AdhanSettings, type PrayerId } from "@/lib/adhanCore";
+import { useAutoLocation } from "@/lib/adhanLocation";
+import { timesForDay } from "@/lib/prayer";
+import { resolveAudioSrc } from "@/lib/adhkarAudio";
+import { saveSettings, useSettings } from "@/lib/settings";
+import { playAlert } from "@/lib/sounds";
+import SoundSettings from "@/app/admin/SoundSettings";
+import { usePreviewDraft } from "@/lib/preview";
+import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
+
+function clock(d: Date): string {
+  return new Intl.DateTimeFormat("ar-EG", { hour: "numeric", minute: "2-digit", hour12: true }).format(d);
+}
+
+/** نسخة صوت واحدة لصلاة: حقل الرابط + تحقق + تجربة قبل الحفظ. */
+function AudioCopy({ id, label, value, onChange, onRemove }: { id: string; label: string; value: string; onChange: (v: string) => void; onRemove?: () => void }) {
+  const clean = cleanAudioSrc(value);
+  const [testing, setTesting] = useState(false);
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="field adhan-audio-copy">
+      <label htmlFor={id}>{label}</label>
+      <div className="addrow">
+        <input id={id} dir="ltr" style={{ flex: 1, minWidth: 180 }} maxLength={400} value={value} placeholder="https://drive.google.com/file/d/…/view"
+          onChange={(e) => { setTesting(false); setFailed(false); onChange(e.target.value); }} />
+        {onRemove && <button type="button" className="btn btn--ghost btn--sm danger" onClick={onRemove}>حذف</button>}
+      </div>
+      {value.trim() && !clean && <p className="field-error" role="alert">الرابط غير صالح؛ سيُهمل عند الحفظ.</p>}
+      {clean && (
+        <div className="addrow">
+          <small>✓ تم التعرّف على الملف</small>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => { setFailed(false); setTesting((t) => !t); }}>{testing ? "إخفاء التجربة" : "▶ تجربة"}</button>
+        </div>
+      )}
+      {clean && testing && <audio controls autoPlay preload="none" src={resolveAudioSrc(clean)} onError={() => setFailed(true)} style={{ width: "100%" }} />}
+      {failed && <p className="field-error" role="alert">تعذّر تشغيل الملف. تأكد أن مشاركته «أي شخص لديه الرابط – مشاهد» وأنه ملف صوتي (mp3 أو m4a).</p>}
+    </div>
+  );
+}
+
+/** تبويب «الأذان»: كل ما يخصّ نافذة الأذان، في مربعات منفصلة. */
+export default function AdhanTab() {
+  const { settings, update, ready } = useSettings();
+  const [form, setForm] = useState<AdhanSettings>(settings.adhan);
+  usePreviewDraft("adhan", { adhan: cleanAdhan(form) });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+  const [test, setTest] = useState<number | null>(null); // ثوانٍ متبقية في التجربة
+
+  const set = <K extends keyof AdhanSettings>(k: K, v: AdhanSettings[K]) => {
+    setDone(false);
+    setForm((f) => ({ ...f, [k]: v }));
+  };
+  const setPrayer = (id: PrayerId, on: boolean) => set("prayers", { ...form.prayers, [id]: on });
+  const setRemind = (id: PrayerId, n: number) => set("remindMin", { ...form.remindMin, [id]: Math.min(60, Math.max(0, Math.round(n) || 0)) });
+  const setCopies = (id: PrayerId, list: string[]) => set("prayerAudio", { ...form.prayerAudio, [id]: list });
+  const [remindTest, setRemindTest] = useState(false);
+
+  useEffect(() => {
+    if (test === null) return;
+    if (test <= 0) { setTest(null); return; }
+    const t = setTimeout(() => setTest((x) => (x === null ? null : x - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [test]);
+
+  // معاينة مواقيت اليوم بموقعك أنت (المحفوظ في متصفحك أو التقدير من منطقتك الزمنية)؛ لا تسأل المتصفح عن إذن جديد.
+  const { coords } = useAutoLocation(true, false);
+  const calc = autoCalc(coords.lat, coords.lng);
+  const methodLabel = METHODS.find((m) => m.id === calc.method)?.label ?? "";
+  const todayTimes = useMemo(() => {
+    const local = new Date(Date.now() + (coords.lng / 15) * 3600000);
+    return timesForDay(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate(), coords.lat, coords.lng);
+  }, [coords.lat, coords.lng]);
+
+  async function save() {
+    setError("");
+    setSaving(true);
+    try {
+      const saved = await saveSettings({ ...settings, adhan: cleanAdhan(form) });
+      update(saved);
+      setForm(saved.adhan);
+      setDone(true);
+    } catch {
+      setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
+
+  return (
+    <>
+      <MovableSection id="adhan.main">
+      <section className="panel auth-form" aria-labelledby="ad-h-main">
+        <h2 id="ad-h-main">تفعيل نافذة الأذان</h2>
+        <label className="check"><input type="checkbox" checked={form.enabled} onChange={(e) => set("enabled", e.target.checked)} /> إظهار نافذة الأذان للزوار في أوقات الصلوات</label>
+        <label className="check"><input type="checkbox" checked={form.closable} onChange={(e) => set("closable", e.target.checked)} /> السماح للزائر بإغلاق النافذة</label>
+        <label className="check"><input type="checkbox" checked={form.adminShow} onChange={(e) => set("adminShow", e.target.checked)} /> إظهار نافذة الأذان وتنبيه «اقتربت صلاة» للمشرفين أيضًا</label>
+        <p className="hint">النافذة تظهر فقط لمن يكون الموقع أو التطبيق مفتوحًا لديه وقت الأذان. خيار المشرفين معطّل افتراضيًا: لا ترى حسابات المشرفين (ومنهم أنت) النافذة ولا التنبيه، فلا يُقاطَع عملهم في لوحة التحكم، بينما تبقى ظاهرة لبقية الزوار. «تجربة النافذة» و«تجربة التنبيه» تعملان دائمًا.</p>
+      </section>
+      </MovableSection>
+
+      <MovableSection id="adhan.loc">
+      <section className="panel auth-form" aria-labelledby="ad-h-loc">
+        <h2 id="ad-h-loc">الموقع وطريقة الحساب (تلقائيان)</h2>
+        <p className="hint">
+          يُحدَّد موقع كل زائر تلقائيًا من جهازه (بعد موافقته في المتصفح)، وإن لم يوافق فيُقدَّر من منطقته الزمنية. وتُختار جهة الحساب ومذهب العصر
+          تلقائيًا بحسب منطقته (مثل: الهيئة المصرية في مصر والشام والسودان، وأم القرى في الجزيرة العربية، ورابطة العالم الإسلامي في أوروبا وغيرها).
+          لا يوجد إعداد يدوي لهما، ولا يستطيع الزائر تغييرهما.
+        </p>
+        <p className="hint">لموقعك أنت الآن: الجهة المختارة «{methodLabel}»، وحساب العصر «{calc.asr === "hanafi" ? "الحنفي" : "الجمهور"}».</p>
+      </section>
+      </MovableSection>
+
+      <MovableSection id="adhan.prayers">
+      <section className="panel auth-form" aria-labelledby="ad-h-pr">
+        <h2 id="ad-h-pr">الصلوات</h2>
+        {PRAYERS.map((p) => (
+          <div className="addrow" key={p.id}>
+            <label className="check"><input type="checkbox" checked={form.prayers[p.id]} onChange={(e) => setPrayer(p.id, e.target.checked)} /> {p.label}</label>
+            <span dir="ltr"><strong>{clock(todayTimes[p.id])}</strong></span>
+          </div>
+        ))}
+        <p className="hint">الأوقات المعروضة هنا معاينة لليوم بموقعك أنت، وكل زائر يرى أوقات موقعه. تُحسب تلقائيًا ولا تُعدَّل يدويًا. قارنها بتقويم مسجدك المحلي قبل الاعتماد عليها.</p>
+      </section>
+      </MovableSection>
+
+      <MovableSection id="adhan.remind">
+      <section className="panel auth-form" aria-labelledby="ad-h-rem">
+        <h2 id="ad-h-rem">التنبيه قبل الأذان</h2>
+        <label className="check"><input type="checkbox" checked={form.remind} onChange={(e) => set("remind", e.target.checked)} /> إظهار فقاعة زجاجية «اقتربت صلاة …» قبل موعد كل صلاة</label>
+        <div className="field">
+          <label htmlFor="ad-rtext">نص التنبيه — {"{prayer}"} اسم الصلاة و{"{min}"} الدقائق المتبقية</label>
+          <input id="ad-rtext" value={form.remindText} onChange={(e) => set("remindText", e.target.value)} maxLength={120} />
+        </div>
+        {PRAYERS.map((p) => (
+          <div className="addrow" key={p.id}>
+            <span style={{ minWidth: 60 }}>{p.label}</span>
+            <label>
+              <span className="sr-only">دقائق التنبيه قبل {p.label}</span>
+              <input type="number" min={0} max={60} step={1} dir="ltr" value={form.remindMin[p.id]} onChange={(e) => setRemind(p.id, Number(e.target.value))} style={{ width: 80 }} disabled={!form.remind} />
+            </label>
+            <small>دقيقة قبل الأذان (0 = بلا تنبيه)</small>
+          </div>
+        ))}
+        <p className="hint">تظهر الفقاعة قبل موعد الصلاة بالمدة المضبوطة لها ، ثم تتحول إلى نافذة الأذان عند دخول الوقت. يمكن للزائر إغلاقها. تُحتسب فقط للصلوات المفعّلة في قسم «الصلوات».</p>
+        <div className="addrow">
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => { setRemindTest(true); playAlert("remind", settings.sounds.volume); }} disabled={!form.remind}>تجربة التنبيه</button>
+        </div>
+      </section>
+      </MovableSection>
+
+      <MovableSection id="adhan.window">
+      <section className="panel auth-form" aria-labelledby="ad-h-win">
+        <h2 id="ad-h-win">النافذة والنص والعدّاد</h2>
+        <div className="field">
+          <label htmlFor="ad-text">النص (بين الصورة والعدّاد) — اكتب {"{prayer}"} ليُستبدل باسم الصلاة</label>
+          <input id="ad-text" value={form.text} onChange={(e) => set("text", e.target.value)} maxLength={120} />
+        </div>
+        <div className="field">
+          <label htmlFor="ad-count">مدة العدّ التنازلي: {form.countdownMin} دقيقة</label>
+          <input id="ad-count" type="range" min={1} max={60} value={form.countdownMin} onChange={(e) => set("countdownMin", Number(e.target.value))} />
+        </div>
+        <div className="field">
+          <label htmlFor="ad-img">رابط صورة المسجد (فارغ = المسجد الكرتوني الافتراضي /images/mosque.svg)</label>
+          <input id="ad-img" dir="ltr" placeholder="https://… أو /images/mosque.png" value={form.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} maxLength={400} />
+        </div>
+      </section>
+      </MovableSection>
+
+      <MovableSection id="adhan.takbir">
+      <section className="panel auth-form" aria-labelledby="ad-h-snd">
+        <h2 id="ad-h-snd">صوت التكبيرات</h2>
+        <p className="hint">لكل صلاة ملف صوت خاص بها من درايف (يجب أن يكون مشاركًا «أي شخص لديه الرابط – مشاهد»). يمكنك إضافة حتى {PRAYER_AUDIO_MAX} نسخ لكل صلاة (نفس الصوت مرفوع أكثر من مرة): يُختار أحدها عشوائيًا عند كل أذان فيتوزّع الزوار عليها، وإن لم تعمل نسخة (مثلًا تجاوز درايف حد تنزيلها) يُجرَّب التالي تلقائيًا.</p>
+        {PRAYERS.map((p) => {
+          const list = form.prayerAudio[p.id];
+          const rows = list.length ? list : [""];
+          return (
+            <fieldset key={p.id} className="adhkar-bd">
+              <legend>صوت أذان {p.label}</legend>
+              {rows.map((v, k) => (
+                <AudioCopy
+                  key={k}
+                  id={`ad-pa-${p.id}-${k}`}
+                  label={k === 0 ? "رابط الملف" : `نسخة احتياطية ${k + 1}`}
+                  value={v}
+                  onChange={(nv) => { const a = [...rows]; a[k] = nv; setCopies(p.id, a); }}
+                  onRemove={rows.length > 1 ? () => setCopies(p.id, rows.filter((_, j) => j !== k)) : undefined}
+                />
+              ))}
+              {rows.length < PRAYER_AUDIO_MAX && (
+                <div className="addrow">
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => setCopies(p.id, [...rows, ""])}>＋ إضافة نسخة أخرى لـ{p.label}</button>
+                </div>
+              )}
+            </fieldset>
+          );
+        })}
+        <div className="field">
+          <label htmlFor="ad-audio">صوت عام احتياطي (اختياري): رابط ملف الصوت (mp3) أو مساره داخل الموقع</label>
+          <input id="ad-audio" dir="ltr" placeholder="/audio/takbeer.mp3" value={form.audioUrl} onChange={(e) => set("audioUrl", e.target.value)} maxLength={400} />
+          <p className="hint">ضع ملف التكبيرات الذي تملك حق استخدامه في المجلد <code dir="ltr">public/audio/</code> ثم اكتب مساره هنا. يُستعمل لأي صلاة ليس لها صوت خاص أعلاه. فارغ = نافذة بلا صوت لتلك الصلاة. المتصفحات تمنع التشغيل التلقائي قبل أن يتفاعل الزائر مع الموقع، فيظهر له زر «اضغط لتشغيل التكبيرات».</p>
+        </div>
+        <div className="field">
+          <label htmlFor="ad-vol">مستوى الصوت: {form.volume}%</label>
+          <input id="ad-vol" type="range" min={0} max={100} value={form.volume} onChange={(e) => set("volume", Number(e.target.value))} />
+        </div>
+      </section>
+      </MovableSection>
+
+      <MovableSection id="sound.adhan"><SoundSettings /></MovableSection>
+
+      <OwnerFooter>
+      {error && <p className="field-error" role="alert">{error}</p>}
+      {done && <p className="hint" role="status">تم حفظ إعدادات الأذان ✓</p>}
+      <div className="addrow">
+        <button type="button" className="btn" onClick={() => void save()} disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات الأذان"}</button>
+        <button type="button" className="btn btn--ghost" onClick={() => { setTest(form.countdownMin * 60); if (settings.sounds.adhan && audioSources(cleanAdhan(form), "dhuhr").length === 0) playAlert("adhan", settings.sounds.volume); }}>تجربة النافذة</button>
+      </div>
+
+      {remindTest && (
+        <AdhanRemind text={form.remindText} prayerLabel="الظهر" minutes={form.remindMin.dhuhr || 5} onClose={() => setRemindTest(false)} />
+      )}
+
+      {test !== null && (
+        <div className="adhan-overlay">
+          <AdhanCard cfg={{ ...cleanAdhan(form), closable: true }} prayerLabel="الظهر" prayerId="dhuhr" remainingSec={test} playAudio onClose={() => setTest(null)} />
+        </div>
+      )}
+      </OwnerFooter>
+    </>
+  );
+}
