@@ -28,6 +28,8 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
         title={`مشغّل يوتيوب — ${title}`}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         allowFullScreen
+        // بلا allow-popups: يمنع الإطار من فتح أي تبويب/نافذة خارجية (شعار يوتيوب، «مشاهدة على يوتيوب»، …).
+        sandbox="allow-scripts allow-same-origin allow-presentation"
         referrerPolicy="strict-origin-when-cross-origin"
         onLoad={() => setLoaded(true)}
       />

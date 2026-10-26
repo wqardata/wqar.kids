@@ -59,6 +59,8 @@ export default function DrivePlayer({ driveId, title, hue, autoplay = false, sta
         title={`مشغّل الفيديو — ${title}`}
         allow="autoplay; fullscreen"
         allowFullScreen
+        // بلا allow-popups: يمنع زر «فتح في نافذة جديدة» وروابط درايف الخارجية.
+        sandbox="allow-scripts allow-same-origin allow-presentation"
         loading={autoplay ? "eager" : "lazy"}
         referrerPolicy="no-referrer"
         onLoad={() => setLoaded(true)}

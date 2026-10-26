@@ -153,6 +153,7 @@ export default function ShortsFeed() {
                     src={`https://drive.google.com/file/d/${v.driveId}/preview?autoplay=1`}
                     title={`مشغّل الفيديو — ${v.title}`}
                     allow="autoplay; fullscreen"
+                    sandbox="allow-scripts allow-same-origin allow-presentation"
                     referrerPolicy="no-referrer"
                     onLoad={() => setLoadedKey(s.key)}
                   />
