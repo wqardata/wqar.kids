@@ -39,6 +39,20 @@ service cloud.firestore {
     match /series/{id}     { allow read: if true; allow write: if isAdmin(); }
     match /settings/{id}   { allow read: if true; allow write: if isAdmin(); }
 
+    // إحصاء المشاهدات اليومي لمخطط الإقبال: مستند لكل يوم stats/d-YYYY-MM-DD. أي زائر يزيد عدّاد اليوم بمقدار 1 فقط
+    // (أو ينشئ مستند اليوم بقيمة 1)؛ القراءة للمشرف فقط.
+    match /stats/{id} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['day', 'views'])
+        && request.resource.data.day is string
+        && id == ('d-' + request.resource.data.day)
+        && request.resource.data.views == 1;
+      allow update: if isAdmin()
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])
+            && request.resource.data.views is int
+            && request.resource.data.views == resource.data.views + 1);
+    }
+
     // بلاغات الزوار: أي شخص (مسجَّل أو غير مسجَّل) يُنشئ بلاغًا بحقول محدودة الحجم؛ القراءة والإدارة للمشرف فقط.
     match /reports/{id} {
       allow create: if true

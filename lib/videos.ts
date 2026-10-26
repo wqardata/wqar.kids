@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { addDoc, collection, doc, documentId, getDocs, increment, limit, orderBy, query, serverTimestamp, startAfter, updateDoc, where, type QueryDocumentSnapshot } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
+import { bumpDailyViews } from "./stats";
+import { isPreviewFrame } from "./previewFrame";
 
 export type Named = {
   id: string;
@@ -178,12 +180,13 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
 
 /** يزيد عدّاد مشاهدات الفيديو مرة واحدة لكل جلسة متصفح. الفشل صامت (لا يمنع المشاهدة). */
 export async function countView(id: string): Promise<boolean> {
-  if (!isFirebaseConfigured) return false;
+  if (!isFirebaseConfigured || isPreviewFrame()) return false; // معاينة اللوحة لا تُحتسب مشاهدة
   try {
     const k = `viewed:${id}`;
     if (sessionStorage.getItem(k)) return false;
     sessionStorage.setItem(k, "1");
     await updateDoc(doc(getDb(), "videos", id), { views: increment(1) });
+    void bumpDailyViews(); // مخطط الإقبال اليومي في لوحة التحكم
     return true;
   } catch {
     /* القواعد القديمة أو التخزين غير متاح: نتجاهل */
@@ -265,6 +268,27 @@ async function fetchEveryVideo(): Promise<VideoDoc[]> {
     allInflight = null;
   });
   return allInflight;
+}
+
+/**
+ * كل الفيديوهات الظاهرة مرتبة من الأحدث للأقدم (لا أحدث 100 فقط). تُقرأ مرة وتُخزَّن 15 دقيقة في المتصفح،
+ * وتُستعمل في الرئيسية كي تختار «الأكثر مشاهدة» و«العشوائي» من كل المكتبة لا من آخر المضاف فقط.
+ */
+export function useEveryVideo() {
+  const [videos, setVideos] = useState<VideoDoc[]>([]);
+  const [ready, setReady] = useState(!isFirebaseConfigured);
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    let off = false;
+    fetchEveryVideo()
+      .then((all) => !off && setVideos([...all].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))))
+      .catch(() => {})
+      .finally(() => !off && setReady(true));
+    return () => {
+      off = true;
+    };
+  }, []);
+  return { videos, ready };
 }
 
 /** الفيديوهات الظاهرة مجمّعة حسب معرّف المجموعة (كلها، لا آخر 200 فقط). */

@@ -293,6 +293,10 @@ export const CONTINUE_LAYOUTS = [
 ] as const;
 export type ContinueLayout = (typeof CONTINUE_LAYOUTS)[number]["id"];
 export const CONTINUE_COUNT_MAX = 12;
+/** عرض مربع الفيديو في «تابع المشاهدة» (بكسل): الشريط الأفقي = عرض المربع، والصفوف = أقل عرض للمربع. */
+export const CONTINUE_SIZE_MIN = 140;
+export const CONTINUE_SIZE_MAX = 420;
+export const CONTINUE_SIZE_DEFAULT = 280;
 /** أقصى حد أدنى (بالثواني) لمدة المشاهدة كي يظهر الفيديو في صف «تابع المشاهدة». */
 export const CONTINUE_MIN_SEC_MAX = 120;
 
@@ -332,10 +336,33 @@ export function cleanNoticeCount(v: unknown): number {
   return Number.isFinite(n) ? Math.min(NOTICE_COUNT_MAX, Math.max(NOTICE_COUNT_MIN, n)) : DEFAULT_NOTICE_COUNT;
 }
 
+/** صفوف الرئيسية المخصّصة: لكل صف عدد فيديوهاته (الافتراضي 3 في الصف) ويمكن إضافة صفوف وحذفها. */
+export const ROW_SIZE_MIN = 1;
+export const ROW_SIZE_MAX = 6;
+export const ROW_SIZE_DEFAULT = 3;
+export const HOME_ROW_LIST_MAX = 30;
+export const DEFAULT_ROW_SIZES: number[] = [3, 3, 3];
+export function cleanRowSizes(v: unknown): number[] {
+  if (!Array.isArray(v)) return [...DEFAULT_ROW_SIZES];
+  const out: number[] = [];
+  for (const x of v) {
+    const n = Math.round(Number(x));
+    out.push(Number.isFinite(n) ? Math.min(ROW_SIZE_MAX, Math.max(ROW_SIZE_MIN, n)) : ROW_SIZE_DEFAULT);
+    if (out.length >= HOME_ROW_LIST_MAX) break;
+  }
+  return out.length > 0 ? out : [...DEFAULT_ROW_SIZES];
+}
+
 /** إعدادات العرض: الصفحة الرئيسية وصفحات المجموعات (تبويب «العرض» في إدارة المحتوى). */
 export type DisplaySettings = {
   /** إجمالي صفوف الفيديوهات في الرئيسية (الصف = 4 فيديوهات على الحاسوب). 0 = كل الفيديوهات مع التحميل التدريجي. */
   homeRows: number;
+  /** true = صفوف مخصّصة (عدد فيديوهات كل صف على حدة) وتتجاهل homeRows؛ false = الأسلوب القديم (4 في الصف). */
+  homeRowsCustom: boolean;
+  /** عدد الفيديوهات في كل صف مخصّص بالترتيب من الأعلى. */
+  homeRowSizes: number[];
+  /** بعد آخر صف مخصّص: true = تابع عرض بقية الفيديوهات (3 في الصف مع تحميل تدريجي)، false = توقّف عند آخر صف. */
+  homeRowsMore: boolean;
   /** عنوان يسبق المجموعة الأولى من الصفوف (الجديد والأكثر مشاهدة). فارغ = بلا عنوان. */
   titleTop: string;
   /** عنوان يسبق بقية الصفوف. فارغ = بلا عنوان. */
@@ -355,6 +382,8 @@ export type DisplaySettings = {
   continueCount: number;
   continueLayout: ContinueLayout;
   continueTitle: string;
+  /** حجم مربعات الفيديو في الصف (عرض المربع بالبكسل). */
+  continueSize: number;
   /** أقل مدة مشاهدة (ثوانٍ) ليظهر الفيديو في «تابع المشاهدة». 0 = أي فيديو سبق فتحه ولم يكتمل. */
   continueMinSec: number;
   /** تخصيص تبويبات أعلى الرئيسية يدويًا (false = تلقائي: الكل والجديد وكل التصنيفات). */
@@ -373,6 +402,9 @@ export type DisplaySettings = {
 
 export const DEFAULT_DISPLAY: DisplaySettings = {
   homeRows: 0,
+  homeRowsCustom: true,
+  homeRowSizes: [...DEFAULT_ROW_SIZES],
+  homeRowsMore: true,
   titleTop: "",
   titleRest: "",
   newCount: 3,
@@ -385,6 +417,7 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   continueCount: 2,
   continueLayout: "scroll",
   continueTitle: "تابع المشاهدة",
+  continueSize: CONTINUE_SIZE_DEFAULT,
   continueMinSec: 0,
   homeTabsCustom: false,
   homeTabs: [],
@@ -413,6 +446,10 @@ export function cleanDisplay(v: unknown): DisplaySettings {
   const pos = int("shortsPos", 0, SHORTS_POS_END, D.shortsPos);
   return {
     homeRows: int("homeRows", 0, DISPLAY_ROWS_MAX, D.homeRows),
+    // إعدادات قديمة محفوظة بعدد صفوف محدّد تبقى على الأسلوب القديم حتى يفعّل المشرف الصفوف المخصّصة.
+    homeRowsCustom: typeof o.homeRowsCustom === "boolean" ? o.homeRowsCustom : !(Number(o.homeRows) > 0),
+    homeRowSizes: cleanRowSizes(o.homeRowSizes),
+    homeRowsMore: o.homeRowsMore !== false,
     titleTop: text("titleTop"),
     titleRest: text("titleRest"),
     newCount: int("newCount", 0, DISPLAY_COUNT_MAX, D.newCount),
@@ -425,6 +462,7 @@ export function cleanDisplay(v: unknown): DisplaySettings {
     continueCount: int("continueCount", 1, CONTINUE_COUNT_MAX, D.continueCount),
     continueLayout: CONTINUE_LAYOUTS.some((x) => x.id === o.continueLayout) ? (o.continueLayout as ContinueLayout) : D.continueLayout,
     continueTitle: textOr("continueTitle", D.continueTitle),
+    continueSize: int("continueSize", CONTINUE_SIZE_MIN, CONTINUE_SIZE_MAX, D.continueSize),
     continueMinSec: int("continueMinSec", 0, CONTINUE_MIN_SEC_MAX, D.continueMinSec),
     homeTabsCustom: o.homeTabsCustom === true,
     homeTabs: cleanHomeTabs(o.homeTabs),
@@ -434,6 +472,108 @@ export function cleanDisplay(v: unknown): DisplaySettings {
     iconTop: icon("iconTop"),
     iconRest: icon("iconRest"),
     iconShorts: icon("iconShorts"),
+  };
+}
+
+/** ───────── صفحة الفيديو: الفيديوهات المقترحة ───────── */
+export const SUG_LAYOUTS = [
+  { id: "list", label: "قائمة (صورة صغيرة بجانب النص)" },
+  { id: "cards", label: "بطاقات (صورة كبيرة فوق النص)" },
+  { id: "scroll", label: "شريط أفقي (تمرير يمينًا ويسارًا)" },
+] as const;
+export type SugLayout = (typeof SUG_LAYOUTS)[number]["id"];
+
+export const SUG_ORDERS = [
+  { id: "mix", label: "الأقرب للفيديو الحالي أولًا ثم عشوائي" },
+  { id: "related", label: "الأقرب للفيديو الحالي فقط (مرتّبة بالصلة ثم الأحدث)" },
+  { id: "newest", label: "الأحدث أولًا" },
+  { id: "popular", label: "الأكثر مشاهدة أولًا" },
+  { id: "random", label: "عشوائي بالكامل" },
+] as const;
+export type SugOrder = (typeof SUG_ORDERS)[number]["id"];
+
+export const SUG_SCOPES = [
+  { id: "all", label: "كل الفيديوهات" },
+  { id: "series", label: "من نفس المجموعة فقط" },
+  { id: "category", label: "من نفس التصنيف فقط" },
+] as const;
+export type SugScope = (typeof SUG_SCOPES)[number]["id"];
+
+export const SUG_COUNT_MAX = 30;
+
+export type WatchPageSettings = {
+  /** إظهار قسم الفيديوهات المقترحة. */
+  sugShow: boolean;
+  /** عنوان القسم (فارغ = بلا عنوان). */
+  sugTitle: string;
+  sugCount: number;
+  sugLayout: SugLayout;
+  sugOrder: SugOrder;
+  /** من أين تُؤخذ الفيديوهات: الكل، أو نفس مجموعة/تصنيف الفيديو المشغَّل فقط (إن لم يوجد شيء تُستعمل البقية). */
+  sugScope: SugScope;
+  /** في وضع «الأقرب ثم عشوائي»: كم فيديو من الأقرب يأتي أولًا (الباقي عشوائي). */
+  sugRelated: number;
+  /** أولوية الصلة: نفس المجموعة / نفس التصنيف. */
+  sugPrioSeries: boolean;
+  sugPrioCategory: boolean;
+  /** الحلقة التالية من نفس المجموعة تأتي أولًا. */
+  sugNextFirst: boolean;
+  /** إخفاء ما أكمله الزائر مشاهدته. */
+  sugHideWatched: boolean;
+  /** تضمين المقاطع القصيرة. */
+  sugShorts: boolean;
+  /** ما يظهر على كل فيديو مقترح. */
+  sugShowSeries: boolean;
+  sugShowEpisode: boolean;
+  sugShowViews: boolean;
+  sugShowDuration: boolean;
+};
+
+export const DEFAULT_WATCH_PAGE: WatchPageSettings = {
+  sugShow: true,
+  sugTitle: "فيديوهات مقترحة",
+  sugCount: 10,
+  sugLayout: "list",
+  sugOrder: "mix",
+  sugScope: "all",
+  sugRelated: 4,
+  sugPrioSeries: true,
+  sugPrioCategory: true,
+  sugNextFirst: false,
+  sugHideWatched: false,
+  sugShorts: false,
+  sugShowSeries: true,
+  sugShowEpisode: false,
+  sugShowViews: true,
+  sugShowDuration: true,
+};
+
+export function cleanWatchPage(v: unknown): WatchPageSettings {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const D = DEFAULT_WATCH_PAGE;
+  const int = (k: string, lo: number, hi: number, fb: number) => {
+    const n = Number(o[k]);
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : fb;
+  };
+  const flag = (k: keyof WatchPageSettings, fb: boolean) => (typeof o[k] === "boolean" ? (o[k] as boolean) : fb);
+  const count = int("sugCount", 1, SUG_COUNT_MAX, D.sugCount);
+  return {
+    sugShow: flag("sugShow", D.sugShow),
+    sugTitle: typeof o.sugTitle === "string" ? o.sugTitle.trim().slice(0, 60) : D.sugTitle,
+    sugCount: count,
+    sugLayout: SUG_LAYOUTS.some((x) => x.id === o.sugLayout) ? (o.sugLayout as SugLayout) : D.sugLayout,
+    sugOrder: SUG_ORDERS.some((x) => x.id === o.sugOrder) ? (o.sugOrder as SugOrder) : D.sugOrder,
+    sugScope: SUG_SCOPES.some((x) => x.id === o.sugScope) ? (o.sugScope as SugScope) : D.sugScope,
+    sugRelated: Math.min(count, int("sugRelated", 0, SUG_COUNT_MAX, D.sugRelated)),
+    sugPrioSeries: flag("sugPrioSeries", D.sugPrioSeries),
+    sugPrioCategory: flag("sugPrioCategory", D.sugPrioCategory),
+    sugNextFirst: flag("sugNextFirst", D.sugNextFirst),
+    sugHideWatched: flag("sugHideWatched", D.sugHideWatched),
+    sugShorts: flag("sugShorts", D.sugShorts),
+    sugShowSeries: flag("sugShowSeries", D.sugShowSeries),
+    sugShowEpisode: flag("sugShowEpisode", D.sugShowEpisode),
+    sugShowViews: flag("sugShowViews", D.sugShowViews),
+    sugShowDuration: flag("sugShowDuration", D.sugShowDuration),
   };
 }
 
@@ -488,6 +628,8 @@ export type SiteSettings = {
   sounds: SoundSettings;
   /** إعدادات عرض الرئيسية والمجموعات. */
   display: DisplaySettings;
+  /** إعدادات صفحة الفيديو (الفيديوهات المقترحة). */
+  watchPage: WatchPageSettings;
   /** عدد الإشعارات الظاهرة في قائمة الجرس. */
   noticeCount: number;
 };
@@ -585,6 +727,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   loginMethods: DEFAULT_LOGIN_METHODS,
   sounds: DEFAULT_SOUNDS,
   display: DEFAULT_DISPLAY,
+  watchPage: DEFAULT_WATCH_PAGE,
   noticeCount: DEFAULT_NOTICE_COUNT,
 };
 
@@ -728,6 +871,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     loginMethods: cleanLoginMethods(d.loginMethods),
     sounds: cleanSounds(d.sounds),
     display: cleanDisplay(d.display),
+    watchPage: cleanWatchPage(d.watchPage),
     noticeCount: cleanNoticeCount(d.noticeCount ?? DEFAULT_NOTICE_COUNT),
   };
 }

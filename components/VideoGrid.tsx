@@ -1,4 +1,5 @@
 "use client";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { SkelCards } from "@/components/Skeleton";
 import VideoCaption from "@/components/VideoCaption";
@@ -7,14 +8,14 @@ import { usePaged } from "@/lib/usePaged";
 import { useSeriesAvatars, type VideoDoc } from "@/lib/videos";
 
 /** شبكة بطاقات لفيديوهات Firestore: خمسة صفوف أولًا، ثم صفّان إضافيان كلما نزلت لآخر صف. */
-export default function VideoGrid({ items, shorts = false, className = "", all = false }: { items: readonly VideoDoc[]; shorts?: boolean; className?: string; /** عرض كل العناصر بلا ترقيم. */ all?: boolean }) {
+export default function VideoGrid({ items, shorts = false, className = "", all = false, cols }: { items: readonly VideoDoc[]; shorts?: boolean; className?: string; /** عرض كل العناصر بلا ترقيم. */ all?: boolean; /** عدد الأعمدة على الحاسوب (يُطبَّق من 900px فما فوق). */ cols?: number }) {
   const paged = usePaged(items.length);
   const avatars = useSeriesAvatars();
   const { gridRef, sentinelRef, pending } = paged;
   const visible = all ? items.length : paged.visible;
   return (
     <>
-      <ul ref={gridRef} className={`${shorts ? "grid grid--shorts" : "grid"}${className ? ` ${className}` : ""}`}>
+      <ul ref={gridRef} className={`${shorts ? "grid grid--shorts" : "grid"}${className ? ` ${className}` : ""}${cols ? " grid--cols" : ""}`} style={cols ? ({ ["--cols" as string]: cols } as CSSProperties) : undefined}>
         {items.slice(0, visible).map((v, i) => (
           <li key={v.id}>
             <Link href={`/v/${v.id}`} className="card">

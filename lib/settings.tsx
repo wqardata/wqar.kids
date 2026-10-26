@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type CSSProper
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getDb, getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 import { THEME_CACHE_KEY, THEME_STYLE_ID, effectiveColors, themeCss, type Theme } from "./theme";
+import { isPreviewFrame } from "./previewFrame";
 import { BRAND_FONTS, DEFAULT_SETTINGS, glassCss, merge, type SiteSettings } from "./settingsCore";
 
 export * from "./settingsCore";
@@ -154,7 +155,7 @@ export function SettingsProvider({ children, initial }: { children: ReactNode; i
 
   // تطبيق الثيم على الصفحة وتخزينه محليًا ليظهر فورًا في الزيارة التالية دون وميض.
   useEffect(() => {
-    if (themeKnown) applyTheme(settings.theme);
+    if (themeKnown) applyTheme(settings.theme, !isPreviewFrame());
   }, [settings.theme, themeKnown]);
 
   // الزجاجية: الخادم كتبها في HTML الأول؛ هنا نزامنها مع آخر قيمة محفوظة.

@@ -1,4 +1,5 @@
 "use client";
+import { isPreviewFrame } from "./previewFrame";
 import { useSyncExternalStore } from "react";
 
 // سجل المشاهدة: يُحفظ في متصفح الزائر (مثل المفضلة والإعجابات) لأي شخص، مسجَّلًا كان أو لا.
@@ -21,6 +22,7 @@ function read(): HistoryEntry[] {
 }
 
 function write(list: HistoryEntry[]) {
+  if (isPreviewFrame()) return; // معاينة لوحة التحكم لا تلوّث سجل المشرف
   try {
     localStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX)));
   } catch {
