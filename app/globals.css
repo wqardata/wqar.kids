@@ -1064,7 +1064,11 @@ html, body { overflow-x: clip; }
   background: var(--bg); transition: transform .2s ease, opacity .2s ease;
 }
 .mp--full.mp--drag { transition: none; }
-.mp-frame { width: 100%; }
+.mp-frame { width: 100%; position: relative; }
+/* منطقة سحب شفافة أعلى الفيديو (السحب لأسفل يصغّر المشغّل) + مؤشر صغير يدل عليها */
+.mp-swipe { position: absolute; inset-inline: 0; top: 0; height: 72px; z-index: 2; touch-action: none; cursor: grab; display: grid; justify-items: center; align-content: start; padding-top: 8px; }
+.mp-swipe::before { content: ""; width: 44px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .55); box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); }
+.mp-swipe:active { cursor: grabbing; }
 .mp-handle { display: flex; align-items: center; height: 28px; background: var(--bg); }
 .mp-min { flex: none; width: 48px; height: 28px; display: grid; place-items: center; border: 0; background: none; color: var(--mute); cursor: pointer; }
 .mp-min:hover { color: var(--ink); }

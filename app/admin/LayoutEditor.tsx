@@ -62,11 +62,14 @@ function removeTabs(d: AdminLayout, ids: TabId[], isOwner: boolean): { next: Adm
  * التعديلات مسودة حتى تضغط «حفظ الترتيب»، ثم تُطبَّق على كل المشرفين.
  */
 export default function LayoutEditor({
+  view,
   structure,
   arrangement,
   isOwner,
   onSave,
 }: {
+  /** "tabs" = أسماء التبويبات (إضافة/إعادة تسمية/حذف)، "arrange" = نقل المربعات بين التبويبات. المسودة مشتركة بينهما. */
+  view: "tabs" | "arrange";
   structure: Structure;
   arrangement: Arrangement;
   isOwner: boolean;
@@ -175,7 +178,7 @@ export default function LayoutEditor({
     const nextTabs = [...draft.structure.tabs.filter((t) => t.id !== UNSORTED_TAB), { id: tid, label: name, group: gid }, ...unsortedT];
     setDraft({ arrangement: { ...arr, [tid]: [] }, structure: { groups: nextGroups, tabs: nextTabs } });
     setNewName("");
-    note(`أُضيف التبويب «${name}». انقل إليه مربعات من القوائم أدناه، ثم اضغط «حفظ الترتيب».`);
+    note(`أُضيف التبويب «${name}». انقل إليه مربعات من تبويب «تنظيم»، ثم اضغط «حفظ الترتيب».`);
   };
 
   const renameGroup = (id: string, label: string) => {
@@ -234,10 +237,14 @@ export default function LayoutEditor({
     <div className="layout-ed">
       <section className="panel panel--wide">
         <h2>تخصيص اللوحة</h2>
-        <p className="hint">
-          انقل أي مربع إعدادات إلى تبويب آخر من القائمة بجانبه، أو غيّر مكانه داخل تبويبه بالسهمين. يبقى المربع محتفظًا بحفظه كما هو؛ يتغيّر مكان ظهوره فقط.
-          عند نقل مربع من تبويب آخر يظهر معه زر حفظ ذلك التبويب أسفل مربعاته.
-        </p>
+        {view === "arrange" ? (
+          <p className="hint">
+            اسحب أي مربع إعدادات وأفلته في أي تبويب أو في مكان آخر داخل تبويبه، أو استعمل السهمين وقائمة «نقل إلى». يبقى المربع محتفظًا بحفظه كما هو؛ يتغيّر مكان ظهوره فقط.
+            عند نقل مربع من تبويب آخر يظهر معه زر حفظ ذلك التبويب أسفل مربعاته.
+          </p>
+        ) : (
+          <p className="hint">عدّل أسماء التبويبات أو أضف تبويبات أو احذفها، ثم اضغط «حفظ الترتيب». تبقى التعديلات مسودة عند التنقل بين «التبويبات» و«تنظيم».</p>
+        )}
         {error && <p className="field-error" role="alert">{error}</p>}
         {msg && <p className="hint" role="status">{msg}</p>}
         <div className="addrow">
@@ -254,6 +261,7 @@ export default function LayoutEditor({
         </div>
       </section>
 
+      {view === "tabs" && (
       <section className="panel panel--wide tabs-mgr" aria-labelledby="tm-title">
         <h2 id="tm-title">إدارة التبويبات</h2>
         <p className="hint">
@@ -320,8 +328,9 @@ export default function LayoutEditor({
           <p className="hint tm-sys">«{UNSORTED_LABEL}»: تبويب تلقائي يستقبل مربعات التبويبات المحذوفة، ويظهر في اللوحة ما دام فيه مربعات. لا يُحذف ولا يُعاد تسميته.</p>
         </div>
       </section>
+      )}
 
-      {(() => {
+      {view === "arrange" && (() => {
         const cards = visibleTabs.filter((t) => {
           if (t.id !== UNSORTED_TAB) return true;
           const n = (arr[t.id] ?? []).filter((id) => isOwner || !SECTION_BY_ID[id]?.ownerOnly).length;

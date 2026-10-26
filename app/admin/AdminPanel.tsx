@@ -28,13 +28,17 @@ import LayoutEditor from "./LayoutEditor";
 import { HostCtx, MovableSection, OwnerCtx } from "./sectionKit";
 
 type Group = string;
-type Sub = TabId | "layout";
+type Sub = TabId | "layout-tabs" | "layout-arrange";
 
 type SubTab = { id: Sub; label: string; ownerOnly?: boolean };
 type GroupView = { id: Group; label: string; subs: SubTab[] };
 
 /** تبويب الترس: نقل مربعات الإعدادات بين التبويبات وترتيبها، وإضافة التبويبات وإعادة تسميتها وحذفها (انظر LayoutEditor). */
-const CUSTOMIZE: GroupView = { id: CUSTOMIZE_GROUP, label: "تخصيص اللوحة", subs: [{ id: "layout", label: "تخصيص اللوحة" }] };
+const CUSTOMIZE: GroupView = {
+  id: CUSTOMIZE_GROUP,
+  label: "تخصيص اللوحة",
+  subs: [{ id: "layout-tabs", label: "التبويبات" }, { id: "layout-arrange", label: "تنظيم" }],
+};
 
 /** كل مكوّن مالك يحمل حالته وزر حفظه؛ أقسامه تُرسم في التبويب المعيَّنة له (انظر sectionKit). */
 const OWNERS: Record<OwnerId, () => ReactNode> = {
@@ -71,7 +75,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
   useEffect(() => setShowPreview(window.matchMedia("(min-width: 1100px)").matches), []);
   // يُتذكَّر آخر تبويب فرعي في كل مجموعة عند التنقل بينها.
   // (القيمة غير الصالحة — كتبويب حُذف — تُستبدل بأول تبويب فرعي متاح.)
-  const [subs, setSubs] = useState<Record<Group, Sub>>({ [CUSTOMIZE_GROUP]: "layout" });
+  const [subs, setSubs] = useState<Record<Group, Sub>>({ [CUSTOMIZE_GROUP]: "layout-tabs" });
 
   // ما يتغيّر في اللوحة (فيديوهات/مجموعات/تصنيفات) يجب أن يظهر فورًا للمشرف: نمسح التخزين المؤقت عند مغادرتها.
   useEffect(() => () => clearVideoCache(), []);
@@ -129,7 +133,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
   const visibleSubs = current.subs.filter((s) => !s.ownerOnly || isOwner);
   const sub = visibleSubs.some((s) => s.id === subs[current.id]) ? subs[current.id] : visibleSubs[0].id;
 
-  const isLayout = sub === "layout";
+  const isLayout = sub === "layout-tabs" || sub === "layout-arrange";
   const tab = isLayout ? null : (sub as TabId);
   const list = tab ? shown[tab] ?? [] : [];
   const needed = new Set<OwnerId>(list.map((id) => SECTION_BY_ID[id].owner));
@@ -193,7 +197,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
         <div className={previewPath && showPreview ? "admin-split" : "admin-split admin-split--solo"}>
           <div className="admin-split-main" id="admin-panel" role="tabpanel" aria-labelledby={visibleSubs.length > 1 ? `tab-${sub}` : `group-${current.id}`}>
             {isLayout ? (
-              <LayoutEditor structure={structure} arrangement={arrangement} isOwner={isOwner} onSave={save} />
+              <LayoutEditor view={sub === "layout-tabs" ? "tabs" : "arrange"} structure={structure} arrangement={arrangement} isOwner={isOwner} onSave={save} />
             ) : (
               <HostCtx.Provider value={{ el: hostEl, tab: tab as TabId, arrangement: shown }}>
                 <div className="admin-stack msec-host" ref={setHostEl} />
