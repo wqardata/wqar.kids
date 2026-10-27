@@ -7,9 +7,9 @@
 .dp--idle .dp-ui { opacity: 0; pointer-events: none; transform: translateY(6px); }
 .dp--fs { border-radius: 0; }
 
-.dp-center { position: absolute; z-index: 3; top: 50%; left: 50%; translate: -50% -50%; width: 68px; height: 68px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
+.dp-center { position: absolute; z-index: 3; top: 50%; left: 50%; translate: -50% -50%; width: calc(68px * var(--dpc, 1)); height: calc(68px * var(--dpc, 1)); border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
   color: #fff; background: rgba(0, 0, 0, .58); box-shadow: 0 0 0 2px rgba(255, 255, 255, .25); transition: transform .15s, background .15s; }
-.dp-center svg { width: 34px; height: 34px; }
+.dp-center svg { width: calc(34px * var(--dpc, 1)); height: calc(34px * var(--dpc, 1)); }
 .dp-center:hover { background: var(--dp-a); color: var(--accent-ink); transform: scale(1.06); }
 
 .dp-spin { position: absolute; z-index: 2; top: 50%; left: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; pointer-events: none;
@@ -109,3 +109,18 @@
 .yt-menu-row button:hover { background: rgba(255, 255, 255, .14); }
 .yt-menu-row button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700; }
 .yt-menu-row button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* اللمس (الجوال): الضغط على زر الوسط يجب أن يصل إلى إطار يوتيوب نفسه كي يعمل التشغيل/الإيقاف.
+   الزر يبقى ظاهرًا لكنه لا يعترض اللمس، وتُثقب الطبقة الشفافة بمقاسه فقط (clip-path يؤثر على الضغط أيضًا). */
+@media (pointer: coarse) {
+  .player--yt.yt-hole .dp-center { pointer-events: none; }
+  .player--yt.yt-hole .yt-cover { pointer-events: none; }
+  .player--yt.yt-hole .yt-host iframe { pointer-events: auto; }
+  .player--yt.yt-hole .yt-surface {
+    --h: calc(34px * var(--dpc, 1) + 8px);
+    clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+      calc(50% - var(--h)) calc(50% - var(--h)), calc(50% - var(--h)) calc(50% + var(--h)),
+      calc(50% + var(--h)) calc(50% + var(--h)), calc(50% + var(--h)) calc(50% - var(--h)),
+      calc(50% - var(--h)) calc(50% - var(--h)), 0 0);
+  }
+}

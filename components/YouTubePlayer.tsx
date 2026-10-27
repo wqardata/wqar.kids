@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "@/app/player.css";
 import PlayLoader from "@/components/PlayLoader";
 import { YT_ID } from "@/lib/youtube";
+import { useSettings } from "@/lib/settings";
 
 /**
  * مشغّل يوتيوب بواجهتنا نحن (IFrame API مع controls=0) كي لا يظهر شيء من واجهة يوتيوب:
@@ -67,6 +68,8 @@ const I = {
 
 export default function YouTubePlayer({ youtubeId, title, autoplay = false, startAt = 0 }: { youtubeId: string; title: string; autoplay?: boolean; startAt?: number }) {
   const box = useRef<HTMLDivElement>(null);
+  const { settings } = useSettings();
+  const dpc = settings.watchPage.playBtnScale / 100; // حجم الزر الأوسط من لوحة التحكم
   const host = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const [ready, setReady] = useState(false);
@@ -199,11 +202,13 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   // غلاف أسود عند الإيقاف/الانتهاء فلا تظهر مقترحات يوتيوب (الحلقات الأخرى) فوق الإطار.
   const covered = ready && (state === PAUSED || state === ENDED);
   const p = dur > 0 ? (cur / dur) * 100 : 0;
+  const centerShown = ready && (!playing || ctl);
 
   return (
     <div
       ref={box}
-      className="player player--yt dp"
+      className={`player player--yt dp${centerShown ? " yt-hole" : ""}`}
+      style={{ ["--dpc" as string]: dpc }}
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === " " || e.key === "k") { e.preventDefault(); toggle(); }
@@ -218,10 +223,12 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
       ) : (
         <>
           {covered && <div className="yt-cover" aria-hidden="true" />}
+          {/* على اللمس: زر الوسط لا يستقبل اللمس بنفسه؛ نفتح «ثقبًا» في الطبقة بمقاسه فيصل اللمسُ الحقيقي إلى إطار يوتيوب
+              (الجوال يمنع playVideo() القادم من الصفحة إن لم يكن اللمس داخل الإطار نفسه) ويشغّل/يوقف يوتيوب مباشرة. */}
           {/* طبقة تلتقط كل اللمس/النقر: تمنع شعار يوتيوب وشريطه العلوي وأي ضغط على الإطار نفسه.
               النقر عليها لا يُشغّل ولا يوقف؛ يُظهر زر الوسط فقط (أثناء التشغيل). */}
           <div className="dp-surface yt-surface" onClick={() => { if (menu) setMenu(false); else showCtl(); }} aria-hidden="true" />
-          {ready && (!playing || ctl) && (
+          {centerShown && (
             <button
               type="button"
               className="dp-center"
