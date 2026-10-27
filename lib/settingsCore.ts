@@ -516,6 +516,8 @@ export type WatchPageSettings = {
   playBtnScale: number;
   /** تشغيل فيديوهات يوتيوب بلا صوت افتراضيًا (الزائر يستطيع تشغيل الصوت من زر الصوت). */
   ytMuted: boolean;
+  /** اختيار المسار الصوتي «بدون موسيقى» تلقائيًا إن كان الفيديو يوفّره. */
+  ytNoMusic: boolean;
   /** إظهار قسم الفيديوهات المقترحة. */
   sugShow: boolean;
   /** عنوان القسم (فارغ = بلا عنوان). */
@@ -547,6 +549,7 @@ export const DEFAULT_WATCH_PAGE: WatchPageSettings = {
   driveBtnScale: 80,
   playBtnScale: 100,
   ytMuted: false,
+  ytNoMusic: true,
   sugShow: true,
   sugTitle: "فيديوهات مقترحة",
   sugCount: 10,
@@ -578,6 +581,7 @@ export function cleanWatchPage(v: unknown): WatchPageSettings {
     driveBtnScale: int("driveBtnScale", DRIVE_BTN_SCALE_MIN, DRIVE_BTN_SCALE_MAX, D.driveBtnScale),
     playBtnScale: int("playBtnScale", PLAY_BTN_SCALE_MIN, PLAY_BTN_SCALE_MAX, D.playBtnScale),
     ytMuted: flag("ytMuted", D.ytMuted),
+    ytNoMusic: flag("ytNoMusic", D.ytNoMusic),
     sugShow: flag("sugShow", D.sugShow),
     sugTitle: typeof o.sugTitle === "string" ? o.sugTitle.trim().slice(0, 60) : D.sugTitle,
     sugCount: count,
