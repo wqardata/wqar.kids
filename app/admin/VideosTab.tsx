@@ -9,7 +9,7 @@ import { getDb } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
 import { openGrabber, probeDuration } from "@/lib/frameGrab";
 import { deleteThumb } from "@/lib/thumbs";
-import { toVideo, useNamedList, type VideoDoc } from "@/lib/videos";
+import { bumpVideosVersion, toVideo, useNamedList, type VideoDoc } from "@/lib/videos";
 import ShortForm from "./ShortForm";
 import VideoEditForm from "./VideoEditForm";
 
@@ -151,6 +151,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
         ids.slice(i, i + 400).forEach((id) => batch.update(doc(db, "videos", id), data));
         await batch.commit();
       }
+      bumpVideosVersion();
       const done = new Set(ids);
       setItems((prev) => prev.map((v) => (done.has(v.id) ? { ...v, ...local } : v)));
       setBulkMsg(`تم تحديث ${ids.length} فيديو ✓`);
@@ -206,6 +207,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
     setError("");
     try {
       await updateDoc(doc(getDb(), "videos", v.id), { ...data, updatedAt: serverTimestamp() });
+      bumpVideosVersion();
       replace({ ...v, ...data });
     } catch {
       setError("تعذّر تنفيذ العملية. تأكد من الصلاحيات.");
@@ -257,6 +259,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
     setError("");
     try {
       await deleteDoc(doc(getDb(), "videos", v.id));
+      bumpVideosVersion();
       void deleteThumb(v.id);
       setItems((prev) => prev.filter((x) => x.id !== v.id));
     } catch {

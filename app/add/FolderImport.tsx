@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { driveThumbnail, parseFolderId } from "@/lib/drive";
 import { getDb } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
-import { useNamedList } from "@/lib/videos";
+import { bumpVideosVersion, useNamedList } from "@/lib/videos";
 
 type Row = { id: string; name: string; title: string; duration: number | null; path: string; exists: boolean; on: boolean };
 
@@ -129,6 +129,7 @@ export default function FolderImport() {
         });
         setProgress(`جارٍ الحفظ… ${Math.min(i + 400, selected.length)} من ${selected.length}`);
         await batch.commit();
+        bumpVideosVersion();
         done += Math.min(400, selected.length - i);
         setDoneCount(done);
       }

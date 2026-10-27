@@ -7,7 +7,7 @@ import CreatableSelect from "@/components/CreatableSelect";
 import { useAuth } from "@/lib/auth";
 import { getDb } from "@/lib/firebase";
 import { fetchYouTubeTitle, parseYouTubeId, youtubeThumbnail } from "@/lib/youtube";
-import { useNamedList } from "@/lib/videos";
+import { bumpVideosVersion, useNamedList } from "@/lib/videos";
 
 /** إضافة فيديو من رابط يوتيوب (يُشغَّل بمشغّل يوتيوب الرسمي، وتُؤخذ صورته من يوتيوب). */
 export default function AddYouTubeForm() {
@@ -76,6 +76,7 @@ export default function AddYouTubeForm() {
         createdByEmail: user.email ?? "",
         createdAt: serverTimestamp(),
       });
+      bumpVideosVersion();
       router.push(`/v/${ref.id}`);
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore.");

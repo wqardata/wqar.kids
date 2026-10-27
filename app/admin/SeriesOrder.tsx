@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
-import { compareInSeries, toVideo, type VideoDoc } from "@/lib/videos";
+import { bumpVideosVersion, compareInSeries, toVideo, type VideoDoc } from "@/lib/videos";
 
 const BATCH = 400;
 
@@ -89,6 +89,7 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
         list.slice(i, i + BATCH).forEach((v, k) => batch.update(doc(db, "videos", v.id), { seriesOrder: i + k + 1, updatedAt: serverTimestamp() }));
         await batch.commit();
       }
+      bumpVideosVersion();
       setList((prev) => prev.map((v, i) => ({ ...v, seriesOrder: i + 1 })));
       setDirty(false);
       setMsg("تم حفظ الترتيب ✓ (يظهر للزوار في صفحة المجموعة)");
