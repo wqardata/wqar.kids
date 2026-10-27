@@ -311,7 +311,7 @@ html, body { overflow-x: clip; }
 /* تصغير واجهة مشغّل درايف على الجوال: نُظهر الإطار بعرض أكبر ثم نصغّره بـ scale، فيرسم درايف أزراره بحجم مناسب
    بدل الأزرار الضخمة المتراكبة. لتصغير الأزرار أكثر قلّل --dz (مثلًا .65)، ولتكبيرها زِده (حتى 1 = بلا تصغير). */
 @media (max-width: 599px) {
-  .player--frame { --dz: .7; overflow: hidden; }
+  .player--frame { --dz: 1; overflow: hidden; }
   .player--frame iframe[src*="drive.google.com"] {
     inset: 0 auto auto 0; width: calc(100% / var(--dz)); height: calc(100% / var(--dz));
     transform: scale(var(--dz)); transform-origin: 0 0;
