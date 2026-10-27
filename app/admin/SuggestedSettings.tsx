@@ -2,6 +2,8 @@
 import { useState, type FormEvent } from "react";
 import {
   DEFAULT_WATCH_PAGE,
+  DRIVE_BTN_SCALE_MAX,
+  DRIVE_BTN_SCALE_MIN,
   SUG_COUNT_MAX,
   SUG_LAYOUTS,
   SUG_ORDERS,
@@ -69,7 +71,27 @@ export default function SuggestedSettings() {
     <OwnerForm onSubmit={(e) => void onSubmit(e)}>
     <MovableSection id="watch.suggested">
     <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-h">
-      <h2 id="sg-h">الفيديوهات المقترحة</h2>
+      <h2 id="sg-h">إعدادات صفحة الفيديو</h2>
+
+      <section className="dsec" aria-labelledby="sg-s-drive">
+        <h3 id="sg-s-drive" className="dsec-h">مشغّل درايف على الجوال</h3>
+        <div className="field">
+          <label htmlFor="sg-dz">حجم الأزرار ({form.driveBtnScale}%)</label>
+          <input
+            id="sg-dz"
+            type="range"
+            dir="ltr"
+            min={DRIVE_BTN_SCALE_MIN}
+            max={DRIVE_BTN_SCALE_MAX}
+            step={5}
+            value={form.driveBtnScale}
+            onChange={(e) => set("driveBtnScale", int(e.target.value, DRIVE_BTN_SCALE_MIN, DRIVE_BTN_SCALE_MAX))}
+          />
+          <p className="hint">100% = حجم أزرار درايف الأصلي، وكلما قلّت النسبة صغرت الأزرار. يسري على الجوال فقط (الشاشات الأقل من 600px)، والافتراضي 80%.</p>
+        </div>
+      </section>
+
+      <h3 className="dsec-h">الفيديوهات المقترحة</h3>
       <p className="hint">تظهر تحت الفيديو على الجوال، وبجانبه على الشاشات الكبيرة.</p>
 
       {flag("sugShow", "إظهار قسم الفيديوهات المقترحة")}
@@ -145,9 +167,9 @@ export default function SuggestedSettings() {
     </MovableSection>
     <OwnerFooter>
       {error && <p className="field-error" role="alert">{error}</p>}
-      {done && <p className="hint" role="status">تم حفظ إعدادات المقترحات ✓</p>}
+      {done && <p className="hint" role="status">تم حفظ إعدادات صفحة الفيديو ✓</p>}
       <div className="addrow">
-        <button type="submit" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات المقترحات"}</button>
+        <button type="submit" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات صفحة الفيديو"}</button>
         <button type="button" className="btn btn--ghost" disabled={saving} onClick={() => { setForm(DEFAULT_WATCH_PAGE); setDone(false); }}>استعادة الافتراضي</button>
       </div>
     </OwnerFooter>

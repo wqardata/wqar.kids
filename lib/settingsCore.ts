@@ -501,7 +501,13 @@ export type SugScope = (typeof SUG_SCOPES)[number]["id"];
 
 export const SUG_COUNT_MAX = 30;
 
+/** حجم واجهة مشغّل درايف على الجوال بالنسبة المئوية (100 = حجم درايف الأصلي، أقل = أزرار أصغر). */
+export const DRIVE_BTN_SCALE_MIN = 50;
+export const DRIVE_BTN_SCALE_MAX = 100;
+
 export type WatchPageSettings = {
+  /** حجم أزرار مشغّل درايف على الجوال (%). */
+  driveBtnScale: number;
   /** إظهار قسم الفيديوهات المقترحة. */
   sugShow: boolean;
   /** عنوان القسم (فارغ = بلا عنوان). */
@@ -530,6 +536,7 @@ export type WatchPageSettings = {
 };
 
 export const DEFAULT_WATCH_PAGE: WatchPageSettings = {
+  driveBtnScale: 80,
   sugShow: true,
   sugTitle: "فيديوهات مقترحة",
   sugCount: 10,
@@ -558,6 +565,7 @@ export function cleanWatchPage(v: unknown): WatchPageSettings {
   const flag = (k: keyof WatchPageSettings, fb: boolean) => (typeof o[k] === "boolean" ? (o[k] as boolean) : fb);
   const count = int("sugCount", 1, SUG_COUNT_MAX, D.sugCount);
   return {
+    driveBtnScale: int("driveBtnScale", DRIVE_BTN_SCALE_MIN, DRIVE_BTN_SCALE_MAX, D.driveBtnScale),
     sugShow: flag("sugShow", D.sugShow),
     sugTitle: typeof o.sugTitle === "string" ? o.sugTitle.trim().slice(0, 60) : D.sugTitle,
     sugCount: count,

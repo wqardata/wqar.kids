@@ -4,6 +4,7 @@ import "@/app/player.css";
 import Icon from "@/components/Icon";
 import PlayLoader from "@/components/PlayLoader";
 import { DRIVE_ID } from "@/lib/drive";
+import { useSettings } from "@/lib/settings";
 
 /** محفوظ للتوافق مع الاستدعاءات القديمة (لم يعد للجودات الإضافية أثر: المشغّل هو مشغّل درايف الأصلي). */
 export type Quality = { label: string; driveId: string };
@@ -24,6 +25,9 @@ const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : use
 export default function DrivePlayer({ driveId, title, hue, autoplay = false, startAt = 0 }: Props) {
   const ok = !!driveId && DRIVE_ID.test(driveId);
   const [loaded, setLoaded] = useState(false);
+  const { settings } = useSettings();
+  // حجم واجهة درايف على الجوال من لوحة التحكم (يقرأه globals.css عبر --dz).
+  const dz = settings.watchPage.driveBtnScale / 100;
 
   // يخبر التنسيق (globals.css) بنوع المشغّل كي يضبط ارتفاع «الفراغ» في المشغّل المشترك على الجوال.
   useIsoLayoutEffect(() => {
@@ -52,7 +56,7 @@ export default function DrivePlayer({ driveId, title, hue, autoplay = false, sta
   if (startAt >= 1) q.set("t", String(Math.floor(startAt)));
   const qs = q.toString();
   return (
-    <div className="player player--frame dp-frame">
+    <div className="player player--frame dp-frame" style={{ "--dz": dz } as CSSProperties}>
       <iframe
         key={driveId}
         src={`https://drive.google.com/file/d/${driveId}/preview${qs ? `?${qs}` : ""}`}
