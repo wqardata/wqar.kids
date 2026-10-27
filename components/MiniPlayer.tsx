@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import Icon from "@/components/Icon";
 import DrivePlayer from "@/components/DrivePlayer";
+import YouTubePlayer from "@/components/YouTubePlayer";
 import { useMiniPlayer } from "@/lib/miniPlayer";
 
 /** مسافة السحب لأسفل (بكسل) التي تُصغّر المشغّل عند تجاوزها. */
@@ -11,7 +12,7 @@ const DRAG_COMMIT = 70;
  * المشغّل المشترك على الجوال: عنصر واحد يبقى في مكانه من الشجرة، فلا يُعاد تحميل الفيديو عند التصغير أو الإرجاع.
  *  • أعلى صفحة الفيديو (full): يُوضع فوق «الفراغ» الذي تتركه الصفحة، وتحته مقبض يُسحب لأسفل فيُصغَّر.
  *  • عند الانتقال لأي صفحة أخرى (mini): شريط مصغّر أسفل الشاشة يواصل التشغيل؛ الضغط عليه يعيد صفحة الفيديو.
- * (إطار درايف من نطاق آخر فلا يمرّر اللمس للصفحة، لذلك السحب يُلتقط من طبقة شفافة أعلى الفيديو ومن المقبض أسفله.)
+ * (إطار درايف/يوتيوب من نطاق آخر فلا يمرّر اللمس للصفحة، لذلك السحب يُلتقط من طبقة شفافة أعلى الفيديو ومن المقبض أسفله.)
  */
 export default function MiniPlayerHost() {
   const { track, mode, slotEl, close, minimize, restore } = useMiniPlayer();
@@ -94,7 +95,11 @@ export default function MiniPlayerHost() {
   return (
     <div ref={hostRef} className={`mp mp--${mode}`} style={style} role="region" aria-label="مشغّل الفيديو">
       <div className="mp-frame">
-        <DrivePlayer driveId={track.driveId} title={track.title} hue={160} autoplay={track.autoplay} />
+        {track.youtubeId ? (
+          <YouTubePlayer youtubeId={track.youtubeId} title={track.title} autoplay={track.autoplay} />
+        ) : (
+          <DrivePlayer driveId={track.driveId} title={track.title} hue={160} autoplay={track.autoplay} />
+        )}
         {full && (
           // طبقة شفافة فوق أعلى الفيديو تلتقط السحب لأسفل (إطار درايف لا يمرّر اللمس للصفحة)؛ باقي الفيديو وأزرار التشغيل أسفله تبقى تعمل.
           <div

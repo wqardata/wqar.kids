@@ -3,7 +3,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { usePathname, useRouter } from "next/navigation";
 
 /** الفيديو الجاري تشغيله في المشغّل المشترك (يبقى يعمل عند التنقل بين صفحات الموقع على الجوال). */
-export type Track = { id: string; driveId: string; title: string; seriesName: string; autoplay: boolean };
+/** youtubeId غير فارغ = فيديو يوتيوب (يُعرض بمشغّل يوتيوب)، وإلا يُعرض بمشغّل درايف. */
+export type Track = { id: string; driveId: string; youtubeId?: string; title: string; seriesName: string; autoplay: boolean };
 
 /** full = المشغّل في موضعه أعلى صفحة الفيديو، mini = شريط مصغّر أسفل الشاشة، none = لا فيديو. */
 export type MiniMode = "full" | "mini" | "none";
@@ -64,7 +65,7 @@ export function MiniPlayerProvider({ children }: { children: ReactNode }) {
   }, [path]);
 
   const open = useCallback((t: Track) => {
-    setTrack((p) => (p && p.id === t.id && p.driveId === t.driveId ? (p.title === t.title && p.seriesName === t.seriesName ? p : { ...p, title: t.title, seriesName: t.seriesName }) : t));
+    setTrack((p) => (p && p.id === t.id && p.driveId === t.driveId && (p.youtubeId ?? "") === (t.youtubeId ?? "") ? (p.title === t.title && p.seriesName === t.seriesName ? p : { ...p, title: t.title, seriesName: t.seriesName }) : t));
   }, []);
   const close = useCallback(() => setTrack(null), []);
   const minimize = useCallback(() => router.push(lastOther.current || "/"), [router]);
