@@ -1137,6 +1137,9 @@ html, body { overflow-x: clip; }
 .mp--mini .mp-frame { flex: none; width: 114px; height: 100%; }
 .mp--mini .player { height: 100%; aspect-ratio: auto; border-radius: 0; }
 .mp--mini .playload { display: none; }
+/* معاينة درايف المصغّرة: نرسم الإطار بأربعة أضعاف مقاسه ثم نصغّره بـ scale(.25) فتظهر الصورة كاملة بدل واجهة درايف المقصوصة. */
+.mp--mini .player { overflow: hidden; }
+.mp--mini .player--frame iframe[src*="drive.google.com"] { inset: 0 auto auto 0; width: 400%; height: 400%; transform: scale(.25); transform-origin: 0 0; pointer-events: none; }
 .mp-info { flex: 1; min-width: 0; display: grid; gap: 1px; }
 .mp-info strong { font-size: .9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-info small { color: var(--mute); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
