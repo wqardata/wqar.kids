@@ -502,7 +502,7 @@ export type SugScope = (typeof SUG_SCOPES)[number]["id"];
 export const SUG_COUNT_MAX = 30;
 
 /** حجم واجهة مشغّل درايف على الجوال بالنسبة المئوية (100 = حجم درايف الأصلي، أقل = أزرار أصغر). */
-export const DRIVE_BTN_SCALE_MIN = 50;
+export const DRIVE_BTN_SCALE_MIN = 30;
 export const DRIVE_BTN_SCALE_MAX = 150;
 
 /** حجم زر التشغيل/الإيقاف الأوسط في مشغّل يوتيوب بالنسبة المئوية (100 = الحجم الأصلي 68px). */
