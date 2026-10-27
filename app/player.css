@@ -110,19 +110,22 @@
 .yt-menu-row button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700; }
 .yt-menu-row button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
-/* اللمس (الجوال): الضغط على أي مكان في وسط الفيديو يشغّل/يوقف.
-   نُثقب الطبقة الشفافة في وسط المشغّل (clip-path يؤثر على الضغط أيضًا) فيصل اللمس الحقيقي إلى إطار يوتيوب نفسه
-   (الجوال يمنع playVideo() القادم من الصفحة إن لم يكن اللمس داخل الإطار). الأطراف (شريط عنوان يوتيوب وغيره) تبقى محجوبة،
-   وشريط أزرارنا في الأسفل فوق الطبقة. زر الوسط مؤشر مرئي فقط. */
+/* اللمس (الجوال):
+   - قبل أول تشغيل: وسط الفيديو مثقوب (clip-path يؤثر على الضغط) فيصل اللمس الحقيقي إلى زر يوتيوب الأصلي ويبدأ التشغيل
+     (الجوال يمنع أول تشغيل بأمر قادم من الصفحة).
+   - بعد البدء: الطبقة تغطي كل الفيديو، والضغط على أي مكان يشغّل/يوقف عبر واجهة يوتيوب (تعمل بعد أول تشغيل).
+     مشغّل يوتيوب على الجوال لا يشغّل/يوقف بلمس الفيديو نفسه حين controls=0، فلا نعتمد عليه.
+   زر الوسط مؤشر مرئي فقط. */
 @media (pointer: coarse) {
   .player--yt { --dpc-px: calc(68px * var(--dpc, 1)); }
   .player--yt .dp-center { pointer-events: none; width: var(--dpc-px); height: var(--dpc-px); background: rgba(0, 0, 0, .88); }
   .player--yt .yt-cover { pointer-events: none; }
-  .player--yt .yt-host iframe { pointer-events: auto; }
-  .player--yt .yt-surface {
+  .player--yt.yt-idle .yt-host iframe { pointer-events: auto; }
+  .player--yt.yt-idle .yt-surface {
     clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0,
       8% 18%, 8% 74%, 92% 74%, 92% 18%, 8% 18%, 0 0);
   }
+  .player--yt.yt-idle .dp-center, .player--yt.yt-idle .yt-cover { display: none; }
 }
 
 /* ملء الشاشة لمشغّل درايف: الغلاف هو الذي يملأ الشاشة، والإطار يُرسم أكبر ثم يُصغَّر بـ --dz كما في الوضع العادي. */
@@ -137,10 +140,4 @@
     inset: 0 auto auto 0; width: calc(100% / var(--dz)); height: calc(100% / var(--dz));
     transform: scale(var(--dz)); transform-origin: 0 0;
   }
-}
-
-/* اللمس، قبل أول تشغيل: يظهر زر يوتيوب الأصلي (يعمل بلمسة حقيقية) ولا نضع زرّنا ولا الغطاء فوقه. */
-@media (pointer: coarse) {
-  .player--yt.yt-idle .dp-center { display: none; }
-  .player--yt.yt-idle .yt-cover { display: none; }
 }

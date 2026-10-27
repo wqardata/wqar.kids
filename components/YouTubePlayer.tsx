@@ -250,10 +250,10 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
             className="dp-surface yt-surface"
             onClick={() => {
               if (menu) { setMenu(false); return; }
-              // الحاسوب: النقر على أي مكان في الفيديو يشغّل/يوقف. اللمس: وسط الفيديو يصل إلى إطار يوتيوب مباشرة (انظر player.css)،
-              // وما يصل إلى هنا هو لمس الأطراف فيُظهر الزر فقط.
-              if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) showCtl();
-              else toggle();
+              // قبل أول تشغيل على اللمس: وسط الفيديو مثقوب ويصل لزر يوتيوب نفسه؛ ما يصل هنا لمس الأطراف فقط.
+              if (idle && typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) { showCtl(); return; }
+              // غير ذلك (حاسوب، أو جوال بعد البدء): الضغط على أي مكان في الفيديو يشغّل/يوقف.
+              toggle();
             }}
             aria-hidden="true"
           />
