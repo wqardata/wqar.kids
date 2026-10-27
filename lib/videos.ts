@@ -31,7 +31,7 @@ export function cleanAvatarUrl(v: unknown): string {
 }
 
 // ───────── تخزين مؤقت في متصفح الزائر (يوفّر قراءات Firestore: الزائر العائد لا يقرأ شيئًا خلال المدة) ─────────
-const CACHE_TTL = 15 * 60_000;
+const CACHE_TTL = 3 * 60_000; // كانت 15 دقيقة فيبقى الجوال يعرض فيديوهات محذوفة ولا يرى المضاف حديثًا
 const CACHE_PREFIX = "vc:";
 function cacheGet<T>(key: string): T | null {
   try {
@@ -207,7 +207,7 @@ export function normalizeAr(s: string): string {
     .replace(/ة/g, "ه");
 }
 
-/** أحدث الفيديوهات الظاهرة للزوار (غير المخفية)، حتى `max` (الافتراضي 200). تُخزَّن 15 دقيقة في المتصفح. */
+/** أحدث الفيديوهات الظاهرة للزوار (غير المخفية)، حتى `max` (الافتراضي 200). تُخزَّن 3 دقائق في المتصفح. */
 export function useAllVideos(max = 200) {
   const [videos, setVideos] = useState<VideoDoc[]>([]);
   const [ready, setReady] = useState(!isFirebaseConfigured);
@@ -240,7 +240,7 @@ const latestInflight = new Map<number, Promise<VideoDoc[]>>();
 
 /**
  * نفس قراءة useAllVideos لكن كدالة (للمكوّنات التي تعالج القائمة بنفسها كالمقترحات والمقاطع القصيرة).
- * تشترك معها في التخزين المؤقت (15 دقيقة في المتصفح)، فلا تُحتسب قراءات جديدة من حصة Firestore
+ * تشترك معها في التخزين المؤقت (3 دقائق في المتصفح)، فلا تُحتسب قراءات جديدة من حصة Firestore
  * ما دامت القائمة نفسها قُرئت قبل قليل، وتدمج الطلبات المتزامنة في قراءة واحدة.
  */
 export async function fetchLatestVideos(max: number): Promise<VideoDoc[]> {
@@ -298,7 +298,7 @@ async function fetchEveryVideo(): Promise<VideoDoc[]> {
 }
 
 /**
- * كل الفيديوهات الظاهرة مرتبة من الأحدث للأقدم (لا أحدث 100 فقط). تُقرأ مرة وتُخزَّن 15 دقيقة في المتصفح،
+ * كل الفيديوهات الظاهرة مرتبة من الأحدث للأقدم (لا أحدث 100 فقط). تُقرأ مرة وتُخزَّن 3 دقائق في المتصفح،
  * وتُستعمل في الرئيسية كي تختار «الأكثر مشاهدة» و«العشوائي» من كل المكتبة لا من آخر المضاف فقط.
  */
 export function useEveryVideo() {
