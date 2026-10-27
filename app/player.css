@@ -140,3 +140,10 @@
     transform: scale(var(--dz)); transform-origin: 0 0;
   }
 }
+
+/* اللمس، قبل أول تشغيل: نترك زر يوتيوب الأصلي ظاهرًا ويعمل بلمسة حقيقية، ولا نضع زرّنا فوقه (زرّنا يظهر بعد البدء للإيقاف والاستئناف). */
+@media (pointer: coarse) {
+  .player--yt.yt-idle .dp-center { display: none; }
+  .player--yt.yt-idle .yt-cover { display: none; }
+  .player--yt.yt-idle .yt-surface { --h: 46px; }
+}
