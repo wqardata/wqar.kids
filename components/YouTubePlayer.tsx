@@ -245,8 +245,18 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
           {/* على اللمس: زر الوسط لا يستقبل اللمس بنفسه؛ نفتح «ثقبًا» في الطبقة بمقاسه فيصل اللمسُ الحقيقي إلى إطار يوتيوب
               (الجوال يمنع playVideo() القادم من الصفحة إن لم يكن اللمس داخل الإطار نفسه) ويشغّل/يوقف يوتيوب مباشرة. */}
           {/* طبقة تلتقط كل اللمس/النقر: تمنع شعار يوتيوب وشريطه العلوي وأي ضغط على الإطار نفسه.
-              النقر عليها لا يُشغّل ولا يوقف؛ يُظهر زر الوسط فقط (أثناء التشغيل). */}
-          <div className="dp-surface yt-surface" onClick={() => { if (menu) setMenu(false); else showCtl(); }} aria-hidden="true" />
+              على الحاسوب النقر عليها يشغّل/يوقف؛ على اللمس وسطها مثقوب (انظر player.css). */}
+          <div
+            className="dp-surface yt-surface"
+            onClick={() => {
+              if (menu) { setMenu(false); return; }
+              // الحاسوب: النقر على أي مكان في الفيديو يشغّل/يوقف. اللمس: وسط الفيديو يصل إلى إطار يوتيوب مباشرة (انظر player.css)،
+              // وما يصل إلى هنا هو لمس الأطراف فيُظهر الزر فقط.
+              if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) showCtl();
+              else toggle();
+            }}
+            aria-hidden="true"
+          />
           {centerShown && (
             <button
               type="button"

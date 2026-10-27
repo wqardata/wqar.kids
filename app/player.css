@@ -110,20 +110,18 @@
 .yt-menu-row button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700; }
 .yt-menu-row button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
-/* اللمس (الجوال): الضغط على زر الوسط يجب أن يصل إلى إطار يوتيوب نفسه كي يعمل التشغيل/الإيقاف.
-   الزر يبقى ظاهرًا لكنه لا يعترض اللمس، وتُثقب الطبقة الشفافة بمقاسه فقط (clip-path يؤثر على الضغط أيضًا). */
+/* اللمس (الجوال): الضغط على أي مكان في وسط الفيديو يشغّل/يوقف.
+   نُثقب الطبقة الشفافة في وسط المشغّل (clip-path يؤثر على الضغط أيضًا) فيصل اللمس الحقيقي إلى إطار يوتيوب نفسه
+   (الجوال يمنع playVideo() القادم من الصفحة إن لم يكن اللمس داخل الإطار). الأطراف (شريط عنوان يوتيوب وغيره) تبقى محجوبة،
+   وشريط أزرارنا في الأسفل فوق الطبقة. زر الوسط مؤشر مرئي فقط. */
 @media (pointer: coarse) {
   .player--yt { --dpc-px: calc(68px * var(--dpc, 1)); }
-  /* حجم الزر يتبع إعداد «حجم زر التشغيل/الإيقاف» حرفيًا، والثقب بمقاسه تمامًا. */
-  .player--yt.yt-hole .dp-center { pointer-events: none; width: var(--dpc-px); height: var(--dpc-px); background: rgba(0, 0, 0, .88); }
-  .player--yt.yt-hole .yt-cover { pointer-events: none; }
-  .player--yt.yt-hole .yt-host iframe { pointer-events: auto; }
-  .player--yt.yt-hole .yt-surface {
-    --h: calc(var(--dpc-px) / 2);
+  .player--yt .dp-center { pointer-events: none; width: var(--dpc-px); height: var(--dpc-px); background: rgba(0, 0, 0, .88); }
+  .player--yt .yt-cover { pointer-events: none; }
+  .player--yt .yt-host iframe { pointer-events: auto; }
+  .player--yt .yt-surface {
     clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0,
-      calc(50% - var(--h)) calc(50% - var(--h)), calc(50% - var(--h)) calc(50% + var(--h)),
-      calc(50% + var(--h)) calc(50% + var(--h)), calc(50% + var(--h)) calc(50% - var(--h)),
-      calc(50% - var(--h)) calc(50% - var(--h)), 0 0);
+      8% 18%, 8% 74%, 92% 74%, 92% 18%, 8% 18%, 0 0);
   }
 }
 
@@ -141,9 +139,8 @@
   }
 }
 
-/* اللمس، قبل أول تشغيل: نترك زر يوتيوب الأصلي ظاهرًا ويعمل بلمسة حقيقية، ولا نضع زرّنا فوقه (زرّنا يظهر بعد البدء للإيقاف والاستئناف). */
+/* اللمس، قبل أول تشغيل: يظهر زر يوتيوب الأصلي (يعمل بلمسة حقيقية) ولا نضع زرّنا ولا الغطاء فوقه. */
 @media (pointer: coarse) {
   .player--yt.yt-idle .dp-center { display: none; }
   .player--yt.yt-idle .yt-cover { display: none; }
-  .player--yt.yt-idle .yt-surface { --h: 46px; }
 }
