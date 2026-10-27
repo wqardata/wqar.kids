@@ -70,6 +70,8 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   const box = useRef<HTMLDivElement>(null);
   const { settings } = useSettings();
   const dpc = settings.watchPage.playBtnScale / 100; // حجم الزر الأوسط من لوحة التحكم
+  const muteRef = useRef(settings.watchPage.ytMuted);
+  muteRef.current = settings.watchPage.ytMuted;
   const host = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const [ready, setReady] = useState(false);
@@ -78,7 +80,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   const [cur, setCur] = useState(0);
   const [dur, setDur] = useState(0);
   const [buf, setBuf] = useState(0);
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(settings.watchPage.ytMuted);
   const [menu, setMenu] = useState(false);
   const [levels, setLevels] = useState<string[]>(Q_FALLBACK);
   const [quality, setQuality] = useState(DEFAULT_QUALITY); // الجودة المطلوبة (small = 240p)
@@ -99,7 +101,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
     let dead = false;
     const wrap = host.current;
     qRef.current = DEFAULT_QUALITY; setQuality(DEFAULT_QUALITY); setRate(1); setMenu(false);
-    setReady(false); setState(-1); setFailed(false); setCur(0); setDur(0); setBuf(0);
+    setReady(false); setState(-1); setFailed(false); setCur(0); setDur(0); setBuf(0); setMuted(muteRef.current);
 
     const q = new URLSearchParams({
       enablejsapi: "1", controls: "0", rel: "0", playsinline: "1", modestbranding: "1", disablekb: "1", fs: "0", iv_load_policy: "3", origin: window.location.origin,
@@ -120,7 +122,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
       if (dead) return;
       player.current = new YT.Player(f, {
         events: {
-          onReady: () => { if (!dead) { setReady(true); try { player.current?.setPlaybackQuality(qRef.current); } catch { /* غير مدعوم */ } } },
+          onReady: () => { if (!dead) { setReady(true); try { if (muteRef.current) player.current?.mute(); } catch { /* غير مدعوم */ } try { player.current?.setPlaybackQuality(qRef.current); } catch { /* غير مدعوم */ } } },
           onStateChange: (e) => {
             if (dead) return;
             setState(e.data);

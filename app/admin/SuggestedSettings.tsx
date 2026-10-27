@@ -107,6 +107,11 @@ export default function SuggestedSettings() {
         </div>
       </section>
 
+      <section className="dsec" aria-labelledby="sg-s-yt">
+        <h3 id="sg-s-yt" className="dsec-h">مشغّل يوتيوب</h3>
+        {flag("ytMuted", "تشغيل الفيديو بدون صوت (بدون موسيقى)", "الصوت كله يُكتم، فلا يمكن فصل الموسيقى عن الكلام. يستطيع الزائر تشغيل الصوت من زر الصوت في المشغّل.")}
+      </section>
+
       <h3 className="dsec-h">الفيديوهات المقترحة</h3>
       <p className="hint">تظهر تحت الفيديو على الجوال، وبجانبه على الشاشات الكبيرة.</p>
 
