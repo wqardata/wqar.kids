@@ -24,8 +24,11 @@ type Props = {
 /** بطاقة نافذة الأذان: الصورة، ثم النص، ثم العدّاد. تُستخدم في الموقع وفي تجربة لوحة التحكم. */
 export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, playAudio, onClose }: Props) {
   const audio = useRef<HTMLAudioElement>(null);
-  const [needsTap, setNeedsTap] = useState(false);
+  const soundBtn = useRef<HTMLButtonElement>(null);
+  /** يلغي مستمعي «فتح الصوت عند أول لمسة» (إن كانوا مسجّلين). */
+  const unlockOff = useRef<() => void>(() => {});
   const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [parentOpen, setParentOpen] = useState(false);
 
   // نسخ الصوت لهذه الصلاة: نبدأ من نسخة عشوائية (يتوزّع الزوار على النسخ فلا يُستنفد حد تنزيل ملف واحد)،
@@ -42,15 +45,39 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
 
   useEffect(() => {
     const a = audio.current;
-    if (!a || !current) return;
-    a.volume = cfg.volume / 100;
-    if (!playAudio) return;
-    a.play().then(() => setNeedsTap(false)).catch((err: unknown) => {
-      // NotAllowedError = منع التشغيل التلقائي؛ غيره (مصدر لا يعمل) يعالجه onError فينتقل للنسخة التالية.
-      if ((err as { name?: string })?.name === "NotAllowedError") setNeedsTap(true);
+    if (a && current) a.volume = cfg.volume / 100;
+  }, [current, cfg.volume]);
+
+  // التشغيل التلقائي: نحاول بالصوت مباشرة. إن منعه المتصفح (لا تفاعل سابق من الزائر) نبدأ صامتين — وهذا مسموح —
+  // ثم نفتح الصوت عند أول لمسة/نقرة/مفتاح في أي مكان بالصفحة، فلا يحتاج الزائر لزر تشغيل.
+  useEffect(() => {
+    const a = audio.current;
+    if (!a || !current || !playAudio) return;
+    let dead = false;
+    a.muted = false;
+    a.play().catch((err: unknown) => {
+      // غير NotAllowedError (مصدر لا يعمل) يعالجه onError فينتقل للنسخة التالية.
+      if (dead || (err as { name?: string })?.name !== "NotAllowedError") return;
+      a.muted = true;
+      a.play().catch(() => {});
+      const evs = ["pointerdown", "keydown", "touchstart", "click"];
+      const unmute = (e: Event) => {
+        if (soundBtn.current?.contains(e.target as Node)) return; // زر الصوت يتولّى أمره بنفسه
+        a.muted = false;
+        if (a.paused) void a.play().catch(() => {});
+        off();
+      };
+      const off = () => evs.forEach((ev) => window.removeEventListener(ev, unmute, true));
+      evs.forEach((ev) => window.addEventListener(ev, unmute, { capture: true, passive: true }));
+      unlockOff.current = off;
     });
-    return () => a.pause();
-  }, [current, cfg.volume, playAudio]);
+    return () => {
+      dead = true;
+      unlockOff.current();
+      unlockOff.current = () => {};
+      a.pause();
+    };
+  }, [current, playAudio]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -62,12 +89,21 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
     return () => window.removeEventListener("keydown", onKey);
   }, [cfg.closable, onClose, parentOpen]);
 
-  function tapPlay() {
+  /** أيقونة الصوت: أثناء الصوت المسموع تُسكته، وغير ذلك (صامت/متوقف/انتهى) تشغّله. */
+  function toggleSound() {
     const a = audio.current;
     if (!a) return;
-    a.currentTime = 0;
-    void a.play().then(() => setNeedsTap(false)).catch(() => {});
+    unlockOff.current();
+    unlockOff.current = () => {};
+    if (playing && !a.muted) {
+      a.pause();
+      return;
+    }
+    a.muted = false;
+    if (a.ended) a.currentTime = 0;
+    void a.play().catch(() => {});
   }
+  const audible = playing && !muted;
 
   const text = cfg.text.replaceAll("{prayer}", prayerLabel);
   // التركيز الأولي على أول خيار «رجوع» (الأسلم للضغط العرضي)، وإلا على الأول.
@@ -84,10 +120,26 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
       {failed && <p className="hint" role="status">تعذّر تشغيل صوت التكبيرات.</p>}
       {current && (
         <>
-          <audio ref={audio} src={current} preload="auto" onError={() => setTried((t) => t + 1)} onPlay={() => setPlaying(true)} onEnded={() => setPlaying(false)} onPause={() => setPlaying(false)} />
-          {(needsTap || !playing) && (
-            <button type="button" className="adhan-sound" onClick={tapPlay}>🔊 {needsTap ? "اضغط لتشغيل التكبيرات" : "إعادة تشغيل التكبيرات"}</button>
-          )}
+          <audio
+            ref={audio}
+            src={current}
+            preload="auto"
+            onError={() => setTried((t) => t + 1)}
+            onPlay={() => setPlaying(true)}
+            onEnded={() => setPlaying(false)}
+            onPause={() => setPlaying(false)}
+            onVolumeChange={(e) => setMuted(e.currentTarget.muted)}
+          />
+          <button
+            ref={soundBtn}
+            type="button"
+            className="adhan-sound"
+            onClick={toggleSound}
+            aria-label={audible ? "إيقاف صوت التكبيرات" : "تشغيل صوت التكبيرات"}
+            title={audible ? "إيقاف الصوت" : "تشغيل الصوت"}
+          >
+            <span aria-hidden="true">{audible ? "🔊" : "🔇"}</span>
+          </button>
         </>
       )}
       {cfg.parentOptions.length > 0 && (
