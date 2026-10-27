@@ -81,6 +81,15 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   const [quality, setQuality] = useState(DEFAULT_QUALITY); // الجودة المطلوبة (small = 240p)
   const qRef = useRef(DEFAULT_QUALITY);
   const [rate, setRate] = useState(1);
+  // زر الوسط يظهر أثناء التشغيل لثوانٍ بعد لمس المشغّل (وهو الوحيد الذي يُشغّل ويوقف).
+  const [ctl, setCtl] = useState(false);
+  const ctlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showCtl = useCallback(() => {
+    setCtl(true);
+    if (ctlTimer.current) clearTimeout(ctlTimer.current);
+    ctlTimer.current = setTimeout(() => setCtl(false), 2500);
+  }, []);
+  useEffect(() => () => { if (ctlTimer.current) clearTimeout(ctlTimer.current); }, []);
 
   useEffect(() => {
     if (!YT_ID.test(youtubeId) || !host.current) return;
@@ -209,10 +218,18 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
       ) : (
         <>
           {covered && <div className="yt-cover" aria-hidden="true" />}
-          {/* طبقة تلتقط كل اللمس/النقر: تمنع شعار يوتيوب وشريطه العلوي وأي ضغط على الإطار نفسه. */}
-          <div className="dp-surface yt-surface" onClick={() => { if (menu) setMenu(false); else toggle(); }} aria-hidden="true" />
-          {!playing && ready && (
-            <button type="button" className="dp-center" onClick={toggle} aria-label="تشغيل">{I.play}</button>
+          {/* طبقة تلتقط كل اللمس/النقر: تمنع شعار يوتيوب وشريطه العلوي وأي ضغط على الإطار نفسه.
+              النقر عليها لا يُشغّل ولا يوقف؛ يُظهر زر الوسط فقط (أثناء التشغيل). */}
+          <div className="dp-surface yt-surface" onClick={() => { if (menu) setMenu(false); else showCtl(); }} aria-hidden="true" />
+          {ready && (!playing || ctl) && (
+            <button
+              type="button"
+              className="dp-center"
+              onClick={() => { toggle(); if (playing) setCtl(false); else showCtl(); }}
+              aria-label={playing ? "إيقاف مؤقت" : "تشغيل"}
+            >
+              {playing ? I.pause : I.play}
+            </button>
           )}
       {menu && (
         <div className="yt-menu" role="menu" aria-label="الإعدادات">
