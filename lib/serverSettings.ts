@@ -1,4 +1,8 @@
+import { unstable_cache } from "next/cache";
 import { DEFAULT_SETTINGS, merge, type SiteSettings } from "./settingsCore";
+import { USE_NEON } from "./backend";
+import { isDbConfigured } from "./db";
+import { settingDoc } from "./neonServer";
 
 export const SETTINGS_TAG = "site-settings";
 
@@ -35,7 +39,20 @@ export function decodeFields(f: Record<string, FsValue>): Record<string, unknown
  */
 let lastGood: SiteSettings | null = null; // آخر نسخة قُرئت بنجاح (في ذاكرة الخادم) تُستعمل إن تعذّر Firebase لاحقًا
 
+// نسخة Neon: نفس المدة (5 دقائق) ونفس الوسم، فيُبطلها /api/revalidate-settings كما اليوم. الخطأ المؤقت يُرمى فلا يُخزَّن.
+const cachedNeonSite = unstable_cache(async () => ({ data: await settingDoc("site") }), ["neon-site-settings"], { revalidate: 300, tags: [SETTINGS_TAG] });
+
 export async function getServerSettings(): Promise<SiteSettings> {
+  if (USE_NEON && isDbConfigured()) {
+    try {
+      const { data } = await cachedNeonSite();
+      if (!data) return DEFAULT_SETTINGS;
+      lastGood = merge(data);
+      return lastGood;
+    } catch {
+      return lastGood ?? DEFAULT_SETTINGS;
+    }
+  }
   const pid = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const key = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (!pid) return DEFAULT_SETTINGS;

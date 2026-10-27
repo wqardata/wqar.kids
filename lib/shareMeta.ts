@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { IDENTITY } from "./identity";
 import { decodeFields, getServerSettings } from "./serverSettings";
 import { driveThumbnail } from "./drive";
+import { USE_NEON } from "./backend";
+import { isDbConfigured } from "./db";
+import { docFields } from "./neonServer";
 
 /**
  * بيانات المعاينة (Open Graph / Twitter) على الخادم.
@@ -29,8 +33,23 @@ export function siteOrigin(): URL | undefined {
   return undefined;
 }
 
-/** يقرأ مستندًا من Firestore عبر REST (null إن لم يوجد أو تعذّرت القراءة). */
+// نسخة Neon: تُخزَّن ساعة كاملة كما كان يفعل fetch مع Firestore. الخطأ المؤقت يُرمى داخل الدالة فلا يُخزَّن.
+const cachedNeonDoc = unstable_cache(
+  (coll: "videos" | "series" | "categories", id: string) => docFields(coll, id),
+  ["neon-share-doc"],
+  { revalidate: 3600 },
+);
+
+/** يقرأ مستندًا من Neon أو Firestore بحسب مفتاح التشغيل (null إن لم يوجد أو تعذّرت القراءة). */
 async function readDoc(coll: string, id: string): Promise<Fields | null> {
+  if (USE_NEON && isDbConfigured()) {
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id) || (coll !== "videos" && coll !== "series" && coll !== "categories")) return null;
+    try {
+      return await cachedNeonDoc(coll, id);
+    } catch {
+      return null;
+    }
+  }
   const pid = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const key = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (!pid || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) return null;

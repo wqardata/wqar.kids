@@ -16,6 +16,8 @@ import { addWatched, recordView } from "@/lib/history";
 import { viewsAndAge } from "@/lib/format";
 import { useSettings } from "@/lib/settings";
 import { useMiniPlayer } from "@/lib/miniPlayer";
+import { USE_NEON } from "@/lib/backend";
+import { neonVideo } from "@/lib/neonClient";
 import { countView, toVideo, useSeriesAvatars, type VideoDoc } from "@/lib/videos";
 
 const VideoEditPanel = dynamic(() => import("./VideoEditPanel"), { ssr: false });
@@ -42,11 +44,11 @@ export default function VideoView({ id }: { id: string }) {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     let off = false;
-    getDoc(doc(getDb(), "videos", id))
-      .then((snap) => {
+    const load: Promise<VideoDoc | null> = USE_NEON ? neonVideo(id) : getDoc(doc(getDb(), "videos", id)).then((snap) => (snap.exists() ? toVideo(snap.id, snap.data()) : null));
+    load
+      .then((v) => {
         if (off) return;
-        if (snap.exists()) {
-          const v = toVideo(snap.id, snap.data());
+        if (v) {
           document.title = v.title;
           if (!v.hidden) {
             recordView(v.id); // سجل المشاهدة (محلي)

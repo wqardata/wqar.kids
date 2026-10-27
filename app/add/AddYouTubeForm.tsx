@@ -3,6 +3,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { USE_NEON } from "@/lib/backend";
+import { adminCreateVideo } from "@/lib/neonAdminClient";
 import CreatableSelect from "@/components/CreatableSelect";
 import { useAuth } from "@/lib/auth";
 import { getDb } from "@/lib/firebase";
@@ -58,7 +60,7 @@ export default function AddYouTubeForm() {
       const ser = series.items.find((s) => s.id === seriesId);
       const num = (v: string) => (v.trim() && Number.isFinite(Number(v)) ? Math.max(1, Math.floor(Number(v))) : null);
       const ref = doc(collection(getDb(), "videos"));
-      await setDoc(ref, {
+      const fields = {
         title: title.trim(),
         driveId: "",
         youtubeId: ytId,
@@ -72,10 +74,9 @@ export default function AddYouTubeForm() {
         season: ser ? num(season) : null,
         episode: ser ? num(episode) : null,
         isShort: short,
-        createdBy: user.uid,
-        createdByEmail: user.email ?? "",
-        createdAt: serverTimestamp(),
-      });
+      };
+      if (USE_NEON) await adminCreateVideo({ ...fields, id: ref.id });
+      else await setDoc(ref, { ...fields, createdBy: user.uid, createdByEmail: user.email ?? "", createdAt: serverTimestamp() });
       bumpVideosVersion();
       router.push(`/v/${ref.id}`);
     } catch {

@@ -3,7 +3,7 @@
 //
 //   node migrate.mjs                      تجربة فقط: يقرأ ويحوّل ويعدّ، ولا يكتب شيئًا (الافتراضي)
 //   node migrate.mjs --write              ينفّذ الكتابة (upsert: يمكن إعادة تشغيله دون تكرار)
-//   node migrate.mjs --only=videos,users  مجموعات محدّدة فقط
+//   node migrate.mjs --only=videos,series  مجموعات محدّدة فقط
 //   --key=المسار/serviceAccount.json      مفتاح حساب الخدمة (أو متغير GOOGLE_APPLICATION_CREDENTIALS)
 //
 // المتغيرات: DATABASE_URL (سلسلة اتصال Neon). لا يُطبع ولا يُحفظ في أي ملف.

@@ -4,6 +4,9 @@ import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firest
 import { getDb, getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 import { THEME_CACHE_KEY, THEME_STYLE_ID, effectiveColors, themeCss, type Theme } from "./theme";
 import { isPreviewFrame } from "./previewFrame";
+import { USE_NEON } from "./backend";
+import { neonSetting } from "./neonClient";
+import { adminSaveSite } from "./neonAdminClient";
 import { BRAND_FONTS, DEFAULT_SETTINGS, glassCss, merge, type SiteSettings } from "./settingsCore";
 
 export * from "./settingsCore";
@@ -30,23 +33,27 @@ export async function saveSettings(s: SiteSettings): Promise<SiteSettings> {
   const clean = merge({ ...s });
   if (!baseline) {
     // لم يكتمل تحميل الإعدادات: نحاول قراءتها الآن، فإن فشلت لا نكتب شيئًا.
-    const snap = await getDoc(doc(getDb(), "settings", "site"));
-    baseline = { settings: snap.exists() ? merge(snap.data()) : DEFAULT_SETTINGS, exists: snap.exists() };
+    const snap = await readSiteDoc(true);
+    baseline = { settings: snap.exists ? merge(snap.data) : DEFAULT_SETTINGS, exists: snap.exists };
   }
   const base = baseline;
   const changed: Record<string, unknown> = {};
   for (const k of Object.keys(clean) as (keyof SiteSettings)[]) {
     if (JSON.stringify(clean[k]) !== JSON.stringify(base.settings[k])) changed[k] = clean[k];
   }
-  const ref = doc(getDb(), "settings", "site");
-  if (base.exists) {
+  const ref = USE_NEON ? null : doc(getDb(), "settings", "site");
+  if (USE_NEON) {
+    // الخادم يتحقق من المشرف ويدمج الحقول المعدَّلة فوق المحفوظ (أو ينشئ الصف كاملًا إن لم يوجد) ويُبطل كاش الخادم.
+    const send = base.exists ? changed : { ...clean };
+    if (Object.keys(send).length) await adminSaveSite(send);
+  } else if (ref && base.exists) {
     try {
       await updateDoc(ref, { ...changed, updatedAt: serverTimestamp() });
     } catch (e) {
       if ((e as { code?: string })?.code !== "not-found") throw e;
       await setDoc(ref, { ...clean, updatedAt: serverTimestamp() });
     }
-  } else {
+  } else if (ref) {
     await setDoc(ref, { ...clean, updatedAt: serverTimestamp() });
   }
   baseline = { settings: clean, exists: true };
@@ -122,6 +129,13 @@ function writeIdentity(s: SiteSettings) {
   }
 }
 
+/** قراءة settings/site من Firestore أو Neon (للقراءة فقط). */
+async function readSiteDoc(fresh = false): Promise<{ exists: boolean; data: Record<string, unknown> }> {
+  if (USE_NEON) return neonSetting("site", fresh);
+  const snap = await getDoc(doc(getDb(), "settings", "site"));
+  return { exists: snap.exists(), data: snap.data() ?? {} };
+}
+
 export function SettingsProvider({ children, initial }: { children: ReactNode; initial?: SiteSettings }) {
   // `initial` قادمة من الخادم: الاسم والشعار الصحيحان يظهران في أول HTML دون وميض القيم القديمة.
   const [settings, setSettings] = useState<SiteSettings>(initial ?? DEFAULT_SETTINGS);
@@ -135,12 +149,12 @@ export function SettingsProvider({ children, initial }: { children: ReactNode; i
     // إن كان الخادم لم يجد الإعدادات (فعاد بالقيم الافتراضية) نعرض آخر هوية محفوظة في هذا المتصفح حتى يرد Firebase.
     const cached = readIdentity();
     if (cached) setSettings((s) => ({ ...s, ...cached }));
-    getDoc(doc(getDb(), "settings", "site"))
+    readSiteDoc()
       .then((snap) => {
         if (off) return;
-        baseline = { settings: snap.exists() ? merge(snap.data()) : DEFAULT_SETTINGS, exists: snap.exists() };
-        if (snap.exists()) {
-          const fresh = merge(snap.data());
+        baseline = { settings: snap.exists ? merge(snap.data) : DEFAULT_SETTINGS, exists: snap.exists };
+        if (snap.exists) {
+          const fresh = merge(snap.data);
           setSettings(fresh);
           writeIdentity(fresh);
         }

@@ -3,6 +3,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { USE_NEON } from "@/lib/backend";
+import { adminCreateVideo } from "@/lib/neonAdminClient";
 import CreatableSelect from "@/components/CreatableSelect";
 import { useAuth } from "@/lib/auth";
 import { driveThumbnail, parseDriveId } from "@/lib/drive";
@@ -116,7 +118,7 @@ export default function AddVideoForm() {
         }
       }
       try {
-        await setDoc(ref, {
+        const fields = {
           title: title.trim(),
           driveId,
           thumbnail,
@@ -128,10 +130,9 @@ export default function AddVideoForm() {
           seriesName: ser?.name ?? "",
           season: ser ? num(season) : null,
           episode: ser ? num(episode) : null,
-          createdBy: user.uid,
-          createdByEmail: user.email ?? "",
-          createdAt: serverTimestamp(),
-        });
+        };
+        if (USE_NEON) await adminCreateVideo({ ...fields, id: ref.id });
+        else await setDoc(ref, { ...fields, createdBy: user.uid, createdByEmail: user.email ?? "", createdAt: serverTimestamp() });
       } catch (e) {
         if (savedThumb) void deleteThumb(ref.id);
         throw e;

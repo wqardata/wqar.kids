@@ -5,6 +5,8 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import Icon from "@/components/Icon";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { createLocalSet } from "@/lib/localSet";
+import { USE_NEON } from "@/lib/backend";
+import { neonPost } from "@/lib/neonClient";
 
 export const REPORT_REASONS = ["محتوى غير مناسب", "الفيديو لا يعمل", "معلومات خاطئة أو عنوان مضلل", "حقوق نشر", "سبب آخر"] as const;
 
@@ -21,18 +23,20 @@ export default function ReportButton({ videoId, videoTitle }: { videoId: string;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!isFirebaseConfigured) return setError("الإبلاغ غير متاح حاليًا.");
+    if (!USE_NEON && !isFirebaseConfigured) return setError("الإبلاغ غير متاح حاليًا.");
     setBusy(true);
     setError("");
     try {
-      await addDoc(collection(getDb(), "reports"), {
-        videoId,
-        videoTitle: videoTitle.slice(0, 200),
-        reason,
-        note: note.trim().slice(0, 500),
-        status: "open",
-        createdAt: serverTimestamp(),
-      });
+      if (USE_NEON) await neonPost("/api/data/report", { videoId, videoTitle, reason, note });
+      else
+        await addDoc(collection(getDb(), "reports"), {
+          videoId,
+          videoTitle: videoTitle.slice(0, 200),
+          reason,
+          note: note.trim().slice(0, 500),
+          status: "open",
+          createdAt: serverTimestamp(),
+        });
       sent.toggle(videoId);
       setOpen(false);
       setNote("");

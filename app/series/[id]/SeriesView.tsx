@@ -6,6 +6,8 @@ import { SkeletonGrid } from "@/components/Skeleton";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { shuffled } from "@/lib/format";
 import { useSettings } from "@/lib/settings";
+import { USE_NEON } from "@/lib/backend";
+import { neonNamedOne, neonVideosBySeries } from "@/lib/neonClient";
 import { toVideo, type VideoDoc } from "@/lib/videos";
 
 export default function SeriesView({ id }: { id: string }) {
@@ -18,14 +20,18 @@ export default function SeriesView({ id }: { id: string }) {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     let off = false;
-    Promise.all([getDoc(doc(getDb(), "series", id)), getDocs(query(collection(getDb(), "videos"), where("seriesId", "==", id)))])
-      .then(([s, snap]) => {
+    const load: Promise<{ name: string; videos: VideoDoc[] } | null> = USE_NEON
+      ? Promise.all([neonNamedOne("series", id), neonVideosBySeries(id)]).then(([s, videos]) => (s ? { name: s.name, videos } : null))
+      : Promise.all([getDoc(doc(getDb(), "series", id)), getDocs(query(collection(getDb(), "videos"), where("seriesId", "==", id)))]).then(([s, snap]) =>
+          s.exists() ? { name: String(s.data().name ?? ""), videos: snap.docs.map((d) => toVideo(d.id, d.data())) } : null,
+        );
+    load
+      .then((r) => {
         if (off) return;
-        if (!s.exists()) return setState("missing");
-        const n = String(s.data().name ?? "");
-        document.title = n;
-        setName(n);
-        setRaw(snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => !v.hidden));
+        if (!r) return setState("missing");
+        document.title = r.name;
+        setName(r.name);
+        setRaw(r.videos.filter((v) => !v.hidden));
         setState("ok");
       })
       .catch(() => !off && setState("missing"));

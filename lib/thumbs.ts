@@ -1,27 +1,36 @@
 import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDb } from "./firebase";
+import { USE_NEON } from "./backend";
+import { adminDeleteThumbs, adminSaveThumb } from "./neonAdminClient";
+import { parseJpegDataUrl } from "./thumbCore";
 
 /** رابط الصورة المصغّرة المخدومة من /api/thumb. `v` يغيّر الرابط عند تغيير الصورة فيتحدّث التخزين المؤقت. */
 export function thumbUrl(videoId: string, v: number = Date.now()): string {
   return `/api/thumb/${videoId}?v=${v}`;
 }
 
-/** يحفظ لقطة JPEG (data URL) في thumbs/{videoId} ويعيد رابطها. */
+/** يحفظ لقطة JPEG (data URL) باسم معرّفها (thumbs/{id} في Firestore أو جدول thumbs في Neon) ويعيد رابطها. */
 export async function saveThumb(videoId: string, dataUrl: string): Promise<string> {
-  const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
-  if (!m) throw new Error("صيغة الصورة غير صالحة.");
-  await setDoc(doc(getDb(), "thumbs", videoId), { b64: m[1], createdAt: serverTimestamp() });
+  const b64 = parseJpegDataUrl(dataUrl);
+  if (!b64) throw new Error("صيغة الصورة غير صالحة.");
+  if (USE_NEON) await adminSaveThumb(videoId, b64);
+  else await setDoc(doc(getDb(), "thumbs", videoId), { b64, createdAt: serverTimestamp() });
   return thumbUrl(videoId);
 }
 
-/** يحذف الصورة المحفوظة (إن وُجدت). لا يرمي خطأ لأن غيابها لا يضرّ. */
-export async function deleteThumb(videoId: string): Promise<void> {
+/** يحذف صورًا محفوظة (إن وُجدت) دفعة واحدة. لا يرمي خطأ لأن غيابها لا يضرّ. */
+export async function deleteThumbs(ids: string[]): Promise<void> {
+  if (!ids.length) return;
   try {
-    await deleteDoc(doc(getDb(), "thumbs", videoId));
+    if (USE_NEON) await adminDeleteThumbs(ids);
+    else await Promise.all(ids.map((id) => deleteDoc(doc(getDb(), "thumbs", id))));
   } catch {
     /* تجاهل */
   }
 }
+
+/** يحذف الصورة المحفوظة (إن وُجدت). */
+export const deleteThumb = (videoId: string): Promise<void> => deleteThumbs([videoId]);
 
 /**
  * يحوّل ملف صورة من الجهاز إلى JPEG مصغَّر (أطول ضلع 640) كـ data URL، بحجم يناسب مستند Firestore.

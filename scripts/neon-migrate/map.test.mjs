@@ -67,5 +67,6 @@ test("كل جدول في PLAN له صفوف تحمل مفتاحه الأساسي
     const { row } = step.map(id, d, null);
     assert.ok(row && row[step.pk] !== undefined, step.coll);
   }
-  assert.equal(PLAN.length, 11);
+  assert.equal(PLAN.length, 9); // بدون users/allowed (تبقى على Firestore)
+  assert.ok(!PLAN.some((s) => s.coll === "users" || s.coll === "allowed"));
 });
