@@ -78,7 +78,7 @@ export type AdhanSettings = {
   prayers: Record<PrayerId, boolean>;
   /** تقديم/تأخير كل صلاة بالدقائق (−30…+30). */
   adjust: Record<PrayerId, number>;
-  /** رابط ملف صوت التكبيرات (mp3) أو مساره داخل الموقع مثل /audio/takbeer.mp3. فارغ = بلا صوت. */
+  /** رابط ملف صوت التكبيرات (mp3) أو مساره داخل الموقع مثل /audio/takbeer.mp3. فارغ = بلا صوت. الافتراضي: /audio/takbeer.mp3. */
   audioUrl: string;
   volume: number; // 0..100
   /** مدة العدّ التنازلي بالدقائق (عادةً الوقت بين الأذان والإقامة). */
@@ -105,7 +105,7 @@ export const DEFAULT_ADHAN: AdhanSettings = {
   enabled: true,
   prayers: { fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true },
   adjust: { fajr: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 },
-  audioUrl: "",
+  audioUrl: "/audio/takbeer.mp3", // الافتراضي: يبدأ التكبير فور ظهور النافذة (الملف ضمن public/audio)
   volume: 80,
   countdownMin: 10,
   text: "حان الآن موعد أذان {prayer} — حيّ على الصلاة",
@@ -175,7 +175,8 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     enabled: o.enabled !== false,
     prayers,
     adjust,
-    audioUrl: /(drive|docs)\.google\.com|drive\.usercontent\.google\.com/.test(String(o.audioUrl ?? "")) ? "" : cleanMediaUrl(o.audioUrl),
+    // غياب الحقل (إعدادات قديمة) = الصوت الافتراضي؛ وجوده فارغًا = بلا صوت عمدًا.
+    audioUrl: o.audioUrl === undefined ? D.audioUrl : /(drive|docs)\.google\.com|drive\.usercontent\.google\.com/.test(String(o.audioUrl)) ? "" : cleanMediaUrl(o.audioUrl),
     volume: Math.round(num(o.volume, 0, 100, D.volume)),
     countdownMin: Math.round(num(o.countdownMin, 1, 60, D.countdownMin)),
     text,
