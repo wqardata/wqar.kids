@@ -506,7 +506,7 @@ export const DRIVE_BTN_SCALE_MIN = 30;
 export const DRIVE_BTN_SCALE_MAX = 150;
 
 /** حجم زر التشغيل/الإيقاف الأوسط في مشغّل يوتيوب بالنسبة المئوية (100 = الحجم الأصلي 68px). */
-export const PLAY_BTN_SCALE_MIN = 60;
+export const PLAY_BTN_SCALE_MIN = 40;
 export const PLAY_BTN_SCALE_MAX = 180;
 
 export type WatchPageSettings = {

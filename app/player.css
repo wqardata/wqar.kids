@@ -113,8 +113,8 @@
 /* اللمس (الجوال): الضغط على زر الوسط يجب أن يصل إلى إطار يوتيوب نفسه كي يعمل التشغيل/الإيقاف.
    الزر يبقى ظاهرًا لكنه لا يعترض اللمس، وتُثقب الطبقة الشفافة بمقاسه فقط (clip-path يؤثر على الضغط أيضًا). */
 @media (pointer: coarse) {
-  .player--yt { --dpc-px: max(76px, calc(68px * var(--dpc, 1))); }
-  /* زر أكبر من زر يوتيوب الأصلي وأقل شفافية، والثقب بمقاسه تمامًا. */
+  .player--yt { --dpc-px: calc(68px * var(--dpc, 1)); }
+  /* حجم الزر يتبع إعداد «حجم زر التشغيل/الإيقاف» حرفيًا، والثقب بمقاسه تمامًا. */
   .player--yt.yt-hole .dp-center { pointer-events: none; width: var(--dpc-px); height: var(--dpc-px); background: rgba(0, 0, 0, .88); }
   .player--yt.yt-hole .yt-cover { pointer-events: none; }
   .player--yt.yt-hole .yt-host iframe { pointer-events: auto; }
