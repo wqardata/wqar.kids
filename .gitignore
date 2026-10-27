@@ -9,3 +9,7 @@ next-env.d.ts
 !.env.example
 .DS_Store
 npm-debug.log*
+
+# مفاتيح حساب خدمة Firebase (لا تُرفع أبدًا)
+serviceAccount*.json
+*-firebase-adminsdk-*.json

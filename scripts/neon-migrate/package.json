@@ -1,0 +1,15 @@
+{
+  "name": "neon-migrate",
+  "private": true,
+  "type": "module",
+  "description": "نقل بيانات Firestore إلى Neon. مستقل عن تطبيق الموقع (لا يدخل في بناء Vercel).",
+  "scripts": {
+    "dry-run": "node migrate.mjs",
+    "migrate": "node migrate.mjs --write",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.0",
+    "firebase-admin": "^13.0.0"
+  }
+}

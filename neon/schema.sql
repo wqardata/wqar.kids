@@ -97,8 +97,10 @@ create table if not exists thumbs (
 -- التسجيل الذاتي مُغلق: المالك يضيف بريدًا هنا، ثم يستطيع صاحبه إنشاء حسابه.
 create table if not exists allowed (
   email      text primary key check (email = lower(email)),
+  name       text not null default '',
   created_at timestamptz not null default now()
 );
+-- لمن نفّذ المخطط قبل إضافة العمود: alter table allowed add column if not exists name text not null default '';
 
 -- الأعضاء. uid = معرّف Firebase Auth.
 create table if not exists users (
