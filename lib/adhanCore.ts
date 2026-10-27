@@ -80,6 +80,8 @@ export type AdhanSettings = {
   adjust: Record<PrayerId, number>;
   /** رابط ملف صوت التكبيرات (mp3) أو مساره داخل الموقع مثل /audio/takbeer.mp3. فارغ = بلا صوت. الافتراضي: /audio/takbeer.mp3. */
   audioUrl: string;
+  /** صوت خاص بأذان الفجر (مثل /audio/fajr.mp3). فارغ = يُستعمل ملف التكبيرات العام. الافتراضي: /audio/fajr.mp3. */
+  fajrAudioUrl: string;
   volume: number; // 0..100
   /** مدة العدّ التنازلي بالدقائق (عادةً الوقت بين الأذان والإقامة). */
   countdownMin: number;
@@ -106,6 +108,7 @@ export const DEFAULT_ADHAN: AdhanSettings = {
   prayers: { fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true },
   adjust: { fajr: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 },
   audioUrl: "/audio/takbeer.mp3", // الافتراضي: يبدأ التكبير فور ظهور النافذة (الملف ضمن public/audio)
+  fajrAudioUrl: "/audio/fajr.mp3", // أذان الفجر الخاص (الملف ضمن public/audio)
   volume: 80,
   countdownMin: 10,
   text: "حان الآن موعد أذان {prayer} — حيّ على الصلاة",
@@ -132,9 +135,10 @@ export function cleanMediaUrl(s: unknown): string {
   }
 }
 
-/** مصادر صوت الأذان: الصوت العام (رابط مباشر أو مسار داخل الموقع) إن وُجد. روابط درايف غير مدعومة. */
-export function audioSources(cfg: Pick<AdhanSettings, "audioUrl">, _prayer?: PrayerId): string[] {
-  return cfg.audioUrl ? [cfg.audioUrl] : [];
+/** مصادر صوت الأذان: للفجر ملفه الخاص إن وُجد، وإلا الصوت العام (رابط مباشر أو مسار داخل الموقع) إن وُجد. روابط درايف غير مدعومة. */
+export function audioSources(cfg: Pick<AdhanSettings, "audioUrl" | "fajrAudioUrl">, prayer?: PrayerId): string[] {
+  const url = prayer === "fajr" && cfg.fajrAudioUrl ? cfg.fajrAudioUrl : cfg.audioUrl;
+  return url ? [url] : [];
 }
 
 export function cleanAdhan(v: unknown): AdhanSettings {
@@ -177,6 +181,8 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     adjust,
     // غياب الحقل (إعدادات قديمة) أو رابط درايف قديم (لم يعد مدعومًا) = الصوت الافتراضي؛ وجوده فارغًا = بلا صوت عمدًا.
     audioUrl: o.audioUrl === undefined || /(drive|docs)\.google\.com|drive\.usercontent\.google\.com/.test(String(o.audioUrl)) ? D.audioUrl : cleanMediaUrl(o.audioUrl),
+    // غياب الحقل (إعدادات قديمة) أو رابط درايف قديم = أذان الفجر الافتراضي؛ وجوده فارغًا = يُستعمل ملف التكبيرات العام للفجر.
+    fajrAudioUrl: o.fajrAudioUrl === undefined || /(drive|docs)\.google\.com|drive\.usercontent\.google\.com/.test(String(o.fajrAudioUrl)) ? D.fajrAudioUrl : cleanMediaUrl(o.fajrAudioUrl),
     volume: Math.round(num(o.volume, 0, 100, D.volume)),
     countdownMin: Math.round(num(o.countdownMin, 1, 60, D.countdownMin)),
     text,
