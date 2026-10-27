@@ -30,6 +30,9 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [parentOpen, setParentOpen] = useState(false);
+  // قرار التشغيل التلقائي يُؤخذ مرة واحدة عند ظهور النافذة. كان يُعاد حسابه كل ثانية، فإذا انتهت مهلة التشغيل التلقائي
+  // وهو يعمل أطلق تنظيف التأثير `a.pause()` فانقطع التكبير في منتصفه.
+  const [autoPlay] = useState(playAudio);
 
   // نسخ الصوت لهذه الصلاة: نبدأ من نسخة عشوائية (يتوزّع الزوار على النسخ فلا يُستنفد حد تنزيل ملف واحد)،
   // وإن فشلت نجرّب التالية. فشل الجميع = رسالة بدل الزر.
@@ -52,7 +55,7 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
   // ثم نفتح الصوت عند أول لمسة/نقرة/مفتاح في أي مكان بالصفحة، فلا يحتاج الزائر لزر تشغيل.
   useEffect(() => {
     const a = audio.current;
-    if (!a || !current || !playAudio) return;
+    if (!a || !current || !autoPlay) return;
     let dead = false;
     a.muted = false;
     a.play().catch((err: unknown) => {
@@ -77,7 +80,7 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
       unlockOff.current = () => {};
       a.pause();
     };
-  }, [current, playAudio]);
+  }, [current, autoPlay]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -124,6 +127,7 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
             ref={audio}
             src={current}
             preload="auto"
+            playsInline
             onError={() => setTried((t) => t + 1)}
             onPlay={() => setPlaying(true)}
             onEnded={() => setPlaying(false)}

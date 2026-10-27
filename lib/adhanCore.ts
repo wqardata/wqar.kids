@@ -175,8 +175,8 @@ export function cleanAdhan(v: unknown): AdhanSettings {
     enabled: o.enabled !== false,
     prayers,
     adjust,
-    // غياب الحقل (إعدادات قديمة) = الصوت الافتراضي؛ وجوده فارغًا = بلا صوت عمدًا.
-    audioUrl: o.audioUrl === undefined ? D.audioUrl : /(drive|docs)\.google\.com|drive\.usercontent\.google\.com/.test(String(o.audioUrl)) ? "" : cleanMediaUrl(o.audioUrl),
+    // غياب الحقل (إعدادات قديمة) أو رابط درايف قديم (لم يعد مدعومًا) = الصوت الافتراضي؛ وجوده فارغًا = بلا صوت عمدًا.
+    audioUrl: o.audioUrl === undefined || /(drive|docs)\.google\.com|drive\.usercontent\.google\.com/.test(String(o.audioUrl)) ? D.audioUrl : cleanMediaUrl(o.audioUrl),
     volume: Math.round(num(o.volume, 0, 100, D.volume)),
     countdownMin: Math.round(num(o.countdownMin, 1, 60, D.countdownMin)),
     text,
