@@ -1,13 +1,12 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import VideoStats from "@/components/VideoStats";
 import Icon from "@/components/Icon";
 import PlayLoader from "@/components/PlayLoader";
-import { getDb, isFirebaseConfigured } from "@/lib/firebase";
+import { isFirebaseConfigured } from "@/lib/firebase";
 import { recordView } from "@/lib/history";
-import { countView, toVideo, type VideoDoc } from "@/lib/videos";
+import { countView, fetchLatestVideos, type VideoDoc } from "@/lib/videos";
 
 // معرّفات درايف تتكوّن من حروف وأرقام و _ و - فقط؛ نرفض غير ذلك لأمان الرابط.
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,}$/;
@@ -47,10 +46,11 @@ export default function ShortsFeed() {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     let off = false;
-    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(200)))
-      .then((snap) => {
+    // مخزّنة 15 دقيقة في المتصفح (تشترك مع بقية الصفحات): فتح «قصيرة» مجددًا لا يقرأ 200 مستند من Firestore.
+    fetchLatestVideos(200)
+      .then((list) => {
         if (off) return;
-        const shorts = snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => v.isShort && !v.hidden && DRIVE_ID.test(v.driveId));
+        const shorts = list.filter((v) => v.isShort && !v.hidden && DRIVE_ID.test(v.driveId));
         setPool(shorts);
         setSlides(makeBatch(shorts));
       })

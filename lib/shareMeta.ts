@@ -36,7 +36,8 @@ async function readDoc(coll: string, id: string): Promise<Fields | null> {
   if (!pid || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) return null;
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(pid)}/databases/(default)/documents/${coll}/${id}${key ? `?key=${encodeURIComponent(key)}` : ""}`;
-    const r = await fetch(url, { next: { revalidate: 300 }, signal: AbortSignal.timeout(6000) });
+    // ساعة كاملة: عنوان الفيديو وصورته نادرًا ما يتغيّران، وكل قراءة تُحتسب من حصة Firestore اليومية.
+    const r = await fetch(url, { next: { revalidate: 3600 }, signal: AbortSignal.timeout(6000) });
     if (!r.ok) return null;
     const j = (await r.json()) as { fields?: Parameters<typeof decodeFields>[0] };
     return decodeFields(j.fields ?? {});

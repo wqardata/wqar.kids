@@ -1,14 +1,13 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
-import { getDb, isFirebaseConfigured } from "@/lib/firebase";
+import { isFirebaseConfigured } from "@/lib/firebase";
 import { SkeletonSuggest } from "@/components/Skeleton";
 import VideoStats from "@/components/VideoStats";
 import { formatClock } from "@/lib/format";
 import { useHistory } from "@/lib/history";
 import { useSettings, type WatchPageSettings } from "@/lib/settings";
-import { toVideo, type VideoDoc } from "@/lib/videos";
+import { fetchLatestVideos, type VideoDoc } from "@/lib/videos";
 
 const POOL = 80; // نقرأ أحدث 80 فيديو فقط (كل قراءة تُحتسب من حصة Firestore) ثم نختار منها حسب الإعدادات
 
@@ -99,8 +98,9 @@ export default function SuggestedVideos({ current }: { current: VideoDoc }) {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     let off = false;
-    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(POOL)))
-      .then((snap) => !off && setPool(snap.docs.map((d) => toVideo(d.id, d.data()))))
+    // مخزّنة 15 دقيقة في المتصفح: فتح فيديو بعد آخر لا يقرأ من Firestore مجددًا.
+    fetchLatestVideos(POOL)
+      .then((list) => !off && setPool(list))
       .catch(() => {})
       .finally(() => !off && setReady(true));
     return () => {

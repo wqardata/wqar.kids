@@ -27,7 +27,7 @@ export const NOTICE_KEEP = NOTICE_COUNT_MAX;
  * الاشتراك المباشر (onSnapshot) كثيرًا ما يتجمّد في متصفحات الجوال بعد أن تذهب الصفحة للخلفية،
  * فنُحدّث البيانات من الخادم عند العودة فقط (بلا مؤقّت دوري) كي لا نستهلك حصّة قراءات Firestore المجانية.
  */
-export function useRefreshOnReturn(fn: () => void, enabled: boolean, minGapMs = 60_000) {
+export function useRefreshOnReturn(fn: () => void, enabled: boolean, minGapMs = 300_000) {
   useEffect(() => {
     if (!enabled) return;
     let last = Date.now();

@@ -236,6 +236,30 @@ export function useAllVideos(max = 200) {
   return { videos, ready };
 }
 
+const latestInflight = new Map<number, Promise<VideoDoc[]>>();
+
+/**
+ * نفس قراءة useAllVideos لكن كدالة (للمكوّنات التي تعالج القائمة بنفسها كالمقترحات والمقاطع القصيرة).
+ * تشترك معها في التخزين المؤقت (15 دقيقة في المتصفح)، فلا تُحتسب قراءات جديدة من حصة Firestore
+ * ما دامت القائمة نفسها قُرئت قبل قليل، وتدمج الطلبات المتزامنة في قراءة واحدة.
+ */
+export async function fetchLatestVideos(max: number): Promise<VideoDoc[]> {
+  const key = `latest${max}`;
+  const hit = cacheGet<VideoDoc[]>(key);
+  if (hit) return hit;
+  const running = latestInflight.get(max);
+  if (running) return running;
+  const p = getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(max)))
+    .then((snap) => {
+      const list = snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => !v.hidden);
+      cacheSet(key, slim(list));
+      return list;
+    })
+    .finally(() => latestInflight.delete(max));
+  latestInflight.set(max, p);
+  return p;
+}
+
 /**
  * كل الفيديوهات الظاهرة (غير المخفية) بلا حد 200، على دفعات من 500، مع تخزين مؤقت دقيقتين داخل الجلسة.
  * يُستعمل لحساب عدد حلقات كل مجموعة وصورتها؛ الحد القديم كان يُسقط المجموعات التي خرجت فيديوهاتها من آخر 200.
