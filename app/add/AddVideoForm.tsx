@@ -10,7 +10,7 @@ import { getDb } from "@/lib/firebase";
 import { deleteThumb, saveThumb } from "@/lib/thumbs";
 import { useRandomFrame } from "@/lib/useRandomFrame";
 import { formatClock } from "@/lib/format";
-import { useNamedList } from "@/lib/videos";
+import { bumpVideosVersion, useNamedList } from "@/lib/videos";
 
 type Info = { id: string; title: string | null; thumbnail: string; duration: number | null; warning: string | null };
 type Fetch = "idle" | "loading" | "ok" | "error";
@@ -136,6 +136,7 @@ export default function AddVideoForm() {
         if (savedThumb) void deleteThumb(ref.id);
         throw e;
       }
+      bumpVideosVersion();
       router.push(`/v/${ref.id}`);
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore.");

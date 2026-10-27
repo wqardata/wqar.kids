@@ -1,4 +1,5 @@
 "use client";
+import { bumpVideosVersion } from "@/lib/videos";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, serverTimestamp, updateDoc, where, type QueryDocumentSnapshot } from "firebase/firestore";
@@ -102,7 +103,7 @@ export default function ReportsTab() {
                   </button>
                 )}
                 <button type="button" className="btn btn--ghost btn--sm" disabled={busy === r.id}
-                  onClick={() => void run(r.id, () => updateDoc(doc(getDb(), "videos", r.videoId), { hidden: true, updatedAt: serverTimestamp() }), () => {})}
+                  onClick={() => void run(r.id, () => updateDoc(doc(getDb(), "videos", r.videoId), { hidden: true, updatedAt: serverTimestamp() }).then(() => bumpVideosVersion()), () => {})}
                   title="يخفي الفيديو عن الزوار">
                   إخفاء الفيديو
                 </button>

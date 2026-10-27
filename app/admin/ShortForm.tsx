@@ -9,7 +9,7 @@ import { formatClock } from "@/lib/format";
 import { getDb } from "@/lib/firebase";
 import { deleteThumb, saveThumb } from "@/lib/thumbs";
 import { useRandomFrame } from "@/lib/useRandomFrame";
-import { useNamedList } from "@/lib/videos";
+import { bumpVideosVersion, useNamedList } from "@/lib/videos";
 
 /** إنشاء مقطع قصير: ملف درايف مستقل (قصصتَه بأي محرر) يُنشر في قسم «قصيرة». */
 export default function ShortForm({ onCreated }: { onCreated: () => void }) {
@@ -82,6 +82,7 @@ export default function ShortForm({ onCreated }: { onCreated: () => void }) {
       setUrl("");
       setTitle("");
       setDescription("");
+      bumpVideosVersion();
       setDone(true);
       onCreated();
     } catch {

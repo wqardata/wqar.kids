@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { addDoc, collection, doc, documentId, getDocs, increment, limit, orderBy, query, serverTimestamp, startAfter, updateDoc, where, type QueryDocumentSnapshot } from "firebase/firestore";
+import { addDoc, collection, doc, documentId, getDoc, getDocs, setDoc, increment, limit, orderBy, query, serverTimestamp, startAfter, updateDoc, where, type QueryDocumentSnapshot } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
 import { bumpDailyViews } from "./stats";
 import { isPreviewFrame } from "./previewFrame";
@@ -31,7 +31,7 @@ export function cleanAvatarUrl(v: unknown): string {
 }
 
 // ───────── تخزين مؤقت في متصفح الزائر (يوفّر قراءات Firestore: الزائر العائد لا يقرأ شيئًا خلال المدة) ─────────
-const CACHE_TTL = 3 * 60_000; // كانت 15 دقيقة فيبقى الجوال يعرض فيديوهات محذوفة ولا يرى المضاف حديثًا
+const CACHE_TTL = 15 * 60_000;
 const CACHE_PREFIX = "vc:";
 function cacheGet<T>(key: string): T | null {
   try {
@@ -51,6 +51,59 @@ function cacheSet(key: string, v: unknown) {
   }
 }
 const slim = (list: VideoDoc[]): VideoDoc[] => list.map((v) => ({ ...v, description: v.description.slice(0, 300) }));
+
+// ───────── «رقم إصدار» الفيديوهات: مستند صغير settings/videosVersion يرفع المشرف قيمته عند كل إضافة/حذف/تعديل ─────────
+// الزائر يقرأه (قراءة واحدة على الأكثر كل دقيقة)، فإن اختلف عمّا في متصفحه مسح تخزينه المؤقت وجلب القائمة الجديدة فورًا،
+// وإلا بقي يستعمل التخزين المؤقت (15 دقيقة) دون قراءات إضافية. لا يحتاج تعديل قواعد Firestore (settings قراءتها عامة وكتابتها للمشرف).
+const VER_KEY = CACHE_PREFIX + "ver";
+const VER_AT_KEY = CACHE_PREFIX + "verAt";
+const VER_CHECK_EVERY = 60_000;
+let verInflight: Promise<void> | null = null;
+
+function wipeVideoCache(keepVer?: string) {
+  allCache = null;
+  avatarCache = null;
+  try {
+    for (const k of Object.keys(localStorage)) if (k.startsWith(CACHE_PREFIX)) localStorage.removeItem(k);
+    if (keepVer !== undefined) {
+      localStorage.setItem(VER_KEY, keepVer);
+      localStorage.setItem(VER_AT_KEY, String(Date.now()));
+    }
+  } catch {
+    /* لا بأس */
+  }
+}
+
+/** يتأكد أن التخزين المؤقت يطابق آخر إصدار منشور؛ يفشل بصمت (دون إنترنت يبقى التخزين المؤقت كما هو). */
+export function ensureFreshVideos(): Promise<void> {
+  if (!isFirebaseConfigured) return Promise.resolve();
+  try {
+    const at = Number(localStorage.getItem(VER_AT_KEY));
+    if (localStorage.getItem(VER_KEY) !== null && Date.now() - at < VER_CHECK_EVERY) return Promise.resolve();
+  } catch {
+    return Promise.resolve();
+  }
+  if (verInflight) return verInflight;
+  verInflight = getDoc(doc(getDb(), "settings", "videosVersion"))
+    .then((snap) => {
+      const remote = String((snap.exists() ? snap.data().v : 0) ?? 0);
+      let local: string | null = null;
+      try { local = localStorage.getItem(VER_KEY); } catch { /* لا بأس */ }
+      if (local !== remote) wipeVideoCache(remote);
+      else { try { localStorage.setItem(VER_AT_KEY, String(Date.now())); } catch { /* لا بأس */ } }
+    })
+    .catch(() => {})
+    .finally(() => { verInflight = null; });
+  return verInflight;
+}
+
+/** يُستدعى من لوحة التحكم بعد أي إضافة/حذف/تعديل للفيديوهات: يرفع رقم الإصدار فتتحدّث أجهزة الزوار عند فتحها. */
+export function bumpVideosVersion(): void {
+  if (!isFirebaseConfigured) return;
+  const now = Date.now();
+  wipeVideoCache(String(now));
+  void setDoc(doc(getDb(), "settings", "videosVersion"), { v: now }).catch(() => {});
+}
 
 /** يمسح التخزين المؤقت للفيديوهات (يُستدعى بعد أي تعديل من لوحة التحكم كي يرى المشرف التغيير فورًا). */
 export function clearVideoCache() {
@@ -207,7 +260,7 @@ export function normalizeAr(s: string): string {
     .replace(/ة/g, "ه");
 }
 
-/** أحدث الفيديوهات الظاهرة للزوار (غير المخفية)، حتى `max` (الافتراضي 200). تُخزَّن 3 دقائق في المتصفح. */
+/** أحدث الفيديوهات الظاهرة للزوار (غير المخفية)، حتى `max` (الافتراضي 200). تُخزَّن 15 دقيقة في المتصفح. */
 export function useAllVideos(max = 200) {
   const [videos, setVideos] = useState<VideoDoc[]>([]);
   const [ready, setReady] = useState(!isFirebaseConfigured);
@@ -215,13 +268,15 @@ export function useAllVideos(max = 200) {
     if (!isFirebaseConfigured) return;
     let off = false;
     const key = `latest${max}`;
-    const hit = cacheGet<VideoDoc[]>(key);
-    if (hit) {
-      setVideos(hit);
-      setReady(true);
-      return;
-    }
-    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(max)))
+    void ensureFreshVideos().then(() => {
+      if (off) return undefined;
+      const hit = cacheGet<VideoDoc[]>(key);
+      if (hit) {
+        setVideos(hit);
+        setReady(true);
+        return undefined;
+      }
+      return getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(max)))
       .then((snap) => {
         const list = snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => !v.hidden);
         cacheSet(key, slim(list));
@@ -229,6 +284,7 @@ export function useAllVideos(max = 200) {
       })
       .catch(() => {})
       .finally(() => !off && setReady(true));
+    });
     return () => {
       off = true;
     };
@@ -240,10 +296,11 @@ const latestInflight = new Map<number, Promise<VideoDoc[]>>();
 
 /**
  * نفس قراءة useAllVideos لكن كدالة (للمكوّنات التي تعالج القائمة بنفسها كالمقترحات والمقاطع القصيرة).
- * تشترك معها في التخزين المؤقت (3 دقائق في المتصفح)، فلا تُحتسب قراءات جديدة من حصة Firestore
+ * تشترك معها في التخزين المؤقت (15 دقيقة في المتصفح)، فلا تُحتسب قراءات جديدة من حصة Firestore
  * ما دامت القائمة نفسها قُرئت قبل قليل، وتدمج الطلبات المتزامنة في قراءة واحدة.
  */
 export async function fetchLatestVideos(max: number): Promise<VideoDoc[]> {
+  await ensureFreshVideos();
   const key = `latest${max}`;
   const hit = cacheGet<VideoDoc[]>(key);
   if (hit) return hit;
@@ -270,6 +327,7 @@ let allCache: { at: number; videos: VideoDoc[] } | null = null;
 let allInflight: Promise<VideoDoc[]> | null = null;
 
 async function fetchEveryVideo(): Promise<VideoDoc[]> {
+  await ensureFreshVideos();
   if (allCache && Date.now() - allCache.at < CACHE_TTL) return allCache.videos;
   const stored = cacheGet<VideoDoc[]>("all");
   if (stored) {
@@ -298,7 +356,7 @@ async function fetchEveryVideo(): Promise<VideoDoc[]> {
 }
 
 /**
- * كل الفيديوهات الظاهرة مرتبة من الأحدث للأقدم (لا أحدث 100 فقط). تُقرأ مرة وتُخزَّن 3 دقائق في المتصفح،
+ * كل الفيديوهات الظاهرة مرتبة من الأحدث للأقدم (لا أحدث 100 فقط). تُقرأ مرة وتُخزَّن 15 دقيقة في المتصفح،
  * وتُستعمل في الرئيسية كي تختار «الأكثر مشاهدة» و«العشوائي» من كل المكتبة لا من آخر المضاف فقط.
  */
 export function useEveryVideo() {
@@ -394,6 +452,7 @@ let avatarCache: { at: number; map: Map<string, string> } | null = null;
 let avatarInflight: Promise<Map<string, string>> | null = null;
 
 async function fetchSeriesAvatars(): Promise<Map<string, string>> {
+  await ensureFreshVideos();
   if (avatarCache && Date.now() - avatarCache.at < CACHE_TTL) return avatarCache.map;
   const stored = cacheGet<[string, string][]>("avatars");
   if (stored) {

@@ -8,7 +8,7 @@ import { getDb } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
 import { deleteThumb, saveThumb } from "@/lib/thumbs";
 import { useRandomFrame } from "@/lib/useRandomFrame";
-import { clearVideoCache, type useNamedList, type VideoDoc } from "@/lib/videos";
+import { bumpVideosVersion, type useNamedList, type VideoDoc } from "@/lib/videos";
 
 type NamedList = ReturnType<typeof useNamedList>;
 
@@ -75,7 +75,7 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
         seriesOrder: (ser?.id ?? "") === video.seriesId ? video.seriesOrder : null,
       };
       await updateDoc(doc(getDb(), "videos", video.id), { ...patch, updatedAt: serverTimestamp() });
-      clearVideoCache();
+      bumpVideosVersion();
       if (thumbMode === "drive") void deleteThumb(video.id); // لم تعد اللقطة المحفوظة مستعملة
       onSaved({ ...video, ...patch });
     } catch {
