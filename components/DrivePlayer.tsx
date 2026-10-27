@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import "@/app/player.css";
 import Icon from "@/components/Icon";
 import PlayLoader from "@/components/PlayLoader";
@@ -25,6 +25,23 @@ const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : use
 export default function DrivePlayer({ driveId, title, hue, autoplay = false, startAt = 0 }: Props) {
   const ok = !!driveId && DRIVE_ID.test(driveId);
   const [loaded, setLoaded] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  // ملء الشاشة: إطار درايف نفسه لا يمكن تصغير أزراره حين يملأ الشاشة، لذا حيث يدعم المتصفح ملء شاشة العناصر
+  // نمنع زر درايف الأصلي ونعرض زرّنا الذي يملأ الشاشة بغلاف الإطار، فيسري عليه نفس «حجم الأزرار».
+  const [canFs, setCanFs] = useState(false);
+  const [fs, setFs] = useState(false);
+  useEffect(() => {
+    setCanFs(!!document.fullscreenEnabled);
+    const on = () => setFs(document.fullscreenElement === box.current);
+    document.addEventListener("fullscreenchange", on);
+    return () => document.removeEventListener("fullscreenchange", on);
+  }, []);
+  const toggleFs = () => {
+    const el = box.current;
+    if (!el) return;
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void el.requestFullscreen?.().catch(() => {});
+  };
   const { settings } = useSettings();
   // حجم واجهة درايف على الجوال من لوحة التحكم (يقرأه globals.css عبر --dz).
   const dz = settings.watchPage.driveBtnScale / 100;
@@ -56,19 +73,26 @@ export default function DrivePlayer({ driveId, title, hue, autoplay = false, sta
   if (startAt >= 1) q.set("t", String(Math.floor(startAt)));
   const qs = q.toString();
   return (
-    <div className="player player--frame dp-frame" style={{ "--dz": dz } as CSSProperties}>
+    <div ref={box} className={`player player--frame dp-frame${fs ? " dp-frame--fs" : ""}`} style={{ "--dz": dz } as CSSProperties}>
       <iframe
         key={driveId}
         src={`https://drive.google.com/file/d/${driveId}/preview${qs ? `?${qs}` : ""}`}
         title={`مشغّل الفيديو — ${title}`}
         allow="autoplay; fullscreen"
-        allowFullScreen
+        allowFullScreen={!canFs}
         // بلا allow-popups: يمنع زر «فتح في نافذة جديدة» وروابط درايف الخارجية.
         sandbox="allow-scripts allow-same-origin allow-presentation"
         loading={autoplay ? "eager" : "lazy"}
         referrerPolicy="no-referrer"
         onLoad={() => setLoaded(true)}
       />
+      {canFs && (
+        <button type="button" className="dp-fsbtn" onClick={toggleFs} aria-label={fs ? "الخروج من ملء الشاشة" : "ملء الشاشة"}>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            {fs ? <path d="M8 3h2v5H5V6h3V3zm6 0h2v3h3v2h-5V3zM5 16h5v5H8v-3H5v-2zm9 0h5v2h-3v3h-2v-5z" /> : <path d="M5 5h5v2H7v3H5V5zm9 0h5v5h-2V7h-3V5zM5 14h2v3h3v2H5v-5zm12 0h2v5h-5v-2h3v-3z" />}
+          </svg>
+        </button>
+      )}
       <PlayLoader show={!loaded} />
     </div>
   );
