@@ -839,7 +839,13 @@ html, body { overflow-x: clip; }
 /* ---------- عدّاد المشاهدات والوقت ---------- */
 .card p.meta { margin-top: 1px; }
 .watch-stats { margin-top: 2px; }
-.short-views { display: block; }
+.short-views { margin-top: 2px; }
+/* اسم المجموعة وبجانبه أيقونتا المشاهدات والمدة؛ إن ضاق العرض ينزل الإحصاء لسطر ثانٍ */
+.card-sub { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 1px; }
+.card-sub .card-series { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.card-sub .card-stats { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
+.card-sub .stat { display: inline-flex; align-items: center; gap: 3px; font-size: .78rem; }
+.card-sub .stat svg { flex: none; opacity: .85; }
 .live-views { color: var(--mute); font-size: .9rem; margin: 0; }
 
 /* ---------- نقطة «بث مباشر» الوامضة ---------- */

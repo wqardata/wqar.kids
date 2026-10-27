@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { SkeletonSuggest } from "@/components/Skeleton";
-import { formatClock, viewsAndAge } from "@/lib/format";
+import VideoStats from "@/components/VideoStats";
+import { formatClock } from "@/lib/format";
 import { useHistory } from "@/lib/history";
 import { useSettings, type WatchPageSettings } from "@/lib/settings";
 import { toVideo, type VideoDoc } from "@/lib/videos";
@@ -118,9 +119,13 @@ export default function SuggestedVideos({ current }: { current: VideoDoc }) {
       <Thumb v={v} showDuration={w.sugShowDuration} />
       <span className="sug-info">
         <strong>{v.title}</strong>
-        {w.sugShowSeries && v.seriesName && <small>{v.seriesName}</small>}
+        {((w.sugShowSeries && v.seriesName) || w.sugShowViews) && (
+          <small className="card-sub">
+            {w.sugShowSeries && v.seriesName && <span className="card-series">{v.seriesName}</span>}
+            {w.sugShowViews && <VideoStats views={v.views} createdAt={v.createdAt} />}
+          </small>
+        )}
         {w.sugShowEpisode && episodeLabel(v) && <small>{episodeLabel(v)}</small>}
-        {w.sugShowViews && <small>{viewsAndAge(v.views, v.createdAt)}</small>}
       </span>
     </>
   );

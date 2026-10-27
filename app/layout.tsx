@@ -15,6 +15,7 @@ import MiniPlayerHost from "@/components/MiniPlayer";
 import { MiniPlayerProvider } from "@/lib/miniPlayer";
 import { IDENTITY } from "@/lib/identity";
 import { getServerSettings } from "@/lib/serverSettings";
+import { siteOrigin } from "@/lib/shareMeta";
 import { themeCss } from "@/lib/theme";
 import "./globals.css";
 
@@ -33,10 +34,23 @@ export async function generateMetadata(): Promise<Metadata> {
   
   // اسم التبويب مستقل عن اسم الموقع داخل الصفحات (فارغ = نفس اسم الموقع).
   const tab = s.tabName || s.siteName;
+  // أصل الموقع لروابط المعاينة المطلقة: NEXT_PUBLIC_SITE_URL (يُفضَّل ضبطه على دومينك)، وإلا متغيرات فيرسل.
+  const metadataBase = siteOrigin();
   return {
+    ...(metadataBase ? { metadataBase } : {}),
     title: { default: tab, template: `%s | ${tab}` },
     description: s.siteDescription,
     applicationName: tab,
+    // معاينة افتراضية لباقي الصفحات (الرئيسية…): اسم الموقع ووصفه وأيقونته. صفحات الفيديو والمجموعة تتجاوزها.
+    openGraph: {
+      type: "website",
+      siteName: s.siteName,
+      title: tab,
+      description: s.siteDescription,
+      locale: "ar_AR",
+      images: [{ url: IDENTITY.icon512, width: 512, height: 512, alt: s.siteName }],
+    },
+    twitter: { card: "summary", title: tab, description: s.siteDescription, images: [IDENTITY.icon512] },
     icons: { icon: [{ url: IDENTITY.favicon, sizes: "32x32", type: "image/png" }, { url: IDENTITY.icon192, sizes: "192x192", type: "image/png" }], apple: IDENTITY.icon192 },
   };
 }

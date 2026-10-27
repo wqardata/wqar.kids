@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
-import { viewsAndAge } from "@/lib/format";
+import VideoStats from "@/components/VideoStats";
 import Icon from "@/components/Icon";
 import PlayLoader from "@/components/PlayLoader";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
@@ -170,8 +170,10 @@ export default function ShortsFeed() {
                 )}
                 <div className="short-info">
                   <h2>{v.title}</h2>
-                  {v.seriesName && <small>{v.seriesName}</small>}
-                  <small className="short-views">{viewsAndAge(v.views, v.createdAt)}</small>
+                  <small className="card-sub short-views">
+                    {v.seriesName && <span className="card-series">{v.seriesName}</span>}
+                    <VideoStats views={v.views} createdAt={v.createdAt} />
+                  </small>
                 </div>
                 {i === active && (
                   <Link href={`/v/${v.id}`} className="short-open">فتح صفحة الفيديو</Link>

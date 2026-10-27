@@ -21,6 +21,20 @@ const ar = (n: number) => new Intl.NumberFormat("ar-u-nu-latn").format(n);
 
 /** «منذ …» بالعربية الصحيحة (مفرد/مثنى/جمع). */
 export function timeAgo(ms: number | null, now = Date.now()): string {
+  return ageText(ms, now, "منذ ");
+}
+
+/** المدة المنقضية بلا «منذ» (للعرض بجانب أيقونة ساعة): «يوم» • «3 أيام» • «أسبوعين» • «الآن». */
+export function ageShort(ms: number | null, now = Date.now()): string {
+  return ageText(ms, now, "");
+}
+
+/** عدد المشاهدات رقمًا فقط (للعرض بجانب أيقونة عين). */
+export function viewsCount(n: number): string {
+  return ar(n);
+}
+
+function ageText(ms: number | null, now: number, prefix: string): string {
   if (!ms) return "";
   const sec = Math.max(0, Math.floor((now - ms) / 1000));
   if (sec < 45) return "الآن";
@@ -36,9 +50,9 @@ export function timeAgo(ms: number | null, now = Date.now()): string {
   for (const [size, one, two, few, many] of units) {
     const n = Math.floor(sec / size);
     if (n < 1) continue;
-    if (n === 1) return `منذ ${one}`;
-    if (n === 2) return `منذ ${two}`;
-    return `منذ ${ar(n)} ${n <= 10 ? few : many}`;
+    if (n === 1) return `${prefix}${one}`;
+    if (n === 2) return `${prefix}${two}`;
+    return `${prefix}${ar(n)} ${n <= 10 ? few : many}`;
   }
   return "الآن";
 }
