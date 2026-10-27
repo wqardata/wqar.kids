@@ -92,7 +92,7 @@
 .player--yt .yt-host { position: absolute; inset: 0; }
 /* لا يصل أي نقر أو لمس إلى إطار يوتيوب نفسه: لا روابط ولا عناصر من واجهته (التحكم كله من أزرارنا عبر الـAPI). */
 .player--yt .yt-host iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
-.yt-cover { position: absolute; inset: 0; z-index: 1; background: #000; }
+.yt-cover { position: absolute; inset: 0; z-index: 1; background: #000 center / cover no-repeat; }
 .yt-surface { z-index: 2; }
 .player--yt .dp-center { z-index: 4; }
 .player--yt .dp-ui { z-index: 5; }
@@ -113,11 +113,13 @@
 /* اللمس (الجوال): الضغط على زر الوسط يجب أن يصل إلى إطار يوتيوب نفسه كي يعمل التشغيل/الإيقاف.
    الزر يبقى ظاهرًا لكنه لا يعترض اللمس، وتُثقب الطبقة الشفافة بمقاسه فقط (clip-path يؤثر على الضغط أيضًا). */
 @media (pointer: coarse) {
-  .player--yt.yt-hole .dp-center { pointer-events: none; }
+  .player--yt { --dpc-px: max(76px, calc(68px * var(--dpc, 1))); }
+  /* زر أكبر من زر يوتيوب الأصلي وأقل شفافية، والثقب بمقاسه تمامًا. */
+  .player--yt.yt-hole .dp-center { pointer-events: none; width: var(--dpc-px); height: var(--dpc-px); background: rgba(0, 0, 0, .88); }
   .player--yt.yt-hole .yt-cover { pointer-events: none; }
   .player--yt.yt-hole .yt-host iframe { pointer-events: auto; }
   .player--yt.yt-hole .yt-surface {
-    --h: calc(34px * var(--dpc, 1) + 8px);
+    --h: calc(var(--dpc-px) / 2);
     clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0,
       calc(50% - var(--h)) calc(50% - var(--h)), calc(50% - var(--h)) calc(50% + var(--h)),
       calc(50% + var(--h)) calc(50% + var(--h)), calc(50% + var(--h)) calc(50% - var(--h)),
