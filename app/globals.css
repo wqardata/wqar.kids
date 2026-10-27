@@ -1108,6 +1108,8 @@ html, body { overflow-x: clip; }
 .mp-slot { aspect-ratio: 16 / 9; width: 100%; }
 /* نفس قاعدة ارتفاع مشغّل درايف على الجوال (انظر «مشغّل درايف على الجوال») كي يطابق الفراغُ المشغّلَ تمامًا */
 @media (max-width: 599px) { .mp-slot { aspect-ratio: auto; height: max(56.25vw, 340px); } }
+/* مشغّل يوتيوب دائمًا بنسبة 16:9 (لا ارتفاع أدنى 340px الخاص بإطار درايف) */
+.mp-slot.mp-slot--yt { aspect-ratio: 16 / 9; height: auto; }
 .mp-handle-gap { height: 28px; }
 @media (max-width: 1199px) { .main:has(.mp-slot) { padding-top: 0; } }
 

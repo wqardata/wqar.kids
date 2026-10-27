@@ -88,6 +88,7 @@
 .mp--mini .dp-ui, .mp--mini .dp-center, .mp--mini .dp-flash, .mp--mini .dp-chip, .mp--mini .dp-spin { display: none !important; }
 .mp--mini .dp-surface { pointer-events: none; }
 .mp--mini .dp-video { object-fit: cover; }
+.mp--mini .yt-menu { display: none; }
 
 /* مشغّل يوتيوب بواجهتنا (components/YouTubePlayer.tsx) */
 .player--yt { overflow: hidden; }

@@ -32,11 +32,12 @@ export default function VideoView({ id }: { id: string }) {
   const mp = useMiniPlayer();
   const { open: openMini } = mp;
   // على الجوال/اللوح يُعرض الفيديو في المشغّل المشترك (يتصغّر بالسحب لأسفل ويستمر أثناء تصفح الموقع)؛ على الحاسوب داخل الصفحة.
-  const hosted = mp.narrow && /^[A-Za-z0-9_-]{10,}$/.test(video?.driveId ?? "");
+  // فيديو يوتيوب يُستضاف مثل فيديو درايف تمامًا (المشغّل نفسه يختلف فقط).
+  const hosted = mp.narrow && (!!video?.youtubeId || /^[A-Za-z0-9_-]{10,}$/.test(video?.driveId ?? ""));
   useEffect(() => {
-    if (hosted && video) openMini({ id: video.id, driveId: video.driveId, title: video.title, seriesName: video.seriesName, autoplay: settings.autoplay });
+    if (hosted && video) openMini({ id: video.id, driveId: video.driveId, youtubeId: video.youtubeId, title: video.title, seriesName: video.seriesName, autoplay: settings.autoplay });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hosted, video?.id, video?.driveId, video?.title, video?.seriesName, openMini]);
+  }, [hosted, video?.id, video?.driveId, video?.youtubeId, video?.title, video?.seriesName, openMini]);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -95,13 +96,13 @@ export default function VideoView({ id }: { id: string }) {
     <div className="watch">
       <article>
         <div className="watch-sticky">
-          {video.youtubeId ? (
-            <YouTubePlayer youtubeId={video.youtubeId} title={video.title} autoplay={settings.autoplay} />
-          ) : hosted ? (
+          {hosted ? (
             <>
-              <div ref={mp.setSlot} className="mp-slot" />
+              <div ref={mp.setSlot} className={video.youtubeId ? "mp-slot mp-slot--yt" : "mp-slot"} />
               <div className="mp-handle-gap" aria-hidden="true" />
             </>
+          ) : video.youtubeId ? (
+            <YouTubePlayer youtubeId={video.youtubeId} title={video.title} autoplay={settings.autoplay} />
           ) : (
             <DrivePlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} />
           )}
