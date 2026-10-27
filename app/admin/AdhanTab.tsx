@@ -196,7 +196,12 @@ export default function AdhanTab() {
         <div className="field">
           <label htmlFor="ad-audio">ملف صوت التكبيرات: رابط مباشر لملف (mp3) أو مساره داخل الموقع</label>
           <input id="ad-audio" dir="ltr" placeholder="/audio/takbeer.mp3" value={form.audioUrl} onChange={(e) => set("audioUrl", e.target.value)} maxLength={400} />
-          <p className="hint">ضع ملف التكبيرات الذي تملك حق استخدامه في المجلد <code dir="ltr">public/audio/</code> ثم اكتب مساره هنا. يُستعمل لكل الصلوات. روابط درايف غير مدعومة. فارغ = نافذة بلا صوت لتلك الصلاة. يبدأ الصوت فور ظهور النافذة؛ وإن منعه المتصفح (قبل أي تفاعل للزائر مع الموقع) يبدأ صامتًا ثم يُفتح عند أول لمسة، وتظهر أيقونة 🔊 لإيقافه.</p>
+          <p className="hint">ضع ملف التكبيرات الذي تملك حق استخدامه في المجلد <code dir="ltr">public/audio/</code> ثم اكتب مساره هنا. يُستعمل لكل الصلوات عدا الفجر إن حُدّد له ملف في الخانة التالية. روابط درايف غير مدعومة. فارغ = نافذة بلا صوت لتلك الصلاة. يبدأ الصوت فور ظهور النافذة؛ وإن منعه المتصفح (قبل أي تفاعل للزائر مع الموقع) يبدأ صامتًا ثم يُفتح عند أول لمسة، وتظهر أيقونة 🔊 لإيقافه.</p>
+        </div>
+        <div className="field">
+          <label htmlFor="ad-audio-fajr">أذان الفجر: رابط مباشر لملف (mp3) أو مساره داخل الموقع</label>
+          <input id="ad-audio-fajr" dir="ltr" placeholder="/audio/fajr.mp3" value={form.fajrAudioUrl} onChange={(e) => set("fajrAudioUrl", e.target.value)} maxLength={400} />
+          <p className="hint">يُستعمل لصلاة الفجر فقط، وباقي الصلوات تستعمل ملف التكبيرات أعلاه. الملف المدمج في المشروع: <code dir="ltr">/audio/fajr.mp3</code>. فارغ = يُستعمل ملف التكبيرات العام للفجر أيضًا.</p>
         </div>
         <div className="field">
           <label htmlFor="ad-vol">مستوى الصوت: {form.volume}%</label>
