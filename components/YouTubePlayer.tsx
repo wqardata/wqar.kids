@@ -217,7 +217,9 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
 
   const playing = state === PLAYING || state === BUFFERING;
   // غلاف أسود عند الإيقاف/الانتهاء فلا تظهر مقترحات يوتيوب (الحلقات الأخرى) فوق الإطار.
-  const covered = ready && (state === PAUSED || state === ENDED);
+  // قبل أول تشغيل (-1 / 5) نغطّي الإطار أيضًا بصورة الفيديو المصغّرة كي لا يظهر زر يوتيوب الأوسط تحت زرّنا.
+  const idle = state === -1 || state === 5;
+  const covered = ready && (state === PAUSED || state === ENDED || idle);
   const p = dur > 0 ? (cur / dur) * 100 : 0;
   const centerShown = ready && (!playing || ctl);
 
@@ -239,7 +241,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
         <span className="soon">تعذّر تشغيل الفيديو</span>
       ) : (
         <>
-          {covered && <div className="yt-cover" aria-hidden="true" />}
+          {covered && <div className="yt-cover" aria-hidden="true" style={idle ? { backgroundImage: `url(https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg)` } : undefined} />}
           {/* على اللمس: زر الوسط لا يستقبل اللمس بنفسه؛ نفتح «ثقبًا» في الطبقة بمقاسه فيصل اللمسُ الحقيقي إلى إطار يوتيوب
               (الجوال يمنع playVideo() القادم من الصفحة إن لم يكن اللمس داخل الإطار نفسه) ويشغّل/يوقف يوتيوب مباشرة. */}
           {/* طبقة تلتقط كل اللمس/النقر: تمنع شعار يوتيوب وشريطه العلوي وأي ضغط على الإطار نفسه.
