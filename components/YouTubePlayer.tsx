@@ -226,7 +226,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   return (
     <div
       ref={box}
-      className={`player player--yt dp${centerShown ? " yt-hole" : ""}`}
+      className={`player player--yt dp${centerShown ? " yt-hole" : ""}${idle && ready ? " yt-idle" : ""}`}
       style={{ ["--dpc" as string]: dpc }}
       tabIndex={0}
       onKeyDown={(e) => {
