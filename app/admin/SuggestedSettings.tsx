@@ -89,7 +89,7 @@ export default function SuggestedSettings() {
             value={form.driveBtnScale}
             onChange={(e) => set("driveBtnScale", int(e.target.value, DRIVE_BTN_SCALE_MIN, DRIVE_BTN_SCALE_MAX))}
           />
-          <p className="hint">100% = حجم أزرار درايف الأصلي، أقل = أصغر، وأكثر من 100% = أكبر. يشمل زر التشغيل/الإيقاف الأوسط داخل درايف أيضًا. يسري على الجوال فقط (الشاشات الأقل من 600px)، والافتراضي 80%.</p>
+          <p className="hint">100% = حجم أزرار درايف الأصلي، أقل = أصغر، وأكثر من 100% = أكبر. الأزرار داخل إطار درايف نفسه (ومنها التشغيل/الإيقاف) لا تُنسَّق منفردة، لكن تصغير النسبة يصغّرها ويوسّع الإطار فيتسع شريط درايف في سطر واحد؛ جرّب 40–60% إن ظهر الزر في سطر ثانٍ. يسري على الجوال فقط (الشاشات الأقل من 600px)، والافتراضي 80%.</p>
         </div>
         <div className="field">
           <label htmlFor="sg-pb">حجم زر التشغيل/الإيقاف في المنتصف ({form.playBtnScale}%)</label>
