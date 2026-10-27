@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { audioSources, type AdhanSettings, type PrayerId } from "@/lib/adhanCore";
 import { audioCandidates } from "@/lib/adhkarAudio";
+import { getAdhanAudio } from "@/lib/adhanAudio";
 
 export function fmtClock(sec: number): string {
   const s = Math.max(0, Math.ceil(sec));
@@ -23,7 +24,6 @@ type Props = {
 
 /** بطاقة نافذة الأذان: الصورة، ثم النص، ثم العدّاد. تُستخدم في الموقع وفي تجربة لوحة التحكم. */
 export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, playAudio, onClose }: Props) {
-  const audio = useRef<HTMLAudioElement>(null);
   const [needsTap, setNeedsTap] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [parentOpen, setParentOpen] = useState(false);
@@ -40,17 +40,43 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
   const failed = cands.length > 0 && tried >= cands.length;
   const current = cands.length && !failed ? cands[tried] : "";
 
+  // العنصر المشترك (فُتح عند أول لمسة من الزائر، انظر lib/adhanAudio.ts) فتعمل التكبيرات تلقائيًا فور ظهور النافذة.
   useEffect(() => {
-    const a = audio.current;
+    const a = getAdhanAudio();
     if (!a || !current) return;
+    const onErr = () => setTried((t) => t + 1);
+    const onPlay = () => { setPlaying(true); setNeedsTap(false); };
+    const onStop = () => setPlaying(false);
+    a.addEventListener("error", onErr);
+    a.addEventListener("playing", onPlay);
+    a.addEventListener("ended", onStop);
+    a.addEventListener("pause", onStop);
+    a.muted = false;
+    a.src = current;
     a.volume = cfg.volume / 100;
-    if (!playAudio) return;
-    a.play().then(() => setNeedsTap(false)).catch((err: unknown) => {
-      // NotAllowedError = منع التشغيل التلقائي؛ غيره (مصدر لا يعمل) يعالجه onError فينتقل للنسخة التالية.
-      if ((err as { name?: string })?.name === "NotAllowedError") setNeedsTap(true);
-    });
-    return () => a.pause();
+    if (playAudio) {
+      a.play().catch((err: unknown) => {
+        // NotAllowedError = منع التشغيل التلقائي (لم يتفاعل الزائر بعد)؛ غيره (مصدر لا يعمل) يعالجه حدث error فينتقل للنسخة التالية.
+        if ((err as { name?: string })?.name === "NotAllowedError") setNeedsTap(true);
+      });
+    }
+    return () => {
+      a.removeEventListener("error", onErr);
+      a.removeEventListener("playing", onPlay);
+      a.removeEventListener("ended", onStop);
+      a.removeEventListener("pause", onStop);
+      a.pause();
+    };
   }, [current, cfg.volume, playAudio]);
+
+  // إن مُنع التشغيل التلقائي: أول لمسة أو نقرة أو ضغط مفتاح في أي مكان تشغّل التكبيرات.
+  useEffect(() => {
+    if (!needsTap) return;
+    const go = () => { void getAdhanAudio()?.play().then(() => setNeedsTap(false)).catch(() => {}); };
+    const ev = ["pointerdown", "touchend", "keydown", "click"] as const;
+    ev.forEach((e) => window.addEventListener(e, go, { once: true, capture: true }));
+    return () => ev.forEach((e) => window.removeEventListener(e, go, true));
+  }, [needsTap]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -63,7 +89,7 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
   }, [cfg.closable, onClose, parentOpen]);
 
   function tapPlay() {
-    const a = audio.current;
+    const a = getAdhanAudio();
     if (!a) return;
     a.currentTime = 0;
     void a.play().then(() => setNeedsTap(false)).catch(() => {});
@@ -84,7 +110,6 @@ export default function AdhanCard({ cfg, prayerLabel, prayerId, remainingSec, pl
       {failed && <p className="hint" role="status">تعذّر تشغيل صوت التكبيرات.</p>}
       {current && (
         <>
-          <audio ref={audio} src={current} preload="auto" onError={() => setTried((t) => t + 1)} onPlay={() => setPlaying(true)} onEnded={() => setPlaying(false)} onPause={() => setPlaying(false)} />
           {(needsTap || !playing) && (
             <button type="button" className="adhan-sound" onClick={tapPlay}>🔊 {needsTap ? "اضغط لتشغيل التكبيرات" : "إعادة تشغيل التكبيرات"}</button>
           )}

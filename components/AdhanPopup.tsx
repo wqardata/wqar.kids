@@ -10,6 +10,7 @@ import { setAdhanOpen } from "@/lib/adhanOpen";
 import { useSettings } from "@/lib/settings";
 import { useAuth } from "@/lib/auth";
 import { armSounds, playAlert } from "@/lib/sounds";
+import { armAdhanAudio } from "@/lib/adhanAudio";
 
 // مفتاح «تم إغلاقها» = الصلاة + تاريخ اليوم (لا اللحظة بالضبط). كان المفتاح يحوي اللحظة بالثواني، فإذا تغيّر الموقع التقديري
 // (المنطقة الزمنية ← موقع الجهاز) تحرّكت اللحظة دقائق وضاع الإغلاق المحفوظ فعادت النافذة بعد إغلاقها أو عند كل فتح للصفحة.
@@ -44,7 +45,7 @@ export default function AdhanPopup() {
     [cfg.enabled, coords.lat, coords.lng, Math.floor(now / 60_000)],
   );
 
-  useEffect(() => armSounds(), []);
+  useEffect(() => { armSounds(); armAdhanAudio(); }, []);
 
   if (!cfg.enabled || !ready || hiddenForMe) return null;
   const windowMs = cfg.countdownMin * 60_000;
