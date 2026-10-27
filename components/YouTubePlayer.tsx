@@ -216,7 +216,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
           )}
       {menu && (
         <div className="yt-menu" role="menu" aria-label="الإعدادات">
-          <div className="yt-menu-row" role="group" aria-label="الجودة">
+          <div className="yt-menu-row yt-menu-row--col" role="group" aria-label="الجودة">
             <b>الجودة</b>
             {[...levels, "default"].map((q) => (
               <button key={q} type="button" role="menuitemradio" aria-checked={quality === q} onClick={() => pickQuality(q)}>
