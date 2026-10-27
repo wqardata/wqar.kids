@@ -546,7 +546,7 @@ export type WatchPageSettings = {
 export const DEFAULT_WATCH_PAGE: WatchPageSettings = {
   driveBtnScale: 80,
   playBtnScale: 100,
-  ytMuted: true,
+  ytMuted: false,
   sugShow: true,
   sugTitle: "فيديوهات مقترحة",
   sugCount: 10,
