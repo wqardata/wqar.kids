@@ -19,6 +19,8 @@ type YTPlayer = {
   setPlaybackQuality(q: string): void; getAvailableQualityLevels(): string[]; getPlaybackQuality(): string;
   setPlaybackRate(r: number): void; getPlaybackRate(): number; getAvailablePlaybackRates(): number[];
   mute(): void; unMute(): void; isMuted(): boolean; destroy(): void;
+  /** غير موثّقة رسميًا: المسارات الصوتية المتعددة (إن وُجدت). */
+  getAvailableAudioTracks?(): unknown[]; setAudioTrack?(t: unknown): void;
 };
 type YTApi = { Player: new (el: HTMLIFrameElement, o: { events: { onReady: () => void; onStateChange: (e: { data: number }) => void; onError: () => void } }) => YTPlayer };
 declare global {
@@ -70,6 +72,9 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   const box = useRef<HTMLDivElement>(null);
   const { settings } = useSettings();
   const dpc = settings.watchPage.playBtnScale / 100; // حجم الزر الأوسط من لوحة التحكم
+  const noMusicRef = useRef(settings.watchPage.ytNoMusic);
+  noMusicRef.current = settings.watchPage.ytNoMusic;
+  const audioTried = useRef(false);
   const muteRef = useRef(settings.watchPage.ytMuted);
   muteRef.current = settings.watchPage.ytMuted;
   const host = useRef<HTMLDivElement>(null);
@@ -100,6 +105,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
     if (!YT_ID.test(youtubeId) || !host.current) return;
     let dead = false;
     const wrap = host.current;
+    audioTried.current = false;
     qRef.current = DEFAULT_QUALITY; setQuality(DEFAULT_QUALITY); setRate(1); setMenu(false);
     setReady(false); setState(-1); setFailed(false); setCur(0); setDur(0); setBuf(0); setMuted(muteRef.current);
 
@@ -126,6 +132,15 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
           onStateChange: (e) => {
             if (dead) return;
             setState(e.data);
+            if (e.data === PLAYING && noMusicRef.current && !audioTried.current) {
+              audioTried.current = true;
+              // إن وفّر الفيديو مسارًا صوتيًا باسم «بدون موسيقى» نختاره (واجهة غير موثّقة؛ تُتجاهل بصمت إن لم تتوفر).
+              try {
+                const tracks = player.current?.getAvailableAudioTracks?.() ?? [];
+                const hit = tracks.find((t) => /no[\s_-]*music|without[\s_-]*music|music[\s_-]*free|بدون\s*موسيقى|بلا\s*موسيقى|دون\s*موسيقى/i.test(JSON.stringify(t) + String((t as { toString?: () => string })?.toString?.() ?? "")));
+                if (hit) player.current?.setAudioTrack?.(hit);
+              } catch { /* غير مدعوم */ }
+            }
             if (e.data === PLAYING || e.data === BUFFERING) { try { player.current?.setPlaybackQuality(qRef.current); } catch { /* غير مدعوم */ } }
           },
           onError: () => { if (!dead) setFailed(true); },
