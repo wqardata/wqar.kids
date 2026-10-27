@@ -126,3 +126,17 @@
       calc(50% - var(--h)) calc(50% - var(--h)), 0 0);
   }
 }
+
+/* ملء الشاشة لمشغّل درايف: الغلاف هو الذي يملأ الشاشة، والإطار يُرسم أكبر ثم يُصغَّر بـ --dz كما في الوضع العادي. */
+.dp-fsbtn { position: absolute; z-index: 3; top: 8px; inset-inline-end: 8px; width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 10px;
+  background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer; box-shadow: 0 0 0 1px rgba(255, 255, 255, .25); }
+.dp-fsbtn svg { width: 20px; height: 20px; }
+.dp-fsbtn:hover { background: var(--accent); color: var(--accent-ink); }
+.mp--mini .dp-fsbtn { display: none; }
+.player--frame.dp-frame--fs { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; overflow: hidden; background: #000; }
+@media (pointer: coarse) {
+  .player--frame.dp-frame--fs iframe[src*="drive.google.com"] {
+    inset: 0 auto auto 0; width: calc(100% / var(--dz)); height: calc(100% / var(--dz));
+    transform: scale(var(--dz)); transform-origin: 0 0;
+  }
+}
