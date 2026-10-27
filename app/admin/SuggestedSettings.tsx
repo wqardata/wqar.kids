@@ -4,6 +4,8 @@ import {
   DEFAULT_WATCH_PAGE,
   DRIVE_BTN_SCALE_MAX,
   DRIVE_BTN_SCALE_MIN,
+  PLAY_BTN_SCALE_MAX,
+  PLAY_BTN_SCALE_MIN,
   SUG_COUNT_MAX,
   SUG_LAYOUTS,
   SUG_ORDERS,
@@ -87,7 +89,21 @@ export default function SuggestedSettings() {
             value={form.driveBtnScale}
             onChange={(e) => set("driveBtnScale", int(e.target.value, DRIVE_BTN_SCALE_MIN, DRIVE_BTN_SCALE_MAX))}
           />
-          <p className="hint">100% = حجم أزرار درايف الأصلي، وكلما قلّت النسبة صغرت الأزرار. يسري على الجوال فقط (الشاشات الأقل من 600px)، والافتراضي 80%.</p>
+          <p className="hint">100% = حجم أزرار درايف الأصلي، أقل = أصغر، وأكثر من 100% = أكبر. يشمل زر التشغيل/الإيقاف الأوسط داخل درايف أيضًا. يسري على الجوال فقط (الشاشات الأقل من 600px)، والافتراضي 80%.</p>
+        </div>
+        <div className="field">
+          <label htmlFor="sg-pb">حجم زر التشغيل/الإيقاف في المنتصف ({form.playBtnScale}%)</label>
+          <input
+            id="sg-pb"
+            type="range"
+            dir="ltr"
+            min={PLAY_BTN_SCALE_MIN}
+            max={PLAY_BTN_SCALE_MAX}
+            step={10}
+            value={form.playBtnScale}
+            onChange={(e) => set("playBtnScale", int(e.target.value, PLAY_BTN_SCALE_MIN, PLAY_BTN_SCALE_MAX))}
+          />
+          <p className="hint">يتحكم بحجم الزر الأوسط في مشغّل يوتيوب. زر درايف الأوسط جزء من إطار درايف نفسه فيتبع «حجم الأزرار» أعلاه. الافتراضي 100%.</p>
         </div>
       </section>
 
