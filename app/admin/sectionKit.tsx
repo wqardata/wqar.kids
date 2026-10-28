@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { OWNER_LABELS, SECTION_BY_ID, type Arrangement, type OwnerId, type TabId } from "@/lib/adminSections";
+import { SECTION_BY_ID, type Arrangement, type OwnerId, type TabId } from "@/lib/adminSections";
 
 /**
  * آلية نقل الأقسام: المكوّن المالك (مثل SettingsTab) يبقى مركّبًا بحالته وزر حفظه، لكن واجهته لا تُرسم في مكانه؛
@@ -52,7 +52,7 @@ export function MovableSection({ id, children }: { id: string; children: ReactNo
   );
 }
 
-/** ما يلي الأقسام من رسائل وأزرار حفظ ونوافذ: يُعرض بعد آخر قسم لهذا المالك في التبويب المعروض. */
+/** ما يلي الأقسام من أزرار تجربة ونوافذ معاينة: يُعرض بعد آخر قسم لهذا المالك في التبويب المعروض. (الحفظ في شريط الحفظ الموحَّد: saveKit.) */
 export function OwnerFooter({ children }: { children: ReactNode }) {
   const host = useContext(HostCtx);
   const owner = useContext(OwnerCtx);
@@ -65,7 +65,6 @@ export function OwnerFooter({ children }: { children: ReactNode }) {
   if (last < 0) return null;
   return createPortal(
     <div className="msec msec-foot" style={{ order: last * 2 + 1 }} {...formProxy(owner.formId)}>
-      {owner.home !== host.tab && <p className="hint msec-from">حفظ «{OWNER_LABELS[owner.owner]}»</p>}
       {children}
     </div>,
     host.el,

@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { SplashView } from "@/components/Splash";
 import { fileToLogo } from "@/lib/logoFile";
 import {
+  DEFAULT_SETTINGS,
   DEFAULT_SPLASH,
   SPLASH_DUR_MAX,
   SPLASH_DUR_MIN,
@@ -12,7 +13,7 @@ import {
   SPLASH_SIZE_MAX,
   SPLASH_SIZE_MIN,
   applyTheme,
-  saveSettings,
+  savePatch,
   useSettings,
   type SplashCfg,
 } from "@/lib/settings";
@@ -33,7 +34,8 @@ import {
   type Theme,
 } from "@/lib/theme";
 import { usePreviewDraft } from "@/lib/preview";
-import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
+import { MovableSection, OwnerForm } from "./sectionKit";
+import { useSaveBar } from "./saveKit";
 
 type Mode = "light" | "dark";
 const MODE_LABEL: Record<Mode, string> = { light: "الوضع الفاتح", dark: "الوضع الداكن" };
@@ -107,9 +109,31 @@ export default function AppearanceTab() {
   const [sp, setSp] = useState<SplashCfg>(settings.splashCfg);
   usePreviewDraft("appearance", { theme, splash: splashOn, splashCfg: sp });
   const [spRun, setSpRun] = useState(0); // يزيد لإعادة تشغيل معاينة شاشة الشعار
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+
+  async function onSave() {
+    const out = await savePatch({ theme, splash: splashOn, splashCfg: sp });
+    update(out);
+    setTheme(out.theme);
+    setSplashOn(out.splash);
+    setSp(out.splashCfg);
+  }
+  const bar = useSaveBar("appearance", {
+    label: "المظهر",
+    draftSig: JSON.stringify([theme, splashOn, sp]),
+    savedSig: JSON.stringify([settings.theme, settings.splash, settings.splashCfg]),
+    defaultSig: JSON.stringify([DEFAULT_SETTINGS.theme, DEFAULT_SETTINGS.splash, DEFAULT_SETTINGS.splashCfg]),
+    onSave,
+    onDiscard: () => {
+      setTheme(settings.theme);
+      setSplashOn(settings.splash);
+      setSp(settings.splashCfg);
+    },
+    onReset: () => {
+      setTheme(DEFAULT_THEME);
+      setSplashOn(DEFAULT_SETTINGS.splash);
+      setSp(DEFAULT_SPLASH);
+    },
+  });
 
   const saved = useRef(settings.theme);
   saved.current = settings.theme;
@@ -120,14 +144,8 @@ export default function AppearanceTab() {
   }, [theme]);
   useEffect(() => () => applyTheme(saved.current), []);
 
-  const edit = (fn: (t: Theme) => Theme) => {
-    setDone(false);
-    setTheme(fn);
-  };
-  const editSp = <K extends keyof SplashCfg>(k: K, v: SplashCfg[K]) => {
-    setDone(false);
-    setSp((c) => ({ ...c, [k]: v }));
-  };
+  const edit = (fn: (t: Theme) => Theme) => setTheme(fn);
+  const editSp = <K extends keyof SplashCfg>(k: K, v: SplashCfg[K]) => setSp((c) => ({ ...c, [k]: v }));
   // أعد تشغيل المعاينة بعد كل تغيير (بتأخير قصير كي لا تتقطّع أثناء سحب المنزلق).
   useEffect(() => {
     const t = setTimeout(() => setSpRun((n) => n + 1), 350);
@@ -135,11 +153,10 @@ export default function AppearanceTab() {
   }, [sp]);
   async function onSplashImage(file: File | undefined) {
     if (!file) return;
-    setError("");
     try {
       editSp("image", await fileToLogo(file));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "تعذّر رفع الصورة.");
+      bar.fail(e instanceof Error ? e.message : "تعذّر رفع الصورة.");
     }
   }
   const setColor = (mode: Mode, k: ColorKey, v: string) =>
@@ -155,32 +172,14 @@ export default function AppearanceTab() {
     [theme],
   );
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    setSaving(true);
-    try {
-      const out = await saveSettings({ ...settings, theme, splash: splashOn, splashCfg: sp });
-      update(out);
-      setTheme(out.theme);
-      setSplashOn(out.splash);
-      setSp(out.splashCfg);
-      setDone(true);
-    } catch {
-      setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
 
   return (
-    <OwnerForm onSubmit={(e) => void onSubmit(e)}>
+    <OwnerForm onSubmit={(e) => { e.preventDefault(); void bar.save(); }}>
       <MovableSection id="appearance.presets">
       <section className="panel panel--wide auth-form" aria-labelledby="ap-h-presets">
       <h2 id="ap-h-presets">ألوان جاهزة ومعاينة</h2>
-      <p className="hint">اختر لوحة جاهزة ثم عدّل أي لون بعدها. المعاينة تظهر مباشرة على هذه الصفحة ولا تُحفظ حتى تضغط «حفظ».</p>
+      <p className="hint">اختر لوحة جاهزة ثم عدّل أي لون بعدها. المعاينة تظهر مباشرة على هذه الصفحة ولا تُحفظ حتى تضغط «حفظ التغييرات».</p>
       <div className="addrow">
         {PRESETS.map((p) => (
           <button
@@ -259,7 +258,7 @@ export default function AppearanceTab() {
       <section className="panel panel--wide auth-form" aria-labelledby="ap-h-splash">
       <h2 id="ap-h-splash">شاشة الشعار عند فتح الموقع</h2>
       <label className="check">
-        <input type="checkbox" checked={splashOn} onChange={(e) => { setSplashOn(e.target.checked); setDone(false); }} />
+        <input type="checkbox" checked={splashOn} onChange={(e) => setSplashOn(e.target.checked)} />
         إظهار شاشة الشعار عند فتح الموقع
       </label>
       {splashOn && (
@@ -334,22 +333,14 @@ export default function AppearanceTab() {
             </div>
           </div>
           <div className="addrow">
-            <button type="button" className="btn btn--ghost btn--sm" onClick={() => { setSp(DEFAULT_SPLASH); setDone(false); }}>استعادة الافتراضي لهذه الشاشة</button>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => setSp(DEFAULT_SPLASH)}>استعادة الافتراضي لهذه الشاشة</button>
           </div>
         </>
       )}
-      <p className="hint">تظهر الشاشة مرة واحدة عند فتح الموقع ثم تختفي. لا تُحفظ التغييرات حتى تضغط «حفظ المظهر».</p>
+      <p className="hint">تظهر الشاشة مرة واحدة عند فتح الموقع ثم تختفي. لا تُحفظ التغييرات حتى تضغط «حفظ التغييرات» أعلى الصفحة.</p>
       </section>
       </MovableSection>
 
-      <OwnerFooter>
-      {error && <p className="field-error" role="alert">{error}</p>}
-      {done && <p className="hint" role="status">تم حفظ المظهر ✓ — يظهر للزوار فورًا.</p>}
-      <div className="addrow">
-        <button type="submit" className="btn" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ المظهر"}</button>
-        <button type="button" className="btn btn--ghost" onClick={() => edit(() => DEFAULT_THEME)}>استعادة الافتراضي</button>
-      </div>
-      </OwnerFooter>
     </OwnerForm>
   );
 }

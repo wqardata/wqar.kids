@@ -1,20 +1,48 @@
 "use client";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import BrandMark from "@/components/BrandMark";
 import InstallCard from "@/components/InstallCard";
 import { fileToLogo } from "@/lib/logoFile";
 import { GLASS_MAX, GLASS_MIN, INSTALL_POS_DESKTOP, INSTALL_POS_MOBILE, type InstallPosDesktop, type InstallPosMobile, type InstallSettings } from "@/lib/settingsCore";
-import { applyGlass, BRAND_FONTS, BRAND_SIZE_MAX, BRAND_SIZE_MIN, brandStyle, cleanUrl, LOGO_MAX, LOGO_MIN, saveSettings, useSettings, type BrandFontId, type SiteSettings } from "@/lib/settings";
+import { applyGlass, BRAND_FONTS, BRAND_SIZE_MAX, BRAND_SIZE_MIN, brandStyle, cleanUrl, DEFAULT_SETTINGS, LOGO_MAX, LOGO_MIN, savePatch, useSettings, type BrandFontId, type SiteSettings } from "@/lib/settings";
 import { usePreviewDraft } from "@/lib/preview";
-import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
+import { MovableSection, OwnerForm } from "./sectionKit";
+import { FormError, useSaveBar } from "./saveKit";
+
+/** الحقول التي يحرّرها هذا التبويب وحدها (يحفظها ويقارنها ويعيدها للافتراضي دون المساس ببقية الإعدادات). */
+const KEYS: (keyof SiteSettings)[] = [
+  "siteName", "tabName", "siteDescription", "logo", "logoHeight", "showName", "brandFont", "brandSize", "brandColor", "brandColorDark",
+  "glass", "contactEmail", "supportLinks", "install",
+];
+const pick = (s: SiteSettings): Partial<SiteSettings> => Object.fromEntries(KEYS.map((k) => [k, s[k]]));
+const sig = (s: SiteSettings) => JSON.stringify(KEYS.map((k) => s[k]));
 
 export default function SettingsTab() {
   const { settings, update, ready } = useSettings();
   const [form, setForm] = useState<SiteSettings>(settings);
-  usePreviewDraft("settings", form);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  usePreviewDraft("settings", pick(form));
+
+  async function onSave() {
+    if (!form.siteName.trim()) throw new FormError("اسم الموقع مطلوب.");
+    if (form.supportLinks.some((l) => (l.label.trim() || l.href.trim()) && (!l.label.trim() || !cleanUrl(l.href)))) {
+      throw new FormError("كل رابط دعم يحتاج اسمًا ورابطًا يبدأ بـ https://");
+    }
+    if (form.contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail.trim())) {
+      throw new FormError("البريد الإلكتروني غير صالح.");
+    }
+    const saved = await savePatch(pick(form));
+    update(saved);
+    setForm((f) => ({ ...f, ...pick(saved) }));
+  }
+  const bar = useSaveBar("settings", {
+    label: "إعدادات الموقع",
+    draftSig: sig(form),
+    savedSig: sig(settings),
+    defaultSig: sig(DEFAULT_SETTINGS),
+    onSave,
+    onDiscard: () => setForm((f) => ({ ...f, ...pick(settings) })),
+    onReset: () => setForm((f) => ({ ...f, ...pick(DEFAULT_SETTINGS) })),
+  });
 
   // معاينة حيّة للزجاجية على الموقع نفسه أثناء تحريك المربع؛ إن لم تُحفظ تعود القيمة المحفوظة عند مغادرة التبويب.
   const savedGlass = useRef(settings.glass);
@@ -25,12 +53,10 @@ export default function SettingsTab() {
   useEffect(() => () => applyGlass(savedGlass.current), []);
 
   const setInstall = <K extends keyof InstallSettings>(k: K, v: InstallSettings[K]) => {
-    setDone(false);
     setForm((f) => ({ ...f, install: { ...f.install, [k]: v } }));
   };
 
   const set = <K extends keyof SiteSettings>(k: K, v: SiteSettings[K]) => {
-    setDone(false);
     setForm((f) => ({ ...f, [k]: v }));
   };
   const setLink = (i: number, key: "label" | "href", v: string) =>
@@ -38,41 +64,17 @@ export default function SettingsTab() {
 
   async function onLogo(file: File | undefined) {
     if (!file) return;
-    setError("");
     try {
       set("logo", await fileToLogo(file));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "تعذّر رفع الصورة.");
-    }
-  }
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (!form.siteName.trim()) return setError("اسم الموقع مطلوب.");
-    if (form.supportLinks.some((l) => (l.label.trim() || l.href.trim()) && (!l.label.trim() || !cleanUrl(l.href)))) {
-      return setError("كل رابط دعم يحتاج اسمًا ورابطًا يبدأ بـ https://");
-    }
-    if (form.contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail.trim())) {
-      return setError("البريد الإلكتروني غير صالح.");
-    }
-    setSaving(true);
-    try {
-      const saved = await saveSettings(form);
-      update(saved);
-      setForm(saved);
-      setDone(true);
-    } catch {
-      setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
-    } finally {
-      setSaving(false);
+      bar.fail(e instanceof Error ? e.message : "تعذّر رفع الصورة.");
     }
   }
 
   if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
 
   return (
-    <OwnerForm onSubmit={(e) => void onSubmit(e)}>
+    <OwnerForm onSubmit={(e) => { e.preventDefault(); void bar.save(); }}>
       <MovableSection id="settings.info">
       <section className="panel auth-form" aria-labelledby="st-h-info">
         <h2 id="st-h-info">معلومات الموقع</h2>
@@ -177,7 +179,7 @@ export default function SettingsTab() {
         <div className="glass-prev" aria-hidden="true">
           <div className="glass-prev-card"><strong>معاينة الزجاج</strong><br /><small>هكذا تبدو الترويسة والنوافذ فوق المحتوى</small></div>
         </div>
-        <p className="hint">المعاينة تظهر مباشرة على الموقع نفسه (انظر الترويسة فوق)، ولا تُحفظ حتى تضغط «حفظ الإعدادات».</p>
+        <p className="hint">المعاينة تظهر مباشرة على الموقع نفسه (انظر الترويسة فوق)، ولا تُحفظ حتى تضغط «حفظ التغييرات».</p>
       </section>
       </MovableSection>
 
@@ -266,13 +268,6 @@ export default function SettingsTab() {
       </section>
       </MovableSection>
 
-      <OwnerFooter>
-      {error && <p className="field-error" role="alert">{error}</p>}
-      {done && <p className="hint" role="status">تم حفظ الإعدادات ✓</p>}
-      <div className="addrow">
-        <button type="submit" className="btn" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ الإعدادات"}</button>
-      </div>
-      </OwnerFooter>
     </OwnerForm>
   );
 }

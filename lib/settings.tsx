@@ -67,6 +67,19 @@ export async function saveSettings(s: SiteSettings): Promise<SiteSettings> {
   return clean;
 }
 
+/**
+ * يحفظ حقولًا محدَّدة فقط فوق آخر نسخة محفوظة، ويعيد النسخة المنظّفة كاملة.
+ * هذا ما تستعمله تبويبات لوحة التحكم: كل تبويب يمرّر حقوله وحدها، فلا يردّ حفظُه حقولَ تبويب آخر إلى قيم قديمة
+ * (حين يحفظ شريط الحفظ عدة تبويبات متتالية قبل أن تُعاد رسومها).
+ */
+export async function savePatch(patch: Partial<SiteSettings>): Promise<SiteSettings> {
+  if (!baseline) {
+    const snap = await readSiteDoc(true);
+    baseline = { settings: snap.exists ? merge(snap.data) : DEFAULT_SETTINGS, exists: snap.exists };
+  }
+  return saveSettings({ ...baseline.settings, ...patch });
+}
+
 /** يكتب CSS الثيم في <style id="site-theme">، ويحدّث لون شريط المتصفح، ويحفظ نسخة محلية. */
 export function applyTheme(theme: Theme, persist = true) {
   if (typeof document === "undefined") return;
