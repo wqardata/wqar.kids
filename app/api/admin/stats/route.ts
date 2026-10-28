@@ -21,7 +21,8 @@ export async function GET(req: Request) {
   if (kind === "totals") {
     try {
       return NextResponse.json(await statsTotals(), { headers });
-    } catch {
+    } catch (e) {
+      console.error("[api/admin/stats]", kind, e);
       return dbDown();
     }
   }
@@ -31,7 +32,8 @@ export async function GET(req: Request) {
     if (!DAY_RE.test(start) || Number.isNaN(Date.parse(start)) || !Number.isFinite(days) || days < 1 || days > MAX_DAYS) return bad();
     try {
       return NextResponse.json(await statsDaily(start, days + 5), { headers });
-    } catch {
+    } catch (e) {
+      console.error("[api/admin/stats]", kind, e);
       return dbDown();
     }
   }

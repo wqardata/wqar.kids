@@ -15,9 +15,9 @@ test("المجاميع: جملة قراءة واحدة تغطي المشاهدا
 test("مخطط الأيام: معاملان ($1 تاريخ البداية و$2 الحد) وترتيب بالأقدم أولًا من جدول stats", () => {
   const s = STATS_DAILY_SQL.toLowerCase();
   assert.ok(s.includes("from stats"));
-  assert.ok(s.includes("day >= $1::date"));
-  assert.ok(s.includes("order by day"));
-  assert.ok(s.includes("limit $2"));
+  assert.ok(s.includes("day::text >= $1::text"), "مقارنة نصّية تعمل لنوعي العمود date ونص");
+  assert.ok(s.includes("order by 1"));
+  assert.ok(s.includes("limit $2::int"));
   assert.ok(s.includes("day::text"), "اليوم نصًّا YYYY-MM-DD ليطابق dayKey");
   assert.ok(!/\b(insert|update|delete|drop|alter)\b/.test(s), "قراءة فقط");
 });
