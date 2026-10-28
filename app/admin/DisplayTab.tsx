@@ -287,15 +287,18 @@ export default function DisplayTab() {
             </select>
           </div>
 
-          <MobileRatioField value={form.mobileThumbRatio} onChange={(v) => set("mobileThumbRatio", v)} />
+          <fieldset className="cset">
+            <legend>عرض الجوال في الرئيسية</legend>
+            <MobileRatioField value={form.mobileThumbRatio} onChange={(v) => set("mobileThumbRatio", v)} />
 
-          <div className="field">
-            <label htmlFor="dp-radius">استدارة حواف صورة الفيديو على الجوال</label>
-            <select id="dp-radius" value={form.mobileThumbRadius} onChange={(e) => set("mobileThumbRadius", e.target.value as MobileThumbRadius)}>
-              {MOBILE_THUMB_RADII.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </select>
-            <p className="hint">تُطبَّق مع الأبعاد أعلاه على الجوال فقط، وتظهر في المعاينة بوضع «جوال».</p>
-          </div>
+            <div className="field">
+              <label htmlFor="dp-radius">استدارة حواف صورة الفيديو على الجوال</label>
+              <select id="dp-radius" value={form.mobileThumbRadius} onChange={(e) => set("mobileThumbRadius", e.target.value as MobileThumbRadius)}>
+                {MOBILE_THUMB_RADII.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+              <p className="hint">تُطبَّق مع الأبعاد أعلاه على الجوال فقط، وتظهر في المعاينة بوضع «جوال».</p>
+            </div>
+          </fieldset>
 
           <div className="field">
             <label htmlFor="dp-t1">عنوان يسبق المجموعة الأولى من الصفوف</label>
