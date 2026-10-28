@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isDbConfigured } from "@/lib/db";
+import { allow, clientKey } from "@/lib/rateLimit";
 import { isNamedColl, namedList, namedOne } from "@/lib/neonServer";
 
 export const runtime = "nodejs";
@@ -10,6 +11,8 @@ const CACHE = { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30
 /** GET /api/data/named?coll=categories|series[&id=…] — قائمة التصنيفات/المجموعات، أو عنصر واحد (404 إن لم يوجد). */
 export async function GET(req: Request) {
   if (!isDbConfigured()) return NextResponse.json({ error: "DATABASE_URL غير مضبوط" }, { status: 503 });
+  // الطلبات التي تُخدم من كاش CDN لا تصل هنا؛ هذا الحد يحمي القاعدة من إغراق الطلبات التي تتجاوز الكاش (أفضل جهد: العدّاد لكل نسخة تشغيل).
+  if (!allow(`read:${clientKey(req)}`, 120, 60_000)) return NextResponse.json({ error: "محاولات كثيرة" }, { status: 429 });
   const p = new URL(req.url).searchParams;
   const coll = p.get("coll");
   if (!isNamedColl(coll)) return NextResponse.json({ error: "مجموعة غير معروفة" }, { status: 400 });

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { DRIVE_ID } from "@/lib/drive";
 import { fail, streamDrive } from "@/lib/driveStream";
+import { allow, clientKey } from "@/lib/rateLimit";
 import { adminFromToken } from "@/lib/serverAuth";
 import { getServerSettings } from "@/lib/serverSettings";
 
@@ -21,6 +22,8 @@ export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
   const isAdmin = token ? !("error" in (await adminFromToken(token))) : false;
   if (!isAdmin) {
+    // كل طلب يمرّر حتى 6MB عبر فيرسل: نحدّ عدد طلبات الزائر الواحد (أفضل جهد).
+    if (!allow(`audio:${clientKey(req)}`, 30, 60_000)) return fail(429, "محاولات كثيرة.");
     const { adhkar } = await getServerSettings();
     const allowed =
       [...adhkar.morning, ...adhkar.evening].some((x) => x.audio === id) ||
