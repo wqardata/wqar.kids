@@ -13,6 +13,7 @@ export async function claimsFromToken(token: string): Promise<{ email: string; u
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: `https://securetoken.google.com/${projectId}`,
       audience: projectId,
+      algorithms: ["RS256"], // توكنات Firebase موقَّعة بـ RS256 فقط
     });
     if (payload.email_verified !== true || typeof payload.email !== "string" || typeof payload.sub !== "string") return null;
     return { email: payload.email.toLowerCase(), uid: payload.sub };

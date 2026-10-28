@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isDbConfigured } from "@/lib/db";
+import { allow, clientKey } from "@/lib/rateLimit";
 import { MAX_IDS, allVideos, latestVideos, videosBy, videosByIds } from "@/lib/neonServer";
 
 export const runtime = "nodejs";
@@ -18,6 +19,8 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/;
  */
 export async function GET(req: Request) {
   if (!isDbConfigured()) return NextResponse.json({ error: "DATABASE_URL غير مضبوط" }, { status: 503 });
+  // الطلبات التي تُخدم من كاش CDN لا تصل هنا؛ هذا الحد يحمي القاعدة من إغراق الطلبات التي تتجاوز الكاش (أفضل جهد: العدّاد لكل نسخة تشغيل).
+  if (!allow(`read:${clientKey(req)}`, 120, 60_000)) return NextResponse.json({ error: "محاولات كثيرة" }, { status: 429 });
   const p = new URL(req.url).searchParams;
   try {
     const ids = p.get("ids");
