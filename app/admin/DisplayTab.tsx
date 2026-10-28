@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import IconPicker from "./IconPicker";
 import SeriesAvatar from "@/components/SeriesAvatar";
 import HomeTabsEditor from "./HomeTabsEditor";
@@ -16,14 +16,19 @@ import {
   DISPLAY_ROWS_MAX,
   GROUP_ORDERS,
   HOME_ORDERS,
+  MOBILE_THUMB_DIM_MAX,
+  MOBILE_THUMB_DIM_MIN,
   MOBILE_THUMB_RADII,
   MOBILE_THUMB_RATIOS,
+  MOBILE_THUMB_RATIO_MAX,
+  MOBILE_THUMB_RATIO_MIN,
   ROW_SIZE_DEFAULT,
   SHORTS_POS_END,
   SHORTS_POS_MAX_ROW,
   cleanDisplay,
   mobileThumbCss,
   mobileThumbRadiusPx,
+  parseMobileThumbRatio,
   useSettings,
   type ContinueLayout,
   type DisplaySettings,
@@ -54,6 +59,54 @@ const SAMPLES = [
   { title: "تدبّر آيات من سورة الكهف", series: "التدبّر", meta: "2.1 ألف مشاهدة • منذ أسبوعين", dur: "10:05" },
   { title: "أحكام الصيام للمبتدئين", series: "الفقه", meta: "970 مشاهدة • منذ شهرين", dur: "18:22" },
 ];
+
+/** حقل نسبة صورة الفيديو على الجوال: نسب جاهزة + عرض وارتفاع يحدّدهما المشرف (تُحفظ بصيغة "العرض/الارتفاع"). */
+function MobileRatioField({ value, onChange }: { value: MobileThumbRatio; onChange: (v: MobileThumbRatio) => void }) {
+  const cur = parseMobileThumbRatio(value) ?? { w: 16, h: 9 };
+  const [w, setW] = useState(String(cur.w));
+  const [h, setH] = useState(String(cur.h));
+
+  // مزامنة الخانتين عند تغيّر القيمة من الخارج (اختيار نسبة جاهزة أو إعادة ضبط).
+  useEffect(() => {
+    const p = parseMobileThumbRatio(value);
+    if (p && (p.w !== Number(w) || p.h !== Number(h))) {
+      setW(String(p.w));
+      setH(String(p.h));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const commit = (nw: string, nh: string) => {
+    const id = `${Number(nw)}/${Number(nh)}`;
+    if (nw !== "" && nh !== "" && parseMobileThumbRatio(id)) onChange(id);
+  };
+  const valid = w !== "" && h !== "" && parseMobileThumbRatio(`${Number(w)}/${Number(h)}`) !== null;
+  const normalized = parseMobileThumbRatio(value) ? `${cur.w}/${cur.h}` : "";
+  const presetId = MOBILE_THUMB_RATIOS.some((r) => r.id === normalized) ? normalized : "";
+
+  return (
+    <div className="field">
+      <label htmlFor="dp-ratio-w">أبعاد صورة الفيديو على الجوال (العرض : الارتفاع)</label>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <input id="dp-ratio-w" type="number" inputMode="decimal" dir="ltr" aria-label="العرض" min={MOBILE_THUMB_DIM_MIN} max={MOBILE_THUMB_DIM_MAX} step={0.1} value={w} style={{ width: 90 }}
+          onChange={(e) => { setW(e.target.value); commit(e.target.value, h); }} />
+        <span aria-hidden="true">:</span>
+        <input id="dp-ratio-h" type="number" inputMode="decimal" dir="ltr" aria-label="الارتفاع" min={MOBILE_THUMB_DIM_MIN} max={MOBILE_THUMB_DIM_MAX} step={0.1} value={h} style={{ width: 90 }}
+          onChange={(e) => { setH(e.target.value); commit(w, e.target.value); }} />
+        <select id="dp-ratio" aria-label="نسب جاهزة" value={presetId} onChange={(e) => e.target.value && onChange(e.target.value as MobileThumbRatio)}>
+          <option value="">نسبة مخصّصة</option>
+          {MOBILE_THUMB_RATIOS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+      </div>
+      {!valid && (
+        <p className="hint" role="alert">
+          أدخل عرضًا وارتفاعًا بين {MOBILE_THUMB_DIM_MIN} و{MOBILE_THUMB_DIM_MAX} بحيث تكون النسبة بين 1:{1 / MOBILE_THUMB_RATIO_MIN} و{MOBILE_THUMB_RATIO_MAX}:1؛ تبقى آخر نسبة صالحة مطبّقة إلى أن تصحّحها.
+        </p>
+      )}
+      <p className="hint">مثال: 3 و2 تعطي 3:2. تُطبَّق على صور الفيديوهات في الرئيسية (وكذلك صف «تابع المشاهدة») عند التصفح من الجوال فقط؛ الحاسوب يبقى 16:9. تظهر في معاينة «تابع المشاهدة» بوضع «جوال».</p>
+    </div>
+  );
+}
 
 /** معاينة حيّة لصف «تابع المشاهدة»: بنفس أصناف CSS الفعلية، على عرض جوال أو حاسوب. */
 function ContinuePreview({ form }: { form: DisplaySettings }) {
@@ -234,13 +287,7 @@ export default function DisplayTab() {
             </select>
           </div>
 
-          <div className="field">
-            <label htmlFor="dp-ratio">أبعاد صورة الفيديو على الجوال</label>
-            <select id="dp-ratio" value={form.mobileThumbRatio} onChange={(e) => set("mobileThumbRatio", e.target.value as MobileThumbRatio)}>
-              {MOBILE_THUMB_RATIOS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </select>
-            <p className="hint">تُطبَّق على صور الفيديوهات في الرئيسية (وكذلك صف «تابع المشاهدة») عند التصفح من الجوال فقط؛ الحاسوب يبقى 16:9. تظهر في معاينة «تابع المشاهدة» بوضع «جوال».</p>
-          </div>
+          <MobileRatioField value={form.mobileThumbRatio} onChange={(v) => set("mobileThumbRatio", v)} />
 
           <div className="field">
             <label htmlFor="dp-radius">استدارة حواف صورة الفيديو على الجوال</label>

@@ -304,11 +304,28 @@ export const MOBILE_THUMB_RATIOS = [
   { id: "1/1", label: "مربعة 1:1", css: "1 / 1" },
   { id: "4/5", label: "طويلة 4:5", css: "4 / 5" },
 ] as const;
-export type MobileThumbRatio = (typeof MOBILE_THUMB_RATIOS)[number]["id"];
+/** النسبة محفوظة نصًّا بصيغة "العرض/الارتفاع" (مثل "16/9" أو "3/2")؛ يمكن للمشرف تحديد أي نسبة ضمن الحدود أدناه. */
+export type MobileThumbRatio = string;
 export const MOBILE_THUMB_RATIO_DEFAULT: MobileThumbRatio = "16/9";
+/** حدود كل من العرض والارتفاع (أرقام حتى منزلة عشرية واحدة)، وحدود النسبة العرض÷الارتفاع. */
+export const MOBILE_THUMB_DIM_MIN = 1;
+export const MOBILE_THUMB_DIM_MAX = 100;
+export const MOBILE_THUMB_RATIO_MIN = 0.25; // 1:4 (طويلة جدًا)
+export const MOBILE_THUMB_RATIO_MAX = 4; // 4:1 (عريضة جدًا)
+/** يقرأ نسبة محفوظة؛ يعيد null إن لم تكن صالحة. */
+export function parseMobileThumbRatio(v: unknown): { w: number; h: number } | null {
+  const m = typeof v === "string" ? /^(\d{1,3}(?:\.\d)?)\/(\d{1,3}(?:\.\d)?)$/.exec(v.trim()) : null;
+  if (!m) return null;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  if (!(w >= MOBILE_THUMB_DIM_MIN && w <= MOBILE_THUMB_DIM_MAX && h >= MOBILE_THUMB_DIM_MIN && h <= MOBILE_THUMB_DIM_MAX)) return null;
+  const r = w / h;
+  return r >= MOBILE_THUMB_RATIO_MIN && r <= MOBILE_THUMB_RATIO_MAX ? { w, h } : null;
+}
 /** قيمة aspect-ratio في CSS لنسبة محفوظة. */
 export function mobileThumbCss(id: MobileThumbRatio): string {
-  return MOBILE_THUMB_RATIOS.find((r) => r.id === id)?.css ?? "16 / 9";
+  const p = parseMobileThumbRatio(id);
+  return p ? `${p.w} / ${p.h}` : "16 / 9";
 }
 /** استدارة حواف صورة الفيديو في الرئيسية على الجوال فقط. الافتراضي بلا استدارة (كما كانت). */
 export const MOBILE_THUMB_RADII = [
@@ -508,7 +525,7 @@ export function cleanDisplay(v: unknown): DisplaySettings {
     continueTitle: textOr("continueTitle", D.continueTitle),
     continueSize: int("continueSize", CONTINUE_SIZE_MIN, CONTINUE_SIZE_MAX, D.continueSize),
     continueMinSec: int("continueMinSec", 0, CONTINUE_MIN_SEC_MAX, D.continueMinSec),
-    mobileThumbRatio: MOBILE_THUMB_RATIOS.some((x) => x.id === o.mobileThumbRatio) ? (o.mobileThumbRatio as MobileThumbRatio) : D.mobileThumbRatio,
+    mobileThumbRatio: parseMobileThumbRatio(o.mobileThumbRatio) ? String(o.mobileThumbRatio).trim() : D.mobileThumbRatio,
     mobileThumbRadius: MOBILE_THUMB_RADII.some((x) => x.id === o.mobileThumbRadius) ? (o.mobileThumbRadius as MobileThumbRadius) : D.mobileThumbRadius,
     homeTabsCustom: o.homeTabsCustom === true,
     homeTabs: cleanHomeTabs(o.homeTabs),
