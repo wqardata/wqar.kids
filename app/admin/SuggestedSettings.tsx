@@ -1,5 +1,5 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState } from "react";
 import {
   DEFAULT_WATCH_PAGE,
   DRIVE_BTN_SCALE_MAX,
@@ -11,7 +11,6 @@ import {
   SUG_ORDERS,
   SUG_SCOPES,
   cleanWatchPage,
-  saveSettings,
   useSettings,
   type SugLayout,
   type SugOrder,
@@ -19,21 +18,24 @@ import {
   type WatchPageSettings,
 } from "@/lib/settings";
 import { usePreviewDraft } from "@/lib/preview";
-import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
+import { MovableSection, OwnerForm } from "./sectionKit";
+import { useSettingsOwner } from "./saveKit";
 
 type FlagKey = { [K in keyof WatchPageSettings]: WatchPageSettings[K] extends boolean ? K : never }[keyof WatchPageSettings];
 
 /** الفيديوهات المقترحة في صفحة الفيديو: العدد وطريقة العرض والصلة بالفيديو المشغَّل ومعايير الاختيار. */
 export default function SuggestedSettings() {
-  const { settings, update, ready } = useSettings();
+  const { settings, ready } = useSettings();
   const [form, setForm] = useState<WatchPageSettings>(settings.watchPage);
   usePreviewDraft("watch-page", { watchPage: cleanWatchPage(form) });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const patch = useMemo(() => ({ watchPage: cleanWatchPage(form) }), [form]);
+  useSettingsOwner({
+    patch,
+    afterSave: (saved) => setForm(saved.watchPage),
+    reset: () => setForm(DEFAULT_WATCH_PAGE),
+  });
 
   const set = <K extends keyof WatchPageSettings>(k: K, v: WatchPageSettings[K]) => {
-    setDone(false);
     setForm((f) => ({ ...f, [k]: v }));
   };
   const int = (raw: string, lo: number, hi: number) => {
@@ -49,28 +51,12 @@ export default function SuggestedSettings() {
     </div>
   );
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    setSaving(true);
-    try {
-      const saved = await saveSettings({ ...settings, watchPage: cleanWatchPage(form) });
-      update(saved);
-      setForm(saved.watchPage);
-      setDone(true);
-    } catch {
-      setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   if (!ready) return null;
 
   const mix = form.sugOrder === "mix";
 
   return (
-    <OwnerForm onSubmit={(e) => void onSubmit(e)}>
+    <OwnerForm>
     <MovableSection id="watch.suggested">
     <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-h">
       <h2 id="sg-h">إعدادات صفحة الفيديو</h2>
@@ -187,14 +173,6 @@ export default function SuggestedSettings() {
 
     </div>
     </MovableSection>
-    <OwnerFooter>
-      {error && <p className="field-error" role="alert">{error}</p>}
-      {done && <p className="hint" role="status">تم حفظ إعدادات صفحة الفيديو ✓</p>}
-      <div className="addrow">
-        <button type="submit" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات صفحة الفيديو"}</button>
-        <button type="button" className="btn btn--ghost" disabled={saving} onClick={() => { setForm(DEFAULT_WATCH_PAGE); setDone(false); }}>استعادة الافتراضي</button>
-      </div>
-    </OwnerFooter>
     </OwnerForm>
   );
 }

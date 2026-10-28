@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { clearVideoCache } from "@/lib/videos";
 import Icon from "@/components/Icon";
@@ -26,6 +27,7 @@ import DisplayTab from "./DisplayTab";
 import SuggestedSettings from "./SuggestedSettings";
 import LayoutEditor from "./LayoutEditor";
 import { HostCtx, MovableSection, OwnerCtx } from "./sectionKit";
+import { SaveBar, SaveProvider, UnsavedDialog, useSaveStore } from "./saveKit";
 
 type Group = string;
 type Sub = TabId | "layout-tabs" | "layout-arrange";
@@ -40,7 +42,7 @@ const CUSTOMIZE: GroupView = {
   subs: [{ id: "layout-tabs", label: "التبويبات" }, { id: "layout-arrange", label: "تنظيم" }],
 };
 
-/** كل مكوّن مالك يحمل حالته وزر حفظه؛ أقسامه تُرسم في التبويب المعيَّنة له (انظر sectionKit). */
+/** كل مكوّن مالك يحمل حالته ويسجّل حفظه في شريط الحفظ الموحّد؛ أقسامه تُرسم في التبويب المعيَّنة له (انظر sectionKit). */
 const OWNERS: Record<OwnerId, () => ReactNode> = {
   stats: () => <StatsTab />,
   reports: () => <MovableSection id="reports"><ReportsTab /></MovableSection>,
@@ -68,6 +70,13 @@ const OWNER_HOME = Object.fromEntries(SECTIONS.map((s) => [s.owner, s.home]).rev
 export default function AdminPanel({ initial }: { initial?: "series" | "reports" }) {
   const { user, loading, configured, canAdd, isOwner } = useAuth();
   const { arrangement, structure, save } = useAdminArrangement();
+  const router = useRouter();
+  // الحفظ الموحّد: كل قسم في التبويب المعروض يسجّل مسودته هنا (انظر saveKit).
+  const store = useSaveStore();
+  // انتقال ينتظر قرار «حفظ / تجاهل» لأن في التبويب تعديلات غير محفوظة.
+  const [pending, setPending] = useState<(() => void) | null>(null);
+  // يزيد عند «تجاهل»: يعيد تركيب الأقسام فتعود مسوداتها إلى المحفوظ.
+  const [epoch, setEpoch] = useState(0);
   const [group, setGroup] = useState<Group>(initial === "series" ? "content" : "stats");
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
   // المعاينة مفتوحة افتراضيًا على الشاشات العريضة فقط (على الجوال تُفتح بزر).
@@ -81,6 +90,17 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
 
   // ما يتغيّر في اللوحة (فيديوهات/مجموعات/تصنيفات) يجب أن يظهر فورًا للمشرف: نمسح التخزين المؤقت عند مغادرتها.
   useEffect(() => () => clearVideoCache(), []);
+
+  // إغلاق الصفحة أو إعادة تحميلها وفيها تعديلات غير محفوظة: تحذير المتصفح.
+  useEffect(() => {
+    if (!store.dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [store.dirty]);
 
   // الأقسام المعروضة فعلًا: بلا ما هو للمالك وحده إن لم يكن المستخدم مالكًا.
   const shown = useMemo(() => {
@@ -136,6 +156,45 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
   const sub = visibleSubs.some((s) => s.id === subs[current.id]) ? subs[current.id] : visibleSubs[0].id;
 
   const isLayout = sub === "layout-tabs" || sub === "layout-arrange";
+
+  /** ينفّذ الانتقال فورًا، أو يسأل أولًا (حفظ / تجاهل) إن كان في التبويب تعديلات غير محفوظة. */
+  const leave = (apply: () => void) => {
+    if (store.dirty) setPending(() => apply);
+    else apply();
+  };
+  const goGroup = (g: GroupView) => {
+    if (g.id === current.id) return;
+    const vs = g.subs.filter((s) => !s.ownerOnly || isOwner);
+    const target = vs.some((s) => s.id === subs[g.id]) ? subs[g.id] : vs[0]?.id;
+    leave(() => {
+      store.clearNotice();
+      setGroup(g.id);
+      if (target) setSubs((p) => ({ ...p, [g.id]: target }));
+    });
+  };
+  const goSub = (id: Sub) => {
+    if (id === sub) return;
+    const apply = () => {
+      store.clearNotice();
+      setSubs((s) => ({ ...s, [current.id]: id }));
+    };
+    // «التبويبات» و«تنظيم» يشتركان في مسودة واحدة (LayoutEditor نفسه)، فالتنقل بينهما لا يفقد شيئًا.
+    if (isLayout && (id === "layout-tabs" || id === "layout-arrange")) apply();
+    else leave(apply);
+  };
+  const saveThenLeave = async () => {
+    if (!(await store.saveAll())) return; // بقي الخطأ ظاهرًا ولا ننتقل
+    const run = pending;
+    setPending(null);
+    run?.();
+  };
+  const discardThenLeave = () => {
+    const run = pending;
+    setPending(null);
+    store.clearNotice();
+    setEpoch((e) => e + 1);
+    run?.();
+  };
   const tab = isLayout ? null : (sub as TabId);
   const list = tab ? shown[tab] ?? [] : [];
   const needed = new Set<OwnerId>(list.map((id) => SECTION_BY_ID[id].owner));
@@ -149,11 +208,22 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
   };
 
   return (
+    <SaveProvider value={store.api}>
     <PreviewDraftProvider>
       <div className={previewPath ? "admin admin--split" : "admin"}>
         <div className="admin-head">
           <h1>لوحة التحكم</h1>
-          <Link href="/add" className="btn btn--sm">＋ إضافة فيديو</Link>
+          <Link
+            href="/add"
+            className="btn btn--sm"
+            onClick={(e) => {
+              if (!store.dirty) return;
+              e.preventDefault();
+              setPending(() => () => router.push("/add"));
+            }}
+          >
+            ＋ إضافة فيديو
+          </Link>
         </div>
 
         <div role="tablist" aria-label="أقسام لوحة التحكم" className="tabs tabs--main">
@@ -168,7 +238,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
               aria-label={g.id === CUSTOMIZE_GROUP ? g.label : undefined}
               title={g.id === CUSTOMIZE_GROUP ? g.label : undefined}
               className={current.id === g.id ? (g.id === CUSTOMIZE_GROUP ? "tab tab--gear on" : "tab on") : g.id === CUSTOMIZE_GROUP ? "tab tab--gear" : "tab"}
-              onClick={() => setGroup(g.id)}
+              onClick={() => goGroup(g)}
             >
               {g.id === CUSTOMIZE_GROUP ? <Icon name="gear" size={20} /> : g.label}
             </button>
@@ -186,7 +256,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
                 aria-selected={sub === t.id}
                 aria-controls="admin-panel"
                 className={sub === t.id ? "tab on" : "tab"}
-                onClick={() => setSubs((s) => ({ ...s, [current.id]: t.id }))}
+                onClick={() => goSub(t.id)}
               >
                 {t.label}
               </button>
@@ -204,8 +274,9 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
 
         <div className={previewPath && showPreview ? "admin-split" : "admin-split admin-split--solo"}>
           <div className="admin-split-main" id="admin-panel" onFocusCapture={pickSection} onPointerDownCapture={pickSection} role="tabpanel" aria-labelledby={visibleSubs.length > 1 ? `tab-${sub}` : `group-${current.id}`}>
+            <SaveBar store={store} />
             {isLayout ? (
-              <LayoutEditor view={sub === "layout-tabs" ? "tabs" : "arrange"} structure={structure} arrangement={arrangement} isOwner={isOwner} onSave={save} />
+              <LayoutEditor key={`layout-${epoch}`} view={sub === "layout-tabs" ? "tabs" : "arrange"} structure={structure} arrangement={arrangement} isOwner={isOwner} onSave={save} />
             ) : (
               <HostCtx.Provider value={{ el: hostEl, tab: tab as TabId, arrangement: shown }}>
                 <div className="admin-stack msec-host" ref={setHostEl} />
@@ -213,7 +284,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
                 {/* الملاك مركّبون هنا (مخفيون) كي تعيش حالتهم؛ واجهتهم تظهر في الحاوية أعلاه. */}
                 <div hidden>
                   {OWNER_IDS.filter((o) => needed.has(o)).map((o) => (
-                    <OwnerCtx.Provider key={o} value={{ owner: o, formId: `owner-form-${o}`, home: OWNER_HOME[o] }}>
+                    <OwnerCtx.Provider key={`${o}:${epoch}`} value={{ owner: o, formId: `owner-form-${o}`, home: OWNER_HOME[o] }}>
                       {OWNERS[o]()}
                     </OwnerCtx.Provider>
                   ))}
@@ -228,6 +299,8 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
           )}
         </div>
       </div>
+      {pending && <UnsavedDialog busy={store.busy} error={store.error} onSave={() => void saveThenLeave()} onDiscard={discardThenLeave} onCancel={() => setPending(null)} />}
     </PreviewDraftProvider>
+    </SaveProvider>
   );
 }

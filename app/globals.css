@@ -1202,6 +1202,19 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
 .msec { min-width: 0; }
 .msec-host { align-items: start; }
 .msec-from { margin: 0 0 6px; font-weight: 600; }
+/* شريط الحفظ الموحّد أعلى إعدادات كل تبويب: الحالة على اليمين والأزرار على اليسار (RTL) */
+.savebar { position: sticky; top: calc(var(--top) + env(safe-area-inset-top, 0px) + 8px); z-index: 12; display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; margin-bottom: 14px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 6px 18px rgba(0, 0, 0, .08); }
+.savebar-status { flex: 1 1 180px; min-width: 0; font-size: .9rem; }
+.savebar-status .field-error { margin-top: 0; }
+.savebar-ok { color: var(--accent); font-weight: 600; }
+.savebar-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-inline-start: auto; }
+.savebar .btn, .unsaved-box .btn { margin-top: 0; min-height: 40px; padding: 6px 18px; }
+.savebar .btn:disabled, .unsaved-box .btn:disabled { opacity: .5; cursor: not-allowed; }
+/* نافذة التحذير عند مغادرة تبويب فيه تعديلات غير محفوظة */
+.unsaved-overlay { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; background: rgba(6, 14, 22, .55); backdrop-filter: blur(2px); }
+.unsaved-box { width: min(100%, 420px); display: grid; gap: 12px; padding: 20px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .35); }
+.unsaved-box h2 { font-size: 1.1rem; }
+.unsaved-box .hint { margin: 0; }
 .tab--gear { padding-inline: 14px; display: inline-flex; align-items: center; margin-inline-start: auto; }
 .tabs--main { align-items: stretch; }
 .layout-ed { display: grid; gap: 16px; }

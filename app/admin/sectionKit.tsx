@@ -1,10 +1,11 @@
 "use client";
 import { createContext, useContext, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { OWNER_LABELS, SECTION_BY_ID, type Arrangement, type OwnerId, type TabId } from "@/lib/adminSections";
+import { SECTION_BY_ID, type Arrangement, type OwnerId, type TabId } from "@/lib/adminSections";
+import { useSaveApi } from "./saveKit";
 
 /**
- * آلية نقل الأقسام: المكوّن المالك (مثل SettingsTab) يبقى مركّبًا بحالته وزر حفظه، لكن واجهته لا تُرسم في مكانه؛
+ * آلية نقل الأقسام: المكوّن المالك (مثل SettingsTab) يبقى مركّبًا بحالته ويسجّل حفظه في شريط الحفظ الموحّد (saveKit)، لكن واجهته لا تُرسم في مكانه؛
  * كل <MovableSection> يرسم محتواه (عبر portal) داخل حاوية التبويب المعروض إن كان قسمه معيّنًا لهذا التبويب.
  * فالنقل يغيّر مكان العرض فقط ولا يمسّ منطق الحفظ.
  */
@@ -52,7 +53,7 @@ export function MovableSection({ id, children }: { id: string; children: ReactNo
   );
 }
 
-/** ما يلي الأقسام من رسائل وأزرار حفظ ونوافذ: يُعرض بعد آخر قسم لهذا المالك في التبويب المعروض. */
+/** ما يلي أقسام المالك من أزرار مساعدة ونوافذ (كالتجربة والمعاينة): يُعرض بعد آخر قسم له في التبويب المعروض. الحفظ نفسه في شريط الحفظ أعلى التبويب. */
 export function OwnerFooter({ children }: { children: ReactNode }) {
   const host = useContext(HostCtx);
   const owner = useContext(OwnerCtx);
@@ -65,18 +66,27 @@ export function OwnerFooter({ children }: { children: ReactNode }) {
   if (last < 0) return null;
   return createPortal(
     <div className="msec msec-foot" style={{ order: last * 2 + 1 }} {...formProxy(owner.formId)}>
-      {owner.home !== host.tab && <p className="hint msec-from">حفظ «{OWNER_LABELS[owner.owner]}»</p>}
       {children}
     </div>,
     host.el,
   );
 }
 
-/** بديل <form>: وسم فارغ يحمل المعرّف وأحداث الإرسال، بينما حقوله تُرسم في حاوية التبويب. */
-export function OwnerForm({ onSubmit, children }: { onSubmit: (e: FormEvent<HTMLFormElement>) => void; children: ReactNode }) {
+/**
+ * بديل <form>: وسم فارغ يحمل المعرّف وأحداث الإرسال، بينما حقوله تُرسم في حاوية التبويب.
+ * Enter داخل أي حقل يعادل «حفظ التغييرات» في شريط الحفظ.
+ */
+export function OwnerForm({ children }: { children: ReactNode }) {
   const owner = useContext(OwnerCtx);
+  const save = useSaveApi();
   return (
-    <form id={owner?.formId} onSubmit={onSubmit}>
+    <form
+      id={owner?.formId}
+      onSubmit={(e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        void save?.saveAll();
+      }}
+    >
       {children}
     </form>
   );

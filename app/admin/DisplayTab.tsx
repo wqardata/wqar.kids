@@ -1,5 +1,5 @@
 "use client";
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import IconPicker from "./IconPicker";
 import SeriesAvatar from "@/components/SeriesAvatar";
 import HomeTabsEditor from "./HomeTabsEditor";
@@ -20,7 +20,6 @@ import {
   SHORTS_POS_END,
   SHORTS_POS_MAX_ROW,
   cleanDisplay,
-  saveSettings,
   useSettings,
   type ContinueLayout,
   type DisplaySettings,
@@ -28,7 +27,8 @@ import {
   type HomeOrder,
 } from "@/lib/settings";
 import { usePreviewDraft } from "@/lib/preview";
-import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
+import { MovableSection, OwnerForm } from "./sectionKit";
+import { useSettingsOwner } from "./saveKit";
 
 const ROW = 4; // عدد الفيديوهات في الصف على الحاسوب (نفس ثابت الرئيسية)
 
@@ -118,37 +118,23 @@ function Section({ id, title, children }: { id: string; title: string; children:
 
 /** تبويب «العرض» (التنظيم ← العرض): مربع للصفحة الرئيسية وما يتعلق بها (بأقسام مفصولة)، ومربع للمجموعات. */
 export default function DisplayTab() {
-  const { settings, update, ready } = useSettings();
+  const { settings, ready } = useSettings();
   const [form, setForm] = useState<DisplaySettings>(settings.display);
   usePreviewDraft("display", { display: cleanDisplay(form) });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const patch = useMemo(() => ({ display: cleanDisplay(form) }), [form]);
+  useSettingsOwner({
+    patch,
+    afterSave: (saved) => setForm(saved.display),
+    reset: () => setForm(DEFAULT_DISPLAY),
+  });
 
   const set = <K extends keyof DisplaySettings>(k: K, v: DisplaySettings[K]) => {
-    setDone(false);
     setForm((f) => ({ ...f, [k]: v }));
   };
   const num = (k: "homeRows" | "newCount" | "popularCount" | "continueCount" | "continueMinSec", raw: string, max: number, min = 0) => {
     const n = Math.round(Number(raw));
     set(k, Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : min);
   };
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    setSaving(true);
-    try {
-      const saved = await saveSettings({ ...settings, display: cleanDisplay(form) });
-      update(saved);
-      setForm(saved.display);
-      setDone(true);
-    } catch {
-      setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
 
@@ -158,10 +144,10 @@ export default function DisplayTab() {
   for (let t = 0; t < wantTop; topRows++) t += form.homeRowsCustom ? form.homeRowSizes[topRows] ?? ROW_SIZE_DEFAULT : ROW;
 
   return (
-    <OwnerForm onSubmit={(e) => void onSubmit(e)}>
+    <OwnerForm>
       {/* ───────── مربع الصفحة الرئيسية ───────── */}
         <Section id="dp-s-tabs" title="التبويبات أعلى الصفحة">
-          <HomeTabsEditor custom={form.homeTabsCustom} tabs={form.homeTabs} onChange={(custom, tabs) => { setDone(false); setForm((f) => ({ ...f, homeTabsCustom: custom, homeTabs: tabs })); }} />
+          <HomeTabsEditor custom={form.homeTabsCustom} tabs={form.homeTabs} onChange={(custom, tabs) => { setForm((f) => ({ ...f, homeTabsCustom: custom, homeTabs: tabs })); }} />
         </Section>
 
         <Section id="dp-s-cont" title="صف «تابع المشاهدة»">
@@ -211,7 +197,7 @@ export default function DisplayTab() {
             custom={form.homeRowsCustom}
             sizes={form.homeRowSizes}
             more={form.homeRowsMore}
-            onChange={(p) => { setDone(false); setForm((f) => ({ ...f, ...p })); }}
+            onChange={(p) => { setForm((f) => ({ ...f, ...p })); }}
           />
           {!form.homeRowsCustom && (
             <div className="field">
@@ -297,14 +283,6 @@ export default function DisplayTab() {
       </section>
       </MovableSection>
 
-      <OwnerFooter>
-      {error && <p className="field-error" role="alert">{error}</p>}
-      {done && <p className="hint" role="status">تم حفظ إعدادات العرض ✓</p>}
-      <div className="addrow">
-        <button type="submit" className="btn" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات العرض"}</button>
-        <button type="button" className="btn btn--ghost" disabled={saving} onClick={() => { setForm(DEFAULT_DISPLAY); setDone(false); }}>استعادة الافتراضي</button>
-      </div>
-      </OwnerFooter>
     </OwnerForm>
   );
 }

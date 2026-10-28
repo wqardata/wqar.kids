@@ -2,7 +2,7 @@ import { SIGNUP_FIELDS } from "./settingsCore";
 
 /**
  * سجل «مربعات الإعدادات» القابلة للنقل بين تبويبات لوحة التحكم.
- * كل قسم له تبويب أصلي (home) ومكوّن مالك (owner) تعيش فيه حالته وزر حفظه؛ النقل يغيّر مكان العرض فقط.
+ * كل قسم له تبويب أصلي (home) ومكوّن مالك (owner) تعيش فيه حالته ويُسجَّل حفظه في شريط الحفظ الموحّد؛ النقل يغيّر مكان العرض فقط.
  */
 export type BuiltinTabId =
   | "stats" | "settings" | "signup" | "appearance" | "menu" | "watch" | "display"

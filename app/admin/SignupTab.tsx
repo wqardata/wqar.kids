@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import LoginPanel, { type Mode } from "@/app/login/LoginPanel";
-import { DEFAULT_SIGNUP, SIGNUP_FIELDS, cleanLoginMethods, saveSettings, useSettings, type LoginMethods, type SignupTexts } from "@/lib/settings";
+import { DEFAULT_SIGNUP, DEFAULT_SETTINGS, SIGNUP_FIELDS, cleanLoginMethods, useSettings, type LoginMethods, type SignupTexts } from "@/lib/settings";
 import { usePreviewDraft } from "@/lib/preview";
-import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
+import { MovableSection } from "./sectionKit";
+import { useSettingsOwner } from "./saveKit";
 
 const MODES: { id: Mode; label: string }[] = [
   { id: "signin", label: "تسجيل الدخول" },
@@ -12,28 +13,38 @@ const MODES: { id: Mode; label: string }[] = [
 
 /** تعديل نصوص صفحة الدخول (/login) مع معاينة حيّة قبل الحفظ. */
 export default function SignupTab() {
-  const { settings, update, ready } = useSettings();
+  const { settings, ready } = useSettings();
   const [draft, setDraft] = useState<SignupTexts>(settings.signup);
   const [methods, setMethods] = useState<LoginMethods>(settings.loginMethods);
   usePreviewDraft("signup", { signup: draft, loginMethods: cleanLoginMethods(methods) });
   const [mode, setMode] = useState<Mode>("signin");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [error, setError] = useState("");
 
   const keys = SIGNUP_FIELDS.flatMap((g) => g.items.map((i) => i.key));
-  const methodsDirty = methods.google !== settings.loginMethods.google || methods.email !== settings.loginMethods.email;
-  const dirty = methodsDirty || keys.some((k) => draft[k] !== settings.signup[k]);
-  const isDefault = keys.every((k) => draft[k] === DEFAULT_SIGNUP[k]) && methods.google && methods.email;
+  // حقل فارغ = النص الافتراضي.
+  const patch = useMemo(() => {
+    const clean = { ...draft };
+    for (const k of keys) if (!clean[k].trim()) clean[k] = DEFAULT_SIGNUP[k];
+    return { signup: clean, loginMethods: cleanLoginMethods(methods) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, methods]);
+  const { setError } = useSettingsOwner({
+    patch,
+    afterSave: (saved) => {
+      setDraft(saved.signup);
+      setMethods(saved.loginMethods);
+    },
+    reset: () => {
+      setDraft(DEFAULT_SETTINGS.signup);
+      setMethods(DEFAULT_SETTINGS.loginMethods);
+    },
+  });
 
   const set = (k: keyof SignupTexts, v: string) => {
-    setMsg("");
     setDraft((d) => ({ ...d, [k]: v }));
   };
 
   // لا يُسمح بإخفاء الطريقتين معًا: لن يستطيع أحد الدخول.
   const setMethod = (k: keyof LoginMethods, v: boolean) => {
-    setMsg("");
     setError("");
     if (!v && !methods[k === "google" ? "email" : "google"]) {
       setError("لا يمكن إخفاء طريقتي الدخول معًا؛ أبقِ واحدة على الأقل ظاهرة.");
@@ -42,33 +53,13 @@ export default function SignupTab() {
     setMethods((m) => ({ ...m, [k]: v }));
   };
 
-  async function save() {
-    setBusy(true);
-    setError("");
-    setMsg("");
-    // حقل فارغ = النص الافتراضي.
-    const clean = { ...draft };
-    for (const k of keys) if (!clean[k].trim()) clean[k] = DEFAULT_SIGNUP[k];
-    try {
-      const saved = await saveSettings({ ...settings, signup: clean, loginMethods: cleanLoginMethods(methods) });
-      update(saved);
-      setDraft(saved.signup);
-      setMethods(saved.loginMethods);
-      setMsg("تم حفظ نصوص التسجيل ✓");
-    } catch {
-      setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
 
   return (
     <>
       <MovableSection id="signup.texts">
       <section className="panel auth-form" aria-labelledby="su-h">
-        <h2 id="su-h">نصوص صفحة التسجيل {dirty && <span className="dirty-dot">● تعديلات غير محفوظة</span>}</h2>
+        <h2 id="su-h">نصوص صفحة التسجيل</h2>
         <p className="hint">
           تظهر هذه النصوص في صفحة «تسجيل الدخول». اكتب <code dir="ltr">{"{name}"}</code> في أي نص ليُستبدل باسم الموقع. الحقل الفارغ يعود للنص الافتراضي.
         </p>
@@ -125,15 +116,6 @@ export default function SignupTab() {
       </section>
       </MovableSection>
 
-      <OwnerFooter>
-      {error && <p className="field-error" role="alert">{error}</p>}
-      {msg && <p className="hint" role="status">{msg}</p>}
-      <div className="addrow">
-        <button type="button" className="btn" onClick={() => void save()} disabled={busy || !dirty}>{busy ? "جارٍ الحفظ…" : "حفظ نصوص التسجيل"}</button>
-        <button type="button" className="btn btn--ghost" onClick={() => { setDraft(settings.signup); setMethods(settings.loginMethods); }} disabled={busy || !dirty}>تراجع عن التعديلات</button>
-        <button type="button" className="btn btn--ghost" onClick={() => { setDraft(DEFAULT_SIGNUP); setMethods({ google: true, email: true }); }} disabled={busy || isDefault}>استعادة الافتراضي</button>
-      </div>
-      </OwnerFooter>
     </>
   );
 }

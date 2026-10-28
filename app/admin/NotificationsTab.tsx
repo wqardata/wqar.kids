@@ -6,52 +6,34 @@ import { getDb } from "@/lib/firebase";
 import { adminDeleteNotices, adminNotices, adminSendNotice } from "@/lib/neonAdminClient";
 import SoundSettings from "@/app/admin/SoundSettings";
 import { usePreviewDraft } from "@/lib/preview";
-import { NOTICE_COUNT_MAX, NOTICE_COUNT_MIN, cleanNoticeCount, saveSettings, useSettings } from "@/lib/settings";
+import { DEFAULT_SETTINGS, NOTICE_COUNT_MAX, NOTICE_COUNT_MIN, cleanNoticeCount, useSettings } from "@/lib/settings";
 import { AUDIENCES, DEFAULT_AUDIENCE, audienceLabel, cleanLink, newNoticeId, NOTICE_KEEP, timeAgo, toNotice, type Audience, type Notice } from "@/lib/notifications";
-import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
+import { MovableSection } from "./sectionKit";
+import { useSettingsOwner } from "./saveKit";
 
 const TITLE_MAX = 80;
 const BODY_MAX = 500;
 
 /** عدد الإشعارات التي تظهر في قائمة الجرس لكل زائر. */
 function NoticeCountSettings() {
-  const { settings, update } = useSettings();
+  const { settings } = useSettings();
   const [value, setValue] = useState(String(settings.noticeCount));
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [error, setError] = useState("");
   const next = cleanNoticeCount(value);
-  const dirty = next !== settings.noticeCount || value.trim() === "";
+  const patch = useMemo(() => ({ noticeCount: next }), [next]);
   usePreviewDraft("notice-count", { noticeCount: next });
-
-  async function save() {
-    setBusy(true);
-    setError("");
-    setMsg("");
-    try {
-      const saved = await saveSettings({ ...settings, noticeCount: next });
-      update(saved);
-      setValue(String(saved.noticeCount));
-      setMsg("تم حفظ عدد الإشعارات المعروضة ✓");
-    } catch {
-      setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
-    } finally {
-      setBusy(false);
-    }
-  }
+  useSettingsOwner({
+    patch,
+    afterSave: (saved) => setValue(String(saved.noticeCount)),
+    reset: () => setValue(String(DEFAULT_SETTINGS.noticeCount)),
+  });
 
   return (
     <section className="panel auth-form" aria-labelledby="nc-h">
-      <h2 id="nc-h">عرض الإشعارات {dirty && <span className="dirty-dot">● تعديلات غير محفوظة</span>}</h2>
+      <h2 id="nc-h">عرض الإشعارات</h2>
       <div className="field">
         <label htmlFor="nc-n">عدد الإشعارات الظاهرة في قائمة الجرس</label>
-        <input id="nc-n" type="number" inputMode="numeric" dir="ltr" min={NOTICE_COUNT_MIN} max={NOTICE_COUNT_MAX} step={1} value={value} onChange={(e) => { setMsg(""); setValue(e.target.value); }} />
+        <input id="nc-n" type="number" inputMode="numeric" dir="ltr" min={NOTICE_COUNT_MIN} max={NOTICE_COUNT_MAX} step={1} value={value} onChange={(e) => setValue(e.target.value)} />
         <p className="hint">من {NOTICE_COUNT_MIN} إلى {NOTICE_COUNT_MAX}. يرى كل زائر أحدث هذا العدد من إشعارات فئته. يحتفظ الموقع بآخر {NOTICE_KEEP} إشعارًا لكل فئة ويحذف الأقدم تلقائيًا عند إرسال جديد.</p>
-      </div>
-      {error && <p className="field-error" role="alert">{error}</p>}
-      {msg && <p className="hint" role="status">{msg}</p>}
-      <div className="addrow">
-        <button type="button" className="btn" onClick={() => void save()} disabled={busy || !dirty}>{busy ? "جارٍ الحفظ…" : "حفظ عدد الإشعارات"}</button>
       </div>
     </section>
   );

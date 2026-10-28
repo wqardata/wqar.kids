@@ -9,9 +9,10 @@ import {
 import { PRAYERS, type PrayerId } from "@/lib/adhanCore";
 import { useAutoLocation } from "@/lib/adhanLocation";
 import { slotsAround } from "@/lib/prayer";
-import { saveSettings, useSettings } from "@/lib/settings";
+import { DEFAULT_SETTINGS, useSettings } from "@/lib/settings";
 import { usePreviewDraft } from "@/lib/preview";
-import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
+import { MovableSection, OwnerFooter } from "./sectionKit";
+import { useSettingsOwner } from "./saveKit";
 
 const preview0 = cleanAdhkar;
 const clock = (t: number) => new Intl.DateTimeFormat("ar-EG", { hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(t));
@@ -69,18 +70,20 @@ function BoundaryEditor({ id, label, value, onChange }: { id: string; label: str
 
 /** تبويب «إعدادات الأذكار»: التفعيل والأوقات، وقوائم أذكار الصباح والمساء التي يضيفها المشرف، ومعاينة حيّة. */
 export default function AdhkarTab() {
-  const { settings, update, ready } = useSettings();
+  const { settings, ready } = useSettings();
   const [form, setForm] = useState<AdhkarSettings>(settings.adhkar);
   usePreviewDraft("adhkar", { adhkar: cleanAdhkar(form) });
   const [kind, setKind] = useState<AdhkarKind>("morning");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const draftPatch = useMemo(() => ({ adhkar: cleanAdhkar(form) }), [form]);
+  useSettingsOwner({
+    patch: draftPatch,
+    afterSave: (saved) => setForm(saved.adhkar),
+    reset: () => setForm(DEFAULT_SETTINGS.adhkar),
+  });
   const [reading, setReading] = useState(false);
   const [prevMsg, setPrevMsg] = useState("");
 
   const set = <K extends keyof AdhkarSettings>(k: K, v: AdhkarSettings[K]) => {
-    setDone(false);
     setForm((f) => ({ ...f, [k]: v }));
   };
   const items = form[kind];
@@ -95,21 +98,6 @@ export default function AdhkarTab() {
   };
   const remove = (id: string) => setItems(items.filter((x) => x.id !== id));
   const add = () => items.length < ITEMS_MAX && setItems([...items, { id: newDhikrId(), text: "", repeat: 1, note: "", audio: "" }]);
-
-  async function save() {
-    setError("");
-    setSaving(true);
-    try {
-      const saved = await saveSettings({ ...settings, adhkar: cleanAdhkar(form) });
-      update(saved);
-      setForm(saved.adhkar);
-      setDone(true);
-    } catch {
-      setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   // معاينة بموقعك أنت (بلا طلب إذن جديد)؛ كل زائر يرى أذكار موقعه.
   const { coords } = useAutoLocation(true, false);
@@ -223,12 +211,6 @@ export default function AdhkarTab() {
       </MovableSection>
 
       <OwnerFooter>
-      {error && <p className="field-error" role="alert">{error}</p>}
-      {done && <p className="hint" role="status">تم حفظ إعدادات الأذكار ✓</p>}
-      <div className="addrow">
-        <button type="button" className="btn" onClick={() => void save()} disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات الأذكار"}</button>
-      </div>
-
       {reading && previewItems.length > 0 && (
         <AdhkarReader title={k.label} icon={k.icon} items={previewItems} onClose={() => setReading(false)} onFinish={() => setReading(false)} />
       )}

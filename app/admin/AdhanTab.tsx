@@ -5,11 +5,12 @@ import AdhanRemind from "@/components/AdhanRemind";
 import { DEFAULT_PARENT_OPTIONS, METHODS, PARENT_LABEL_MAX, PARENT_OPTIONS_MAX, PRAYERS, audioSources, autoCalc, cleanAdhan, type AdhanSettings, type ParentAction, type ParentOption, type PrayerId } from "@/lib/adhanCore";
 import { useAutoLocation } from "@/lib/adhanLocation";
 import { timesForDay } from "@/lib/prayer";
-import { saveSettings, useSettings } from "@/lib/settings";
+import { DEFAULT_SETTINGS, useSettings } from "@/lib/settings";
 import { playAlert } from "@/lib/sounds";
 import SoundSettings from "@/app/admin/SoundSettings";
 import { usePreviewDraft } from "@/lib/preview";
-import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
+import { MovableSection, OwnerFooter } from "./sectionKit";
+import { useSettingsOwner } from "./saveKit";
 
 function clock(d: Date): string {
   return new Intl.DateTimeFormat("ar-EG", { hour: "numeric", minute: "2-digit", hour12: true }).format(d);
@@ -17,16 +18,18 @@ function clock(d: Date): string {
 
 /** تبويب «الأذان»: كل ما يخصّ نافذة الأذان، في مربعات منفصلة. */
 export default function AdhanTab() {
-  const { settings, update, ready } = useSettings();
+  const { settings, ready } = useSettings();
   const [form, setForm] = useState<AdhanSettings>(settings.adhan);
   usePreviewDraft("adhan", { adhan: cleanAdhan(form) });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const patch = useMemo(() => ({ adhan: cleanAdhan(form) }), [form]);
+  useSettingsOwner({
+    patch,
+    afterSave: (saved) => setForm(saved.adhan),
+    reset: () => setForm(DEFAULT_SETTINGS.adhan),
+  });
   const [test, setTest] = useState<number | null>(null); // ثوانٍ متبقية في التجربة
 
   const set = <K extends keyof AdhanSettings>(k: K, v: AdhanSettings[K]) => {
-    setDone(false);
     setForm((f) => ({ ...f, [k]: v }));
   };
   const setPrayer = (id: PrayerId, on: boolean) => set("prayers", { ...form.prayers, [id]: on });
@@ -58,21 +61,6 @@ export default function AdhanTab() {
     const local = new Date(Date.now() + (coords.lng / 15) * 3600000);
     return timesForDay(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate(), coords.lat, coords.lng);
   }, [coords.lat, coords.lng]);
-
-  async function save() {
-    setError("");
-    setSaving(true);
-    try {
-      const saved = await saveSettings({ ...settings, adhan: cleanAdhan(form) });
-      update(saved);
-      setForm(saved.adhan);
-      setDone(true);
-    } catch {
-      setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
 
@@ -213,10 +201,7 @@ export default function AdhanTab() {
       <MovableSection id="sound.adhan"><SoundSettings /></MovableSection>
 
       <OwnerFooter>
-      {error && <p className="field-error" role="alert">{error}</p>}
-      {done && <p className="hint" role="status">تم حفظ إعدادات الأذان ✓</p>}
       <div className="addrow">
-        <button type="button" className="btn" onClick={() => void save()} disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات الأذان"}</button>
         <button type="button" className="btn btn--ghost" onClick={() => { setTest(form.countdownMin * 60); if (settings.sounds.adhan && audioSources(cleanAdhan(form), "dhuhr").length === 0) playAlert("adhan", settings.sounds.volume); }}>تجربة النافذة</button>
       </div>
 
