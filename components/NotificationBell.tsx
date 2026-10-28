@@ -30,10 +30,10 @@ export default function NotificationBell() {
   const { user, loading, canAdd } = useAuth();
   const uid = user?.uid ?? null;
   const { settings } = useSettings();
-  const { items: all, failed, loaded } = useNotifications(uid, canAdd, !loading, settings.noticeCount);
+  const { items: all, failed, loaded } = useNotifications(uid, canAdd, !loading, settings.noticeCount, settings.noticeRefreshMin);
   const snd = settings.sounds;
   const [gone, setGone] = useState<string[]>([]);
-  const reports = useOpenReports(canAdd);
+  const reports = useOpenReports(canAdd, settings.noticeRefreshMin);
   const [open, setOpen] = useState(false);
   const [seen, setSeen] = useState<string[] | null>(null); // معرّفات ما رآه العضو (null = لم يُقرأ بعد)
   const [mark, setMark] = useState<string[]>([]); // الجديد وقت فتح القائمة (للتمييز داخلها)
