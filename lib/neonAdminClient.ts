@@ -2,7 +2,7 @@
 // تُستعمل فقط حين NEXT_PUBLIC_DATA_BACKEND=neon. ترمي خطأ إن لم ينجح الطلب كي يعرض المتصل رسالته كما كان عند فشل Firestore.
 import { getFirebaseAuth } from "./firebase";
 import type { NamedOut } from "./neonRows";
-import type { ReportOut } from "./neonAdmin";
+import type { ReportOut, StatsTotalsOut } from "./neonAdmin";
 import type { Audience, Notice } from "./noticeCore";
 import type { VideoDoc } from "./videos";
 import type { NamedPatch, VideoCreate, VideoPatch } from "./adminInput";
@@ -55,3 +55,7 @@ export const adminOpenReportsCount = () => call<{ count: number }>("/api/admin/r
 // الصور المصغّرة (المرحلة 6ج).
 export const adminSaveThumb = (id: string, b64: string): Promise<void> => call<{ ok: true }>("/api/admin/thumbs", { op: "save", id, b64 }).then(() => undefined);
 export const adminDeleteThumbs = (ids: string[]): Promise<void> => call<{ ok: true }>("/api/admin/thumbs", { op: "delete", ids }).then(() => undefined);
+
+// الإحصاءات (تبويب الإحصاءات): المجاميع ومشاهدات الأيام من Neon.
+export const adminStatsTotals = () => call<StatsTotalsOut>("/api/admin/stats?kind=totals");
+export const adminStatsDaily = (start: string, days: number) => call<{ day: string; views: number }[]>(`/api/admin/stats?kind=daily&start=${encodeURIComponent(start)}&days=${days}`);

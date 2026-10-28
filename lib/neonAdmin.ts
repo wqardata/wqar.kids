@@ -2,7 +2,7 @@
 // الصلاحية (adminFromToken) تُفحص في مسارات /api/admin/* قبل استدعاء أي دالة هنا.
 import { query } from "./db";
 import type { NamedPatch, ReportOp, VideoCreate, VideoPatch } from "./adminInput";
-import { DELETE_THUMBS_SQL, RESET_LAYOUT_SQL, SAVE_LAYOUT_SQL, SAVE_SITE_SQL, SAVE_THUMB_SQL, newId, setClause } from "./adminSql";
+import { DELETE_THUMBS_SQL, RESET_LAYOUT_SQL, SAVE_LAYOUT_SQL, SAVE_SITE_SQL, SAVE_THUMB_SQL, STATS_DAILY_SQL, STATS_TOTALS_SQL, newId, setClause } from "./adminSql";
 import { settingDoc } from "./neonServer";
 import { rowToVideo, type VideoRow } from "./neonRows";
 import type { VideoDoc } from "./videos";
@@ -192,4 +192,19 @@ export async function saveThumbRow(id: string, b64: string): Promise<void> {
 /** يعيد عدد الصور المحذوفة. */
 export async function deleteThumbRows(ids: string[]): Promise<number> {
   return (await query(`${DELETE_THUMBS_SQL} returning id`, [ids])).length;
+}
+
+export type StatsTotalsOut = { views: number; likes: number; videos: number; hidden: number; shorts: number; reportsOpen: number };
+
+/** مجاميع الموقع لتبويب الإحصاءات (جملة واحدة). */
+export async function statsTotals(): Promise<StatsTotalsOut> {
+  const r = (await query<{ views: string | number; likes: string | number; videos: number; hidden: number; shorts: number; reports_open: number }>(STATS_TOTALS_SQL))[0];
+  const n = (v: unknown) => Math.max(0, Math.round(Number(v) || 0));
+  return { views: n(r?.views), likes: n(r?.likes), videos: n(r?.videos), hidden: n(r?.hidden), shorts: n(r?.shorts), reportsOpen: n(r?.reports_open) };
+}
+
+/** مشاهدات الأيام من `start` (YYYY-MM-DD) فصاعدًا. التعبئة بالأصفار للأيام الخالية تتم عند المتصل. */
+export async function statsDaily(start: string, limit: number): Promise<{ day: string; views: number }[]> {
+  const rows = await query<{ day: string; views: number }>(STATS_DAILY_SQL, [start, limit]);
+  return rows.map((x) => ({ day: String(x.day).slice(0, 10), views: Number(x.views) || 0 }));
 }

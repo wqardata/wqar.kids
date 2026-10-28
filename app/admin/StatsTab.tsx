@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Icon from "@/components/Icon";
+import { USE_NEON } from "@/lib/backend";
 import { fetchDaily, fetchTotals, type DayPoint, type SiteTotals } from "@/lib/stats";
 import { MovableSection } from "./sectionKit";
 
@@ -90,8 +91,8 @@ export default function StatsTab() {
     setTotalsErr("");
     setDailyErr("");
     // كل جزء مستقل: فشل مخطط الإقبال (القواعد القديمة مثلًا) لا يُخفي المجاميع.
-    const a = fetchTotals(manual).then(setTotals).catch((e) => setTotalsErr(`تعذّر حساب المجاميع بالتجميع من الخادم. اضغط «تحديث» لحسابها بقراءة الفيديوهات (تستهلك قراءات أكثر). (${why(e)})`));
-    const b = fetchDaily(90, manual).then(setDaily).catch((e) => setDailyErr(`تعذّر تحميل مخطط الإقبال. حدّث قواعد Firestore (stats) ثم Publish. (${why(e)})`));
+    const a = fetchTotals(manual).then(setTotals).catch((e) => setTotalsErr(USE_NEON ? `تعذّر حساب المجاميع. اضغط «تحديث» للمحاولة مرة أخرى. (${why(e)})` : `تعذّر حساب المجاميع بالتجميع من الخادم. اضغط «تحديث» لحسابها بقراءة الفيديوهات (تستهلك قراءات أكثر). (${why(e)})`));
+    const b = fetchDaily(90, manual).then(setDaily).catch((e) => setDailyErr(USE_NEON ? `تعذّر تحميل مخطط الإقبال. (${why(e)})` : `تعذّر تحميل مخطط الإقبال. حدّث قواعد Firestore (stats) ثم Publish. (${why(e)})`));
     void Promise.all([a, b]).finally(() => setLoading(false));
   }, []);
 

@@ -1,6 +1,8 @@
 "use client";
 import { collection, doc, getAggregateFromServer, getDocs, orderBy, query, setDoc, sum, count, updateDoc, increment, where, limit } from "firebase/firestore";
+import { USE_NEON } from "./backend";
 import { getDb, isFirebaseConfigured } from "./firebase";
+import { adminStatsDaily, adminStatsTotals } from "./neonAdminClient";
 
 /** مفتاح اليوم بتوقيت UTC بصيغة YYYY-MM-DD (موحَّد بين الزوار والمشرف). */
 export function dayKey(t: number = Date.now()): string {
@@ -12,6 +14,7 @@ export function dayKey(t: number = Date.now()): string {
  * الفشل صامت: لا يمنع المشاهدة ولا يظهر للزائر (مثلًا إن لم تُحدَّث القواعد بعد).
  */
 export async function bumpDailyViews(): Promise<void> {
+  if (USE_NEON) return; // على Neon يزيد الخادم إحصاء اليوم مع مشاهدة الفيديو (/api/data/view)
   if (!isFirebaseConfigured) return;
   const day = dayKey();
   const ref = doc(getDb(), "stats", `d-${day}`);
@@ -38,9 +41,11 @@ export type SiteTotals = {
 
 // نتائج الإحصائيات تُخزَّن في المتصفح عدّة دقائق: فتح اللوحة مرارًا لا يكرّر القراءات. زر «تحديث» يتجاوز التخزين دائمًا.
 const STATS_TTL = 10 * 60_000;
+// مفتاح مستقل لكل مصدر بيانات كي لا تظهر أرقام Firestore القديمة المخزَّنة بعد التبديل إلى Neon.
+const cacheKey = (key: string) => `stats-cache:${USE_NEON ? "neon:" : ""}${key}`;
 function cacheRead<T>(key: string): T | null {
   try {
-    const raw = localStorage.getItem(`stats-cache:${key}`);
+    const raw = localStorage.getItem(cacheKey(key));
     if (!raw) return null;
     const v = JSON.parse(raw) as { at: number; data: T };
     return Date.now() - v.at < STATS_TTL ? v.data : null;
@@ -50,7 +55,7 @@ function cacheRead<T>(key: string): T | null {
 }
 function cacheWrite(key: string, data: unknown) {
   try {
-    localStorage.setItem(`stats-cache:${key}`, JSON.stringify({ at: Date.now(), data }));
+    localStorage.setItem(cacheKey(key), JSON.stringify({ at: Date.now(), data }));
   } catch {
     /* التخزين غير متاح */
   }
@@ -64,6 +69,11 @@ export async function fetchTotals(manual = false): Promise<SiteTotals> {
   if (!manual) {
     const hit = cacheRead<SiteTotals>("totals");
     if (hit) return hit;
+  }
+  if (USE_NEON) {
+    const out = await adminStatsTotals();
+    cacheWrite("totals", out);
+    return out;
   }
   let out: SiteTotals;
   try {
@@ -132,11 +142,15 @@ export async function fetchDaily(days: number, manual = false): Promise<DayPoint
     if (hit) return hit;
   }
   const start = dayKey(Date.now() - (days - 1) * 86_400_000);
-  const snap = await getDocs(query(collection(getDb(), "stats"), where("day", ">=", start), orderBy("day"), limit(days + 5)));
   const by = new Map<string, number>();
-  for (const d of snap.docs) {
-    const x = d.data();
-    if (typeof x.day === "string" && typeof x.views === "number") by.set(x.day, x.views);
+  if (USE_NEON) {
+    for (const x of await adminStatsDaily(start, days)) by.set(x.day, x.views);
+  } else {
+    const snap = await getDocs(query(collection(getDb(), "stats"), where("day", ">=", start), orderBy("day"), limit(days + 5)));
+    for (const d of snap.docs) {
+      const x = d.data();
+      if (typeof x.day === "string" && typeof x.views === "number") by.set(x.day, x.views);
+    }
   }
   const out: DayPoint[] = [];
   for (let i = days - 1; i >= 0; i--) {
