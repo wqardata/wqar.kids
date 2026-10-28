@@ -23,12 +23,17 @@ export const AUDIENCES: readonly { id: Audience; label: string; note: string }[]
 export const DEFAULT_AUDIENCE: Audience = "all";
 export const audienceLabel = (a: Audience) => AUDIENCES.find((x) => x.id === a)?.label ?? a;
 
+/** فترة تحديث الجرس الدورية على Neon (والزائر ما زال على الصفحة): كل 30 دقيقة. */
+export const BELL_POLL_MS = 30 * 60_000;
+
 /**
  * يُشغّل `fn` عند عودة الزائر إلى الصفحة (فتح التطبيق/التبويب، العودة للاتصال)، بحدّ أدنى `minGapMs` بين مرّتين.
  * الاشتراك المباشر (onSnapshot) كثيرًا ما يتجمّد في متصفحات الجوال بعد أن تذهب الصفحة للخلفية،
- * فنُحدّث البيانات من الخادم عند العودة فقط (بلا مؤقّت دوري) كي لا نستهلك حصّة قراءات Firestore المجانية.
+ * فنُحدّث البيانات من الخادم عند العودة.
+ * `intervalMs` (اختياري): يُشغّل `fn` أيضًا كل هذه المدة ما دامت الصفحة ظاهرة فقط (لا شيء والصفحة في الخلفية).
+ * بلا `intervalMs` لا يوجد مؤقّت دوري (يحمي حصّة قراءات Firestore، ويقلّل إيقاظ قاعدة Neon).
  */
-export function useRefreshOnReturn(fn: () => void, enabled: boolean, minGapMs = 300_000) {
+export function useRefreshOnReturn(fn: () => void, enabled: boolean, minGapMs = 300_000, intervalMs?: number) {
   useEffect(() => {
     if (!enabled) return;
     let last = Date.now();
@@ -37,15 +42,22 @@ export function useRefreshOnReturn(fn: () => void, enabled: boolean, minGapMs = 
       last = Date.now();
       fn();
     };
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      last = Date.now();
+      fn();
+    };
+    const timer = intervalMs && intervalMs > 0 ? setInterval(tick, intervalMs) : null;
     document.addEventListener("visibilitychange", run);
     window.addEventListener("online", run);
     window.addEventListener("pageshow", run);
     return () => {
+      if (timer !== null) clearInterval(timer);
       document.removeEventListener("visibilitychange", run);
       window.removeEventListener("online", run);
       window.removeEventListener("pageshow", run);
     };
-  }, [fn, enabled, minGapMs]);
+  }, [fn, enabled, minGapMs, intervalMs]);
 }
 
 export function toNotice(id: string, d: Record<string, unknown>): Notice {
@@ -71,7 +83,7 @@ export function useNotifications(uid: string | null, isAdmin: boolean, ready = t
   const [denied, setDenied] = useState<Audience[]>([]);
   const show = Math.min(NOTICE_KEEP, Math.max(1, Math.round(count) || DEFAULT_NOTICE_COUNT));
 
-  // Neon: لا اشتراك مباشر. نجلب من /api/data/notifications (الخادم يحدّد الفئات من رمز Firebase) عند التحميل وعند العودة للتطبيق.
+  // Neon: لا اشتراك مباشر. نجلب من /api/data/notifications (الخادم يحدّد الفئات من رمز Firebase) عند التحميل وعند العودة للصفحة وكل 30 دقيقة ما دامت ظاهرة.
   const [neon, setNeon] = useState<{ items: Notice[] | null; failed: boolean }>({ items: null, failed: false });
   const seq = useRef(0);
   const loadNeon = useCallback(() => {
@@ -92,7 +104,7 @@ export function useNotifications(uid: string | null, isAdmin: boolean, ready = t
     setNeon({ items: null, failed: false });
     loadNeon();
   }, [loadNeon]);
-  useRefreshOnReturn(loadNeon, USE_NEON && ready);
+  useRefreshOnReturn(loadNeon, USE_NEON && ready, 300_000, BELL_POLL_MS); // عند العودة للصفحة، وكل 30 دقيقة ما دامت ظاهرة
 
   useEffect(() => {
     setByAud({});
@@ -145,7 +157,7 @@ export function useOpenReports(enabled: boolean) {
   useEffect(() => {
     if (USE_NEON) {
       if (!enabled) setCount(0);
-      else loadNeon(); // لا اشتراك مباشر على Neon: الجلب عند التحميل ثم عند العودة للتطبيق
+      else loadNeon(); // لا اشتراك مباشر على Neon: الجلب عند التحميل ثم عند العودة للصفحة وكل 30 دقيقة ما دامت ظاهرة
       return;
     }
     if (!enabled || !isFirebaseConfigured) {
@@ -165,7 +177,7 @@ export function useOpenReports(enabled: boolean) {
       .then((snap) => setCount(snap.size))
       .catch(() => {});
   }, [enabled]);
-  useRefreshOnReturn(refresh, enabled && (USE_NEON || isFirebaseConfigured), USE_NEON ? 60_000 : 300_000);
+  useRefreshOnReturn(refresh, enabled && (USE_NEON || isFirebaseConfigured), USE_NEON ? 60_000 : 300_000, USE_NEON ? BELL_POLL_MS : undefined);
   return { count, refresh };
 }
 
