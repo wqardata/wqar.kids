@@ -5,10 +5,13 @@ import { collection, deleteDoc, doc, getDocs, limit, orderBy, query, serverTimes
 import CreatableSelect from "@/components/CreatableSelect";
 import Icon from "@/components/Icon";
 import { useAuth } from "@/lib/auth";
+import { USE_NEON } from "@/lib/backend";
+import type { VideoPatch } from "@/lib/adminInput";
+import { adminBulkPatch, adminDeleteVideos, adminPatchVideo, adminVideoList } from "@/lib/neonAdminClient";
 import { getDb } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
 import { openGrabber, probeDuration } from "@/lib/frameGrab";
-import { deleteThumb } from "@/lib/thumbs";
+import { deleteThumb, deleteThumbs } from "@/lib/thumbs";
 import { bumpVideosVersion, toVideo, useNamedList, type VideoDoc } from "@/lib/videos";
 import ShortForm from "./ShortForm";
 import VideoEditForm from "./VideoEditForm";
@@ -61,10 +64,10 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
   useEffect(() => {
     let off = false;
     setLoading(true);
-    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(1000)))
-      .then((snap) => {
+    (USE_NEON ? adminVideoList() : getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(1000))).then((snap) => snap.docs.map((d) => toVideo(d.id, d.data()))))
+      .then((list) => {
         if (!off) {
-          setItems(snap.docs.map((d) => toVideo(d.id, d.data())));
+          setItems(list);
           setError("");
         }
       })
@@ -145,11 +148,18 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
       }
     }
     try {
-      const db = getDb();
-      for (let i = 0; i < ids.length; i += 400) {
-        const batch = writeBatch(db);
-        ids.slice(i, i + 400).forEach((id) => batch.update(doc(db, "videos", id), data));
-        await batch.commit();
+      if (USE_NEON) {
+        // نفس الحقول بلا updatedAt (الخادم يتحقق منها ويرفع الإصدار).
+        const { updatedAt: _omit, ...fields } = data;
+        void _omit;
+        await adminBulkPatch(ids, fields as VideoPatch);
+      } else {
+        const db = getDb();
+        for (let i = 0; i < ids.length; i += 400) {
+          const batch = writeBatch(db);
+          ids.slice(i, i + 400).forEach((id) => batch.update(doc(db, "videos", id), data));
+          await batch.commit();
+        }
       }
       bumpVideosVersion();
       const done = new Set(ids);
@@ -172,19 +182,26 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
     setError("");
     setBulkMsg("");
     try {
-      const db = getDb();
-      for (let i = 0; i < picked.length; i += 400) {
-        const batch = writeBatch(db);
-        picked.slice(i, i + 400).forEach((v) => {
-          const ref = doc(db, "videos", v.id);
-          if (kind === "delete") batch.delete(ref);
-          else batch.update(ref, { hidden: kind === "hide", updatedAt: serverTimestamp() });
-        });
-        await batch.commit();
+      const pickedIds = picked.map((v) => v.id);
+      if (USE_NEON) {
+        if (kind === "delete") await adminDeleteVideos(pickedIds);
+        else await adminBulkPatch(pickedIds, { hidden: kind === "hide" });
+        bumpVideosVersion();
+      } else {
+        const db = getDb();
+        for (let i = 0; i < picked.length; i += 400) {
+          const batch = writeBatch(db);
+          picked.slice(i, i + 400).forEach((v) => {
+            const ref = doc(db, "videos", v.id);
+            if (kind === "delete") batch.delete(ref);
+            else batch.update(ref, { hidden: kind === "hide", updatedAt: serverTimestamp() });
+          });
+          await batch.commit();
+        }
       }
-      const done = new Set(picked.map((v) => v.id));
+      const done = new Set(pickedIds);
       if (kind === "delete") {
-        picked.forEach((v) => void deleteThumb(v.id));
+        void deleteThumbs(picked.map((v) => v.id)); // دفعة واحدة (على Neon طلب واحد بدل طلب لكل فيديو)
         setItems((prev) => prev.filter((v) => !done.has(v.id)));
       } else {
         setItems((prev) => prev.map((v) => (done.has(v.id) ? { ...v, hidden: kind === "hide" } : v)));
@@ -206,7 +223,8 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
     setBusy(v.id);
     setError("");
     try {
-      await updateDoc(doc(getDb(), "videos", v.id), { ...data, updatedAt: serverTimestamp() });
+      if (USE_NEON) await adminPatchVideo(v.id, data);
+      else await updateDoc(doc(getDb(), "videos", v.id), { ...data, updatedAt: serverTimestamp() });
       bumpVideosVersion();
       replace({ ...v, ...data });
     } catch {
@@ -243,7 +261,7 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
           g.dispose();
         }
         if (d <= 0) throw new Error("no duration");
-        await updateDoc(doc(getDb(), "videos", v.id), { duration: d }).catch(() => {});
+        await (USE_NEON ? adminPatchVideo(v.id, { duration: d }) : updateDoc(doc(getDb(), "videos", v.id), { duration: d })).catch(() => {});
         setItems((prev) => prev.map((x) => (x.id === v.id ? { ...x, duration: d } : x)));
       } catch {
         failed++;
@@ -258,7 +276,8 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
     setBusy(v.id);
     setError("");
     try {
-      await deleteDoc(doc(getDb(), "videos", v.id));
+      if (USE_NEON) await adminDeleteVideos([v.id]);
+      else await deleteDoc(doc(getDb(), "videos", v.id));
       bumpVideosVersion();
       void deleteThumb(v.id);
       setItems((prev) => prev.filter((x) => x.id !== v.id));

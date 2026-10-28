@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Timestamp, collection, doc, getDocs, limit, orderBy, query, writeBatch } from "firebase/firestore";
 import CreatableSelect from "@/components/CreatableSelect";
 import { useAuth } from "@/lib/auth";
+import { USE_NEON } from "@/lib/backend";
+import { adminImportVideos, adminVideoList } from "@/lib/neonAdminClient";
 import { driveThumbnail, parseFolderId } from "@/lib/drive";
 import { getDb } from "@/lib/firebase";
 import { formatClock } from "@/lib/format";
@@ -43,8 +45,10 @@ export default function FolderImport() {
   useEffect(() => {
     if (!user) return;
     let off = false;
-    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(1000)))
-      .then((snap) => !off && setKnown(new Set(snap.docs.map((d) => String(d.data().driveId ?? "")).filter(Boolean))))
+    (USE_NEON
+      ? adminVideoList().then((list) => list.map((v) => v.driveId))
+      : getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(1000))).then((snap) => snap.docs.map((d) => String(d.data().driveId ?? ""))))
+      .then((ids) => !off && setKnown(new Set(ids.filter(Boolean))))
       .catch(() => {});
     return () => {
       off = true;
@@ -104,10 +108,9 @@ export default function FolderImport() {
       const db = getDb();
       let done = 0;
       for (let i = 0; i < selected.length; i += 400) {
-        const batch = writeBatch(db);
-        selected.slice(i, i + 400).forEach((r, k) => {
+        const chunk = selected.slice(i, i + 400).map((r, k) => {
           const n = i + k;
-          batch.set(doc(collection(db, "videos")), {
+          return {
             title: r.title.trim().slice(0, 150),
             driveId: r.id,
             thumbnail: driveThumbnail(r.id),
@@ -121,14 +124,20 @@ export default function FolderImport() {
             episode: ser && numbering ? first + n : null,
             isShort: false,
             hidden,
-            createdBy: user.uid,
-            createdByEmail: user.email ?? "",
             // ترتيب زمني متصاعد يحفظ ترتيب الأسماء.
-            createdAt: Timestamp.fromMillis(base + n),
-          });
+            createdMs: base + n,
+          };
         });
         setProgress(`جارٍ الحفظ… ${Math.min(i + 400, selected.length)} من ${selected.length}`);
-        await batch.commit();
+        if (USE_NEON) {
+          await adminImportVideos(chunk.map(({ createdMs, ...v }) => ({ ...v, createdAt: createdMs })));
+        } else {
+          const batch = writeBatch(db);
+          chunk.forEach(({ createdMs, ...v }) =>
+            batch.set(doc(collection(db, "videos")), { ...v, createdBy: user.uid, createdByEmail: user.email ?? "", createdAt: Timestamp.fromMillis(createdMs) }),
+          );
+          await batch.commit();
+        }
         bumpVideosVersion();
         done += Math.min(400, selected.length - i);
         setDoneCount(done);

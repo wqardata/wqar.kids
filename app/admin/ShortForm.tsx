@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { USE_NEON } from "@/lib/backend";
+import { adminCreateVideo } from "@/lib/neonAdminClient";
 import CreatableSelect from "@/components/CreatableSelect";
 import { useAuth } from "@/lib/auth";
 import { driveThumbnail } from "@/lib/drive";
@@ -57,7 +59,7 @@ export default function ShortForm({ onCreated }: { onCreated: () => void }) {
         }
       }
       try {
-        await setDoc(ref, {
+        const fields = {
           title: title.trim(),
           driveId,
           thumbnail,
@@ -71,10 +73,9 @@ export default function ShortForm({ onCreated }: { onCreated: () => void }) {
           episode: null,
           isShort: true,
           hidden: false,
-          createdBy: user.uid,
-          createdByEmail: user.email ?? "",
-          createdAt: serverTimestamp(),
-        });
+        };
+        if (USE_NEON) await adminCreateVideo({ ...fields, id: ref.id });
+        else await setDoc(ref, { ...fields, createdBy: user.uid, createdByEmail: user.email ?? "", createdAt: serverTimestamp() });
       } catch (e) {
         if (savedThumb) void deleteThumb(ref.id);
         throw e;

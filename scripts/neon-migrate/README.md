@@ -21,7 +21,7 @@ DATABASE_URL="postgresql://..." node migrate.mjs --key=/المسار/serviceAcco
 DATABASE_URL="postgresql://..." node migrate.mjs --key=/المسار/serviceAccount.json --write
 
 # مجموعات محدّدة فقط
-node migrate.mjs --key=... --write --only=videos,users
+node migrate.mjs --key=... --write --only=videos,series
 ```
 في Windows PowerShell: `$env:DATABASE_URL="postgresql://..."` ثم الأمر.
 
@@ -30,5 +30,5 @@ node migrate.mjs --key=... --write --only=videos,users
 ## ملاحظات
 - **لقطة وقت التشغيل:** المشاهدات والإعجابات تتغيّر في Firestore باستمرار. شغّله مرة أخيرة (`--write`) لحظة التحويل النهائي.
 - الصفوف غير الصالحة (إشعار بلا عنوان، عضو بلا بريد…) تُتخطّى مع سطر تحذير بمعرّفها.
-- `users.uid` هو معرّف Firebase Auth نفسه؛ تسجيل الدخول يبقى على Firebase.
+- الأعضاء والتسجيل (`users` و`allowed`) يبقون على Firebase/Firestore ولا يُنسخون.
 - اختبار التحويلات بلا شبكة: `npm test`.

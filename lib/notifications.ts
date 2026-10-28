@@ -1,12 +1,18 @@
 "use client";
 // إشعارات الموقع: مستند لكل إشعار في Firestore (notifications/{id}) يكتبه المشرف ويقرؤه الأعضاء المسجَّلون بحسب الفئة.
 // المعرّف يبدأ بالوقت معكوسًا، فترتيب المعرّفات التصاعدي (الافتراضي في Firestore) = الأحدث أولًا بلا حاجة لفهرس مركّب.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { collection, getDocs, limit, onSnapshot, query, where } from "firebase/firestore";
-import { getDb, isFirebaseConfigured } from "./firebase";
-import { DEFAULT_NOTICE_COUNT, NOTICE_COUNT_MAX, cleanUrl } from "./settingsCore";
+import { getDb, getFirebaseAuth, isFirebaseConfigured } from "./firebase";
+import { DEFAULT_NOTICE_COUNT } from "./settingsCore";
+import { USE_NEON } from "./backend";
+import { neonNotices } from "./neonClient";
+import { adminOpenReportsCount } from "./neonAdminClient";
+import { NOTICE_KEEP, audiencesFor, cleanLink, type Audience, type Notice } from "./noticeCore";
 
-export type Audience = "all" | "viewers" | "admins" | "guests";
+export { NOTICE_KEEP, audiencesFor, cleanLink, newNoticeId } from "./noticeCore";
+export type { Audience, Notice } from "./noticeCore";
+
 export const AUDIENCES: readonly { id: Audience; label: string; note: string }[] = [
   { id: "guests", label: "الزوار", note: "غير المسجَّلين (لم يسجّلوا دخولًا)" },
   { id: "viewers", label: "الأعضاء", note: "الأعضاء العاديون دون المشرفين" },
@@ -16,11 +22,6 @@ export const AUDIENCES: readonly { id: Audience; label: string; note: string }[]
 /** الفئة المختارة افتراضيًا عند إرسال إشعار جديد. */
 export const DEFAULT_AUDIENCE: Audience = "all";
 export const audienceLabel = (a: Audience) => AUDIENCES.find((x) => x.id === a)?.label ?? a;
-
-export type Notice = { id: string; title: string; body: string; link: string; audience: Audience; at: number };
-
-/** كم إشعارًا يُحتفظ به لكل فئة في Firestore (الأقدم يُحذف عند الإرسال). عدد الظاهر منها يحدّده المشرف (≤ هذا الحد). */
-export const NOTICE_KEEP = NOTICE_COUNT_MAX;
 
 /**
  * يُشغّل `fn` عند عودة الزائر إلى الصفحة (فتح التطبيق/التبويب، العودة للاتصال)، بحدّ أدنى `minGapMs` بين مرّتين.
@@ -47,19 +48,6 @@ export function useRefreshOnReturn(fn: () => void, enabled: boolean, minGapMs = 
   }, [fn, enabled, minGapMs]);
 }
 
-export function newNoticeId(): string {
-  const rev = String(9_999_999_999_999 - Date.now()).padStart(13, "0");
-  return `${rev}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-/** رابط داخلي (يبدأ بـ /) أو http(s) فقط؛ غير ذلك يُحذف. */
-export function cleanLink(raw: string): string {
-  const t = raw.trim();
-  if (!t) return "";
-  if (t.startsWith("/") && !t.startsWith("//") && t.length <= 300 && !/\s/.test(t)) return t;
-  return cleanUrl(t);
-}
-
 export function toNotice(id: string, d: Record<string, unknown>): Notice {
   const s = (k: string) => (typeof d[k] === "string" ? (d[k] as string) : "");
   const t = d.createdAt as { toMillis?: () => number } | null | undefined;
@@ -73,12 +61,6 @@ export function toNotice(id: string, d: Record<string, unknown>): Notice {
   };
 }
 
-/** الفئات التي يقرؤها كل نوع من الزوّار: «all» (الجميع) للكل، ثم فئته الخاصة: الزائر «guests»، العضو «viewers»، المشرف «admins». */
-export function audiencesFor(uid: string | null, isAdmin: boolean): Audience[] {
-  if (!uid) return ["all", "guests"];
-  return isAdmin ? ["all", "admins"] : ["all", "viewers"];
-}
-
 /**
  * إشعارات الزائر الحالي (مباشرة). نشترك في كل فئة باستعلام مساواة مستقل (audience == X) لا بـ «in»:
  * هكذا تُثبت قواعد Firestore أن كل استعلام مسموح، ولا يُسقط رفضُ فئة واحدة بقية الفئات.
@@ -88,10 +70,34 @@ export function useNotifications(uid: string | null, isAdmin: boolean, ready = t
   const [byAud, setByAud] = useState<Partial<Record<Audience, Notice[]>>>({});
   const [denied, setDenied] = useState<Audience[]>([]);
   const show = Math.min(NOTICE_KEEP, Math.max(1, Math.round(count) || DEFAULT_NOTICE_COUNT));
+
+  // Neon: لا اشتراك مباشر. نجلب من /api/data/notifications (الخادم يحدّد الفئات من رمز Firebase) عند التحميل وعند العودة للتطبيق.
+  const [neon, setNeon] = useState<{ items: Notice[] | null; failed: boolean }>({ items: null, failed: false });
+  const seq = useRef(0);
+  const loadNeon = useCallback(() => {
+    if (!USE_NEON || !ready) return;
+    const my = ++seq.current;
+    void (async () => {
+      try {
+        const token = uid ? await getFirebaseAuth().currentUser?.getIdToken() : undefined;
+        const items = await neonNotices(show, token);
+        if (my === seq.current) setNeon({ items, failed: false });
+      } catch {
+        if (my === seq.current) setNeon((p) => ({ items: p.items ?? [], failed: p.items === null }));
+      }
+    })();
+  }, [uid, ready, show]);
+  useEffect(() => {
+    if (!USE_NEON) return;
+    setNeon({ items: null, failed: false });
+    loadNeon();
+  }, [loadNeon]);
+  useRefreshOnReturn(loadNeon, USE_NEON && ready);
+
   useEffect(() => {
     setByAud({});
     setDenied([]);
-    if (!isFirebaseConfigured || !ready) return;
+    if (USE_NEON || !isFirebaseConfigured || !ready) return;
     let off = false; // بعد الإلغاء (تسجيل خروج/دخول) نتجاهل أخطاء الصلاحيات المتأخرة
     const auds = audiencesFor(uid, isAdmin);
     const unsubs = auds.map((a) =>
@@ -109,7 +115,7 @@ export function useNotifications(uid: string | null, isAdmin: boolean, ready = t
 
   // تحديث صريح من الخادم عند العودة للصفحة وكل فترة (انظر useRefreshOnReturn).
   const refresh = useCallback(() => {
-    if (!isFirebaseConfigured || !ready) return;
+    if (USE_NEON || !isFirebaseConfigured || !ready) return;
     for (const a of audiencesFor(uid, isAdmin)) {
       getDocs(query(collection(getDb(), "notifications"), where("audience", "==", a), limit(show)))
         .then((snap) => setByAud((p) => ({ ...p, [a]: snap.docs.map((d) => toNotice(d.id, d.data())) })))
@@ -118,6 +124,7 @@ export function useNotifications(uid: string | null, isAdmin: boolean, ready = t
   }, [uid, isAdmin, ready, show]);
   useRefreshOnReturn(refresh, ready && isFirebaseConfigured);
 
+  if (USE_NEON) return { items: (neon.items ?? []).slice(0, show), failed: neon.failed, denied: [] as Audience[], loaded: neon.items !== null || neon.failed };
   const items = Object.values(byAud)
     .flat()
     .filter((n): n is Notice => Boolean(n))
@@ -131,7 +138,16 @@ export function useNotifications(uid: string | null, isAdmin: boolean, ready = t
 /** عدد البلاغات المفتوحة (للمشرف فقط) مباشرةً: يتحدّث فور وصول بلاغ جديد. */
 export function useOpenReports(enabled: boolean) {
   const [count, setCount] = useState(0);
+  const loadNeon = useCallback(() => {
+    if (!USE_NEON || !enabled) return;
+    adminOpenReportsCount().then(setCount).catch(() => {});
+  }, [enabled]);
   useEffect(() => {
+    if (USE_NEON) {
+      if (!enabled) setCount(0);
+      else loadNeon(); // لا اشتراك مباشر على Neon: الجلب عند التحميل ثم عند العودة للتطبيق
+      return;
+    }
     if (!enabled || !isFirebaseConfigured) {
       setCount(0);
       return;
@@ -141,14 +157,15 @@ export function useOpenReports(enabled: boolean) {
       (snap) => setCount(snap.size),
       () => {},
     );
-  }, [enabled]);
+  }, [enabled, loadNeon]);
   const refresh = useCallback(() => {
+    if (USE_NEON) return loadNeon();
     if (!enabled || !isFirebaseConfigured) return;
     getDocs(query(collection(getDb(), "reports"), where("status", "==", "open")))
       .then((snap) => setCount(snap.size))
       .catch(() => {});
   }, [enabled]);
-  useRefreshOnReturn(refresh, enabled && isFirebaseConfigured);
+  useRefreshOnReturn(refresh, enabled && (USE_NEON || isFirebaseConfigured), USE_NEON ? 60_000 : 300_000);
   return { count, refresh };
 }
 

@@ -2,7 +2,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { addDoc, collection, deleteDoc, doc, getDocs, limit, query, serverTimestamp, updateDoc, where, writeBatch } from "firebase/firestore";
+import type { NamedPatch } from "@/lib/adminInput";
+import { USE_NEON } from "@/lib/backend";
 import { getDb } from "@/lib/firebase";
+import { adminCreateNamed, adminDeleteNamed, adminNamedList, adminUpdateNamed, adminVideoList } from "@/lib/neonAdminClient";
 import { cleanAvatarUrl, cleanCoverImage, clearVideoCache, normalizeAr, pickCover, toVideo, type VideoDoc } from "@/lib/videos";
 import { driveThumbnail, parseDriveId } from "@/lib/drive";
 import { deleteThumb, fileToJpegDataUrl, saveThumb } from "@/lib/thumbs";
@@ -81,6 +84,35 @@ export default function NamedManager({ coll }: { coll: Coll }) {
     setLoading(true);
     setError("");
     try {
+      if (USE_NEON) {
+        const [list, vids] = await Promise.all([adminNamedList(coll), adminVideoList()]);
+        const counts = new Map<string, number>();
+        const byId = new Map<string, VideoDoc[]>();
+        for (const v of vids) {
+          const id = coll === "series" ? v.seriesId : v.categoryId;
+          if (!id) continue;
+          counts.set(id, (counts.get(id) ?? 0) + 1);
+          if (coll === "series") byId.set(id, [...(byId.get(id) ?? []), v]);
+        }
+        const trunc = vids.length >= COUNT_LIMIT;
+        setCapped(trunc);
+        if (coll === "series") {
+          // مزامنة رابط صورة كل مجموعة (avatarUrl) كما في مسار Firestore.
+          for (const n of list) {
+            const mine = byId.get(n.id) ?? [];
+            const url = n.coverImage || pickCover(mine, n.coverVideoId)?.thumbnail || pickCover(mine, "")?.thumbnail || "";
+            if (cleanAvatarUrl(n.avatarUrl) !== cleanAvatarUrl(url) && (url || !trunc)) {
+              adminUpdateNamed("series", n.id, { avatarUrl: cleanAvatarUrl(url) }).then(() => clearVideoCache()).catch(() => {});
+            }
+          }
+        }
+        setItems(
+          list
+            .map((n) => ({ id: n.id, name: n.name, count: counts.get(n.id) ?? 0, coverVideoId: n.coverVideoId ?? "", coverImage: n.coverImage ?? "", vids: byId.get(n.id) ?? [] }))
+            .sort((a, b) => a.name.localeCompare(b.name, "ar")),
+        );
+        return;
+      }
       const db = getDb();
       const [list, vids] = await Promise.all([
         getDocs(collection(db, coll)),
@@ -143,8 +175,8 @@ export default function NamedManager({ coll }: { coll: Coll }) {
     if (taken.has(normalizeAr(name))) return setError("يوجد عنصر بهذا الاسم مسبقًا.");
     setAdding(true);
     try {
-      const ref = await addDoc(collection(getDb(), coll), { name, createdAt: serverTimestamp() });
-      setItems((prev) => [...prev, { id: ref.id, name, count: 0, coverVideoId: "", coverImage: "", vids: [] }].sort((a, b) => a.name.localeCompare(b.name, "ar")));
+      const newId = USE_NEON ? await adminCreateNamed(coll, name) : (await addDoc(collection(getDb(), coll), { name, createdAt: serverTimestamp() })).id;
+      setItems((prev) => [...prev, { id: newId, name, count: 0, coverVideoId: "", coverImage: "", vids: [] }].sort((a, b) => a.name.localeCompare(b.name, "ar")));
       setNewName("");
       setMsg(`تمت إضافة «${name}» ✓`);
     } catch {
@@ -217,7 +249,11 @@ export default function NamedManager({ coll }: { coll: Coll }) {
         patch.avatarUrl = cleanAvatarUrl(nextImage || pickCover(i.vids, nextVideo)?.thumbnail || pickCover(i.vids, "")?.thumbnail || "");
         if (nextVideo !== i.coverVideoId) patch.coverVideoId = nextVideo;
       }
-      if (Object.keys(patch).length) await updateDoc(doc(getDb(), coll, i.id), { ...patch, updatedAt: serverTimestamp() });
+      let synced = 0; // على Neon يزامن الخادم اسم العنصر في فيديوهاته ضمن الجملة نفسها
+      if (Object.keys(patch).length) {
+        if (USE_NEON) synced = (await adminUpdateNamed(coll, i.id, patch as NamedPatch)).videos;
+        else await updateDoc(doc(getDb(), coll, i.id), { ...patch, updatedAt: serverTimestamp() });
+      }
       // الصورة المرفوعة التي لم تعد مستعملة تُحذف كي لا تبقى يتيمة.
       if (coll === "series" && isUploaded(i.coverImage) && !isUploaded(nextImage)) void deleteThumb(i.id);
       clearVideoCache();
@@ -227,7 +263,7 @@ export default function NamedManager({ coll }: { coll: Coll }) {
           .sort((a, b) => a.name.localeCompare(b.name, "ar")),
       );
       try {
-        const n = name !== i.name ? await patchVideos(t.idField, i.id, { [t.nameField]: name }) : 0;
+        const n = name !== i.name ? (USE_NEON ? synced : await patchVideos(t.idField, i.id, { [t.nameField]: name })) : 0;
         setEditing("");
         setMsg(n ? `تم الحفظ وتحديث ${n} فيديو ✓` : "تم الحفظ ✓");
       } catch {
@@ -248,8 +284,12 @@ export default function NamedManager({ coll }: { coll: Coll }) {
     setMsg("");
     try {
       // نفصل الفيديوهات أولًا؛ إن فشل ذلك لا نحذف العنصر كي لا تبقى فيديوهات تشير إلى عنصر ضائع.
-      await patchVideos(t.idField, i.id, t.detach);
-      await deleteDoc(doc(getDb(), coll, i.id));
+      if (USE_NEON) {
+        await adminDeleteNamed(coll, i.id); // الفصل والحذف في جملة واحدة ذرّية
+      } else {
+        await patchVideos(t.idField, i.id, t.detach);
+        await deleteDoc(doc(getDb(), coll, i.id));
+      }
       if (coll === "series" && isUploaded(i.coverImage)) void deleteThumb(i.id);
       setItems((prev) => prev.filter((x) => x.id !== i.id));
       setMsg(`تم حذف «${i.name}» ✓`);

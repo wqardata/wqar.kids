@@ -1,6 +1,8 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { USE_NEON } from "@/lib/backend";
+import { adminPatchVideo } from "@/lib/neonAdminClient";
 import CreatableSelect from "@/components/CreatableSelect";
 import { useAuth } from "@/lib/auth";
 import { driveThumbnail } from "@/lib/drive";
@@ -74,7 +76,8 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
         // نقل الفيديو إلى مجموعة أخرى يُسقط ترتيبه القديم (يلحق بآخر المجموعة الجديدة حتى يُرتَّب).
         seriesOrder: (ser?.id ?? "") === video.seriesId ? video.seriesOrder : null,
       };
-      await updateDoc(doc(getDb(), "videos", video.id), { ...patch, updatedAt: serverTimestamp() });
+      if (USE_NEON) await adminPatchVideo(video.id, patch);
+      else await updateDoc(doc(getDb(), "videos", video.id), { ...patch, updatedAt: serverTimestamp() });
       bumpVideosVersion();
       if (thumbMode === "drive") void deleteThumb(video.id); // لم تعد اللقطة المحفوظة مستعملة
       onSaved({ ...video, ...patch });

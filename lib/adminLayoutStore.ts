@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { deleteDoc, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "./firebase";
+import { USE_NEON } from "./backend";
+import { adminGetLayout, adminResetLayout, adminSaveLayout } from "./neonAdminClient";
 import {
   DEFAULT_STRUCTURE,
   cloneStructure,
@@ -73,15 +75,18 @@ export function useAdminArrangement() {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     let off = false;
-    getDoc(doc(getDb(), "settings", "adminLayout"))
+    // Neon: المسار للمشرفين فقط (رمز Firebase)؛ Firestore: القراءة المباشرة كما كانت.
+    (USE_NEON
+      ? adminGetLayout().then((r) => ({ exists: r.exists, data: r.data as Record<string, unknown> }))
+      : getDoc(doc(getDb(), "settings", "adminLayout")).then((snap) => ({ exists: snap.exists(), data: (snap.data() ?? {}) as Record<string, unknown> })))
       .then((snap) => {
         if (off) return;
-        if (!snap.exists()) {
+        if (!snap.exists) {
           writeCache(null);
           setLayout(defaults());
           return;
         }
-        const data = snap.data();
+        const data = snap.data;
         const l = build(parse(data.json), parse(data.structure));
         writeCache(l);
         setLayout(l);
@@ -94,17 +99,20 @@ export function useAdminArrangement() {
 
   const save = useCallback(async (next: AdminLayout) => {
     const clean = build(next.arrangement, next.structure);
-    await setDoc(doc(getDb(), "settings", "adminLayout"), {
-      json: JSON.stringify(clean.arrangement),
-      structure: JSON.stringify(clean.structure),
-      updatedAt: serverTimestamp(),
-    });
+    if (USE_NEON) await adminSaveLayout(JSON.stringify(clean.arrangement), JSON.stringify(clean.structure));
+    else
+      await setDoc(doc(getDb(), "settings", "adminLayout"), {
+        json: JSON.stringify(clean.arrangement),
+        structure: JSON.stringify(clean.structure),
+        updatedAt: serverTimestamp(),
+      });
     writeCache(clean);
     setLayout(clean);
   }, []);
 
   const reset = useCallback(async () => {
-    await deleteDoc(doc(getDb(), "settings", "adminLayout"));
+    if (USE_NEON) await adminResetLayout();
+    else await deleteDoc(doc(getDb(), "settings", "adminLayout"));
     writeCache(null);
     setLayout(defaults());
   }, []);

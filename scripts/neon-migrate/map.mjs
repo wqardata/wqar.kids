@@ -132,8 +132,7 @@ export const PLAN = [
   { coll: "notifications", table: "notifications", pk: "id", map: mapNotification },
   { coll: "fingerprints", table: "fingerprints", pk: "id", map: mapFingerprint },
   { coll: "thumbs", table: "thumbs", pk: "id", map: mapThumb },
-  { coll: "allowed", table: "allowed", pk: "email", map: mapAllowed },
-  { coll: "users", table: "users", pk: "uid", map: mapUser },
+  // الأعضاء والتسجيل (users/allowed) يبقون على Firestore بقرار المالك: لا تُنسخ إلى Neon.
 ];
 
 /** عبارة upsert لصف: insert ... on conflict (pk) do update. أسماء الجداول والأعمدة من PLAN/المحوّلات فقط (ليست مدخلات خارجية). */

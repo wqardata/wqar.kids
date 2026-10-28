@@ -5,6 +5,8 @@ import { doc, increment, updateDoc } from "firebase/firestore";
 import Icon from "@/components/Icon";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { createLocalSet } from "@/lib/localSet";
+import { USE_NEON } from "@/lib/backend";
+import { neonPost } from "@/lib/neonClient";
 
 // الفيديوهات التي عدّها هذا المتصفح (لمنع أن يزيد الزائر العدّاد أكثر من مرة، ولتمكينه من التراجع).
 const counted = createLocalSet("fav-counted");
@@ -33,8 +35,11 @@ export default function FavoriteButton({ id, initial = 0 }: { id: string; initia
     setCount((c) => Math.max(0, c + delta));
     counted.toggle(id);
     try {
-      if (!isFirebaseConfigured) throw new Error("no-firebase");
-      await updateDoc(doc(getDb(), "videos", id), { likes: increment(delta) });
+      if (USE_NEON) await neonPost("/api/data/like", { id, delta });
+      else {
+        if (!isFirebaseConfigured) throw new Error("no-firebase");
+        await updateDoc(doc(getDb(), "videos", id), { likes: increment(delta) });
+      }
     } catch {
       // فشل الكتابة (قواعد قديمة أو لا اتصال): نتراجع كي لا يُظهر الزر رقمًا لم يُسجَّل.
       setCount((c) => Math.max(0, c - delta));

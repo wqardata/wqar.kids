@@ -4,7 +4,9 @@ import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { PREVIEW_FRAME_NAME } from "@/lib/previewFrame";
 import { PREVIEW_FOCUS_MSG, PREVIEW_MSG, PREVIEW_READY, usePreviewDraftValue } from "@/lib/preview";
-import { toVideo } from "@/lib/videos";
+import { USE_NEON } from "@/lib/backend";
+import { neonLatest } from "@/lib/neonClient";
+import { toVideo, type VideoDoc } from "@/lib/videos";
 
 const DEVICES = [
   { id: "desktop", label: "الكمبيوتر", w: 1280 },
@@ -22,9 +24,12 @@ function useSampleVideo(enabled: boolean): string {
   useEffect(() => {
     if (!enabled || id || !isFirebaseConfigured) return;
     let off = false;
-    getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(12)))
-      .then((snap) => {
-        const v = snap.docs.map((d) => toVideo(d.id, d.data())).find((x) => !x.hidden && !x.isShort);
+    const latest: Promise<VideoDoc[]> = USE_NEON
+      ? neonLatest(12)
+      : getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(12))).then((snap) => snap.docs.map((d) => toVideo(d.id, d.data())));
+    latest
+      .then((list) => {
+        const v = list.find((x) => !x.hidden && !x.isShort);
         if (!off && v) setId(v.id);
       })
       .catch(() => {});

@@ -4,6 +4,13 @@ import { addDoc, collection, doc, documentId, getDoc, getDocs, setDoc, increment
 import { getDb, isFirebaseConfigured } from "./firebase";
 import { bumpDailyViews } from "./stats";
 import { isPreviewFrame } from "./previewFrame";
+import { USE_NEON } from "./backend";
+import { adminCreateNamed } from "./neonAdminClient";
+import { cleanAvatarUrl, cleanCoverImage } from "./coverUrl";
+import { neonAllVideos, neonLatest, neonNamedList, neonPost, neonSetting, neonVideosByIds } from "./neonClient";
+
+// تبقى مُصدَّرة من هنا كي لا تتغيّر استيرادات بقية الملفات.
+export { cleanAvatarUrl, cleanCoverImage };
 
 export type Named = {
   id: string;
@@ -13,22 +20,6 @@ export type Named = {
   /** صورة مخصّصة للمجموعة (رابط /api/thumb لصورة مرفوعة من الجهاز، أو رابط صورة من درايف). تتغلّب على فيديو الغلاف. */
   coverImage?: string;
 };
-
-/** رابط صورة مخصّصة صالح للعرض: داخلي (/api/thumb/…) أو https من درايف/جوجل فقط. */
-export function cleanCoverImage(v: unknown): string {
-  if (typeof v !== "string") return "";
-  const t = v.trim();
-  if (/^\/api\/thumb\/[A-Za-z0-9]{10,40}(\?v=\d+)?$/.test(t)) return t;
-  if (/^https:\/\/(drive\.google\.com|lh\d\.googleusercontent\.com|drive\.usercontent\.google\.com)\//.test(t) && t.length <= 500) return t;
-  return "";
-}
-
-/** رابط صورة جاهز محفوظ في مستند المجموعة (avatarUrl): داخلي أو https فقط. */
-export function cleanAvatarUrl(v: unknown): string {
-  if (typeof v !== "string") return "";
-  const t = v.trim();
-  return t.length <= 600 && /^(\/(?!\/)|https:\/\/)/.test(t) ? t : "";
-}
 
 // ───────── تخزين مؤقت في متصفح الزائر (يوفّر قراءات Firestore: الزائر العائد لا يقرأ شيئًا خلال المدة) ─────────
 const CACHE_TTL = 15 * 60_000;
@@ -74,6 +65,16 @@ function wipeVideoCache(keepVer?: string) {
   }
 }
 
+/** رقم إصدار الفيديوهات المنشور (من Firestore أو Neon بحسب مفتاح التشغيل). */
+async function readRemoteVersion(): Promise<string> {
+  if (USE_NEON) {
+    const r = await neonSetting("videosVersion");
+    return String((r.exists ? r.data.v : 0) ?? 0);
+  }
+  const snap = await getDoc(doc(getDb(), "settings", "videosVersion"));
+  return String((snap.exists() ? snap.data().v : 0) ?? 0);
+}
+
 /** يتأكد أن التخزين المؤقت يطابق آخر إصدار منشور؛ يفشل بصمت (دون إنترنت يبقى التخزين المؤقت كما هو). */
 export function ensureFreshVideos(): Promise<void> {
   if (!isFirebaseConfigured) return Promise.resolve();
@@ -84,9 +85,8 @@ export function ensureFreshVideos(): Promise<void> {
     return Promise.resolve();
   }
   if (verInflight) return verInflight;
-  verInflight = getDoc(doc(getDb(), "settings", "videosVersion"))
-    .then((snap) => {
-      const remote = String((snap.exists() ? snap.data().v : 0) ?? 0);
+  verInflight = readRemoteVersion()
+    .then((remote) => {
       let local: string | null = null;
       try { local = localStorage.getItem(VER_KEY); } catch { /* لا بأس */ }
       if (local !== remote) wipeVideoCache(remote);
@@ -102,6 +102,7 @@ export function bumpVideosVersion(): void {
   if (!isFirebaseConfigured) return;
   const now = Date.now();
   wipeVideoCache(String(now));
+  if (USE_NEON) return; // على Neon يرفع الخادم الإصدار داخل كل عملية كتابة للمشرف (lib/neonAdmin.ts)
   void setDoc(doc(getDb(), "settings", "videosVersion"), { v: now }).catch(() => {});
 }
 
@@ -149,6 +150,13 @@ function norm(s: string) {
   return s.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+/** قراءة قائمة التصنيفات/المجموعات مرتبة بالاسم (Firestore أو Neon). */
+async function loadNamed(coll: "categories" | "series"): Promise<Named[]> {
+  if (USE_NEON) return (await neonNamedList(coll)).map(({ id, name, coverVideoId, coverImage }) => ({ id, name, coverVideoId, coverImage }));
+  const snap = await getDocs(query(collection(getDb(), coll), orderBy("name")));
+  return snap.docs.map((d) => ({ id: d.id, name: String(d.data().name ?? ""), coverVideoId: typeof d.data().coverVideoId === "string" ? (d.data().coverVideoId as string) : "", coverImage: cleanCoverImage(d.data().coverImage) }));
+}
+
 /** قائمة مسمّاة (تصنيفات/مجموعات) مع إمكانية إضافة عنصر جديد. */
 export function useNamedList(coll: "categories" | "series") {
   const [items, setItems] = useState<Named[]>([]);
@@ -158,9 +166,9 @@ export function useNamedList(coll: "categories" | "series") {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     let off = false;
-    getDocs(query(collection(getDb(), coll), orderBy("name")))
-      .then((snap) => {
-        if (!off) setItems(snap.docs.map((d) => ({ id: d.id, name: String(d.data().name ?? ""), coverVideoId: typeof d.data().coverVideoId === "string" ? (d.data().coverVideoId as string) : "", coverImage: cleanCoverImage(d.data().coverImage) })));
+    loadNamed(coll)
+      .then((list) => {
+        if (!off) setItems(list);
       })
       .catch(() => {
         if (!off) setError("تعذّر تحميل القائمة.");
@@ -180,9 +188,9 @@ export function useNamedList(coll: "categories" | "series") {
       if (!name) throw new Error("اكتب الاسم أولًا.");
       const existing = items.find((i) => norm(i.name) === norm(name));
       if (existing) return existing.id;
-      const ref = await addDoc(collection(getDb(), coll), { name, createdAt: serverTimestamp() });
-      setItems((prev) => [...prev, { id: ref.id, name }].sort((a, b) => a.name.localeCompare(b.name, "ar")));
-      return ref.id;
+      const newId = USE_NEON ? await adminCreateNamed(coll, name) : (await addDoc(collection(getDb(), coll), { name, createdAt: serverTimestamp() })).id;
+      setItems((prev) => [...prev, { id: newId, name }].sort((a, b) => a.name.localeCompare(b.name, "ar")));
+      return newId;
     },
     [coll, items],
   );
@@ -236,11 +244,15 @@ export function toVideo(id: string, d: Record<string, unknown>): VideoDoc {
 
 /** يزيد عدّاد مشاهدات الفيديو مرة واحدة لكل جلسة متصفح. الفشل صامت (لا يمنع المشاهدة). */
 export async function countView(id: string): Promise<boolean> {
-  if (!isFirebaseConfigured || isPreviewFrame()) return false; // معاينة اللوحة لا تُحتسب مشاهدة
+  if ((!USE_NEON && !isFirebaseConfigured) || isPreviewFrame()) return false; // معاينة اللوحة لا تُحتسب مشاهدة
   try {
     const k = `viewed:${id}`;
     if (sessionStorage.getItem(k)) return false;
     sessionStorage.setItem(k, "1");
+    if (USE_NEON) {
+      await neonPost("/api/data/view", { id }); // الخادم يزيد مشاهدات الفيديو وإحصاء اليوم معًا
+      return true;
+    }
     await updateDoc(doc(getDb(), "videos", id), { views: increment(1) });
     void bumpDailyViews(); // مخطط الإقبال اليومي في لوحة التحكم
     return true;
@@ -276,9 +288,8 @@ export function useAllVideos(max = 200) {
         setReady(true);
         return undefined;
       }
-      return getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(max)))
-      .then((snap) => {
-        const list = snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => !v.hidden);
+      return readLatest(max)
+      .then((list) => {
         cacheSet(key, slim(list));
         if (!off) setVideos(list);
       })
@@ -290,6 +301,13 @@ export function useAllVideos(max = 200) {
     };
   }, [max]);
   return { videos, ready };
+}
+
+/** أحدث `max` فيديو ظاهر (Firestore أو Neon). */
+async function readLatest(max: number): Promise<VideoDoc[]> {
+  if (USE_NEON) return (await neonLatest(max)).filter((v) => !v.hidden);
+  const snap = await getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(max)));
+  return snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => !v.hidden);
 }
 
 const latestInflight = new Map<number, Promise<VideoDoc[]>>();
@@ -306,9 +324,8 @@ export async function fetchLatestVideos(max: number): Promise<VideoDoc[]> {
   if (hit) return hit;
   const running = latestInflight.get(max);
   if (running) return running;
-  const p = getDocs(query(collection(getDb(), "videos"), orderBy("createdAt", "desc"), limit(max)))
-    .then((snap) => {
-      const list = snap.docs.map((d) => toVideo(d.id, d.data())).filter((v) => !v.hidden);
+  const p = readLatest(max)
+    .then((list) => {
       cacheSet(key, slim(list));
       return list;
     })
@@ -336,6 +353,12 @@ async function fetchEveryVideo(): Promise<VideoDoc[]> {
   }
   if (allInflight) return allInflight;
   allInflight = (async () => {
+    if (USE_NEON) {
+      const videos = (await neonAllVideos()).filter((v) => !v.hidden);
+      allCache = { at: Date.now(), videos };
+      cacheSet("all", slim(videos));
+      return videos;
+    }
     const out: VideoDoc[] = [];
     let last: QueryDocumentSnapshot | undefined;
     for (let n = 0; n < ALL_MAX_PAGES; n++) {
@@ -416,6 +439,15 @@ export function useVideosByIds(ids: readonly string[]) {
     }
     let off = false;
     const list = key.split(",");
+    if (USE_NEON) {
+      neonVideosByIds(list)
+        .then((got) => !off && setVideos(got.filter((v) => !v.hidden)))
+        .catch(() => {})
+        .finally(() => !off && setReady(true));
+      return () => {
+        off = true;
+      };
+    }
     const chunks: string[][] = [];
     for (let i = 0; i < list.length; i += 30) chunks.push(list.slice(i, i + 30));
     Promise.all(chunks.map((c) => getDocs(query(collection(getDb(), "videos"), where(documentId(), "in", c)))))
@@ -464,14 +496,17 @@ async function fetchSeriesAvatars(): Promise<Map<string, string>> {
     // الأصل: رابط الصورة الجاهز في مستند المجموعة (coverImage أو avatarUrl) فلا نقرأ أي فيديو.
     // يحدّثه المشرف تلقائيًا عند فتح «المجموعات» في لوحة التحكم. المجموعة التي لم يُحسب لها رابط بعد
     // (avatarUrl غير موجود) نحسبها بالطريقة القديمة من فيديوهاتها.
-    const snap = await getDocs(collection(getDb(), "series"));
+    // avatarUrl: نص = محسوب (ولو فارغًا)، null = لم يُحسب بعد. في Neon الفارغ يُعامَل كغير محسوب فيُحسب من الفيديوهات.
+    type SeriesRaw = { id: string; coverImage: unknown; avatarUrl: unknown; coverVideoId: unknown };
+    const raws: SeriesRaw[] = USE_NEON
+      ? (await neonNamedList("series")).map((r) => ({ id: r.id, coverImage: r.coverImage, avatarUrl: r.avatarUrl || null, coverVideoId: r.coverVideoId }))
+      : (await getDocs(collection(getDb(), "series"))).docs.map((d) => ({ ...(d.data() as Omit<SeriesRaw, "id">), id: d.id }));
     const map = new Map<string, string>();
     const unresolved: { id: string; chosen: string }[] = [];
-    for (const d of snap.docs) {
-      const data = d.data();
+    for (const data of raws) {
       const url = cleanCoverImage(data.coverImage) || cleanAvatarUrl(data.avatarUrl);
-      if (url) map.set(d.id, url);
-      else if (typeof data.avatarUrl !== "string") unresolved.push({ id: d.id, chosen: typeof data.coverVideoId === "string" ? (data.coverVideoId as string) : "" });
+      if (url) map.set(data.id, url);
+      else if (typeof data.avatarUrl !== "string") unresolved.push({ id: data.id, chosen: typeof data.coverVideoId === "string" ? data.coverVideoId : "" });
     }
     if (unresolved.length) {
       const all = await fetchEveryVideo();

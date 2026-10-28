@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
+import { USE_NEON } from "@/lib/backend";
 import { getDb } from "@/lib/firebase";
+import { adminSetOrder, adminVideoList } from "@/lib/neonAdminClient";
 import { bumpVideosVersion, compareInSeries, toVideo, type VideoDoc } from "@/lib/videos";
 
 const BATCH = 400;
@@ -30,10 +32,10 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
   useEffect(() => {
     let off = false;
     setLoading(true);
-    getDocs(query(collection(getDb(), "videos"), where("seriesId", "==", seriesId)))
-      .then((snap) => {
+    (USE_NEON ? adminVideoList(seriesId) : getDocs(query(collection(getDb(), "videos"), where("seriesId", "==", seriesId))).then((snap) => snap.docs.map((d) => toVideo(d.id, d.data()))))
+      .then((vids) => {
         if (off) return;
-        setList(snap.docs.map((d) => toVideo(d.id, d.data())).sort(compareInSeries));
+        setList(vids.sort(compareInSeries));
         setError("");
       })
       .catch(() => !off && setError("تعذّر تحميل حلقات المجموعة."))
@@ -83,11 +85,15 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
     setError("");
     setMsg("");
     try {
-      const db = getDb();
-      for (let i = 0; i < list.length; i += BATCH) {
-        const batch = writeBatch(db);
-        list.slice(i, i + BATCH).forEach((v, k) => batch.update(doc(db, "videos", v.id), { seriesOrder: i + k + 1, updatedAt: serverTimestamp() }));
-        await batch.commit();
+      if (USE_NEON) {
+        await adminSetOrder(seriesId, list.map((v) => v.id));
+      } else {
+        const db = getDb();
+        for (let i = 0; i < list.length; i += BATCH) {
+          const batch = writeBatch(db);
+          list.slice(i, i + BATCH).forEach((v, k) => batch.update(doc(db, "videos", v.id), { seriesOrder: i + k + 1, updatedAt: serverTimestamp() }));
+          await batch.commit();
+        }
       }
       bumpVideosVersion();
       setList((prev) => prev.map((v, i) => ({ ...v, seriesOrder: i + 1 })));

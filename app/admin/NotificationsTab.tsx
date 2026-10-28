@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { collection, deleteDoc, doc, getDocs, limit, query, serverTimestamp, setDoc } from "firebase/firestore";
+import { USE_NEON } from "@/lib/backend";
 import { getDb } from "@/lib/firebase";
+import { adminDeleteNotices, adminNotices, adminSendNotice } from "@/lib/neonAdminClient";
 import SoundSettings from "@/app/admin/SoundSettings";
 import { usePreviewDraft } from "@/lib/preview";
 import { NOTICE_COUNT_MAX, NOTICE_COUNT_MIN, cleanNoticeCount, saveSettings, useSettings } from "@/lib/settings";
@@ -78,8 +80,11 @@ export default function NotificationsTab() {
 
   const load = useCallback(async () => {
     try {
-      const snap = await getDocs(query(collection(getDb(), "notifications"), limit(100)));
-      setItems(snap.docs.map((d) => toNotice(d.id, d.data())).sort((a, b) => b.at - a.at));
+      if (USE_NEON) setItems(await adminNotices());
+      else {
+        const snap = await getDocs(query(collection(getDb(), "notifications"), limit(100)));
+        setItems(snap.docs.map((d) => toNotice(d.id, d.data())).sort((a, b) => b.at - a.at));
+      }
     } catch {
       setError("تعذّر تحميل الإشعارات. الصق firestore.rules المحدّث (قسم notifications: «الجميع» و«الزوار» مقروءتان بلا تسجيل دخول) في Firebase ثم Publish، وتأكد أن بريدك في isOwner() وموثَّق.");
     } finally {
@@ -107,29 +112,34 @@ export default function NotificationsTab() {
     sendingRef.current = true;
     setSending(true);
     try {
-      // وثيقة لكل فئة مختارة (القواعد والاستعلامات تقرأ فئة واحدة لكل وثيقة).
-      await Promise.all(
-        audiences.map((audience) =>
-          setDoc(doc(getDb(), "notifications", newNoticeId()), {
-            title: t.slice(0, TITLE_MAX),
-            body: body.trim().slice(0, BODY_MAX),
-            link: cl,
-            audience,
-            createdAt: serverTimestamp(),
-          }),
-        ),
-      );
-      // نحتفظ بآخر NOTICE_KEEP إشعارًا لكل فئة: يُحذف الأقدم تلقائيًا.
-      try {
-        const all = await getDocs(query(collection(getDb(), "notifications"), limit(300)));
-        const seen: Record<string, number> = {};
-        const extra = all.docs
-          .map((d) => toNotice(d.id, d.data()))
-          .sort((a, b) => b.at - a.at || a.id.localeCompare(b.id))
-          .filter((n) => (seen[n.audience] = (seen[n.audience] ?? 0) + 1) > NOTICE_KEEP);
-        await Promise.all(extra.map((n) => deleteDoc(doc(getDb(), "notifications", n.id))));
-      } catch {
-        /* التنظيف اختياري: القائمة تعرض العدد المضبوط على أي حال */
+      if (USE_NEON) {
+        // الخادم ينشئ صفًّا لكل فئة ويحذف الأقدم من آخر NOTICE_KEEP في جملتين، ويتحقق من الحقول بالحدود نفسها.
+        await adminSendNotice({ title: t.slice(0, TITLE_MAX), body: body.trim().slice(0, BODY_MAX), link: cl, audiences });
+      } else {
+        // وثيقة لكل فئة مختارة (القواعد والاستعلامات تقرأ فئة واحدة لكل وثيقة).
+        await Promise.all(
+          audiences.map((audience) =>
+            setDoc(doc(getDb(), "notifications", newNoticeId()), {
+              title: t.slice(0, TITLE_MAX),
+              body: body.trim().slice(0, BODY_MAX),
+              link: cl,
+              audience,
+              createdAt: serverTimestamp(),
+            }),
+          ),
+        );
+        // نحتفظ بآخر NOTICE_KEEP إشعارًا لكل فئة: يُحذف الأقدم تلقائيًا.
+        try {
+          const all = await getDocs(query(collection(getDb(), "notifications"), limit(300)));
+          const seen: Record<string, number> = {};
+          const extra = all.docs
+            .map((d) => toNotice(d.id, d.data()))
+            .sort((a, b) => b.at - a.at || a.id.localeCompare(b.id))
+            .filter((n) => (seen[n.audience] = (seen[n.audience] ?? 0) + 1) > NOTICE_KEEP);
+          await Promise.all(extra.map((n) => deleteDoc(doc(getDb(), "notifications", n.id))));
+        } catch {
+          /* التنظيف اختياري: القائمة تعرض العدد المضبوط على أي حال */
+        }
       }
       setTitle("");
       setBody("");
@@ -164,7 +174,8 @@ export default function NotificationsTab() {
     setBusy(g.key);
     setError("");
     try {
-      await Promise.all(g.ids.map((id) => deleteDoc(doc(getDb(), "notifications", id))));
+      if (USE_NEON) await adminDeleteNotices(g.ids);
+      else await Promise.all(g.ids.map((id) => deleteDoc(doc(getDb(), "notifications", id))));
       setItems((p) => p.filter((x) => !g.ids.includes(x.id)));
     } catch {
       setError("تعذّر الحذف. تأكد من الصلاحيات.");

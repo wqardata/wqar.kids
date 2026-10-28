@@ -3,7 +3,9 @@ import { bumpVideosVersion } from "@/lib/videos";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, serverTimestamp, updateDoc, where, type QueryDocumentSnapshot } from "firebase/firestore";
+import { USE_NEON } from "@/lib/backend";
 import { getDb } from "@/lib/firebase";
+import { adminHideFromReport, adminReportOp, adminReports } from "@/lib/neonAdminClient";
 import { useRefreshOnReturn } from "@/lib/notifications";
 
 type Report = { id: string; videoId: string; videoTitle: string; reason: string; note: string; status: "open" | "done"; at: number | null };
@@ -32,6 +34,13 @@ export default function ReportsTab() {
         at: t && typeof t.toMillis === "function" ? t.toMillis() : null,
       };
     };
+    if (USE_NEON) {
+      adminReports(showDone)
+        .then((list) => { setItems(list); setError(""); })
+        .catch(() => setError("تعذّر تحميل البلاغات."))
+        .finally(() => setLoading(false));
+      return;
+    }
     const q = (status: string) => getDocs(query(collection(getDb(), "reports"), where("status", "==", status), limit(200)));
     Promise.all([q("open"), showDone ? q("done") : Promise.resolve(null)])
       .then(([o, dn]) => {
@@ -44,6 +53,7 @@ export default function ReportsTab() {
 
   useEffect(() => {
     reload();
+    if (USE_NEON) return; // لا اشتراك مباشر على Neon: التحديث عند العودة للتطبيق وكل 15 ثانية (useRefreshOnReturn أدناه)
     // أي تغيير في البلاغات المفتوحة (بلاغ جديد من زائر) = إعادة جلب القائمة.
     let first = true;
     const unsub = onSnapshot(
@@ -98,17 +108,17 @@ export default function ReportsTab() {
               <div className="arow-actions">
                 {r.status === "open" && (
                   <button type="button" className="btn btn--ghost btn--sm" disabled={busy === r.id}
-                    onClick={() => void run(r.id, () => updateDoc(doc(getDb(), "reports", r.id), { status: "done", updatedAt: serverTimestamp() }), () => setItems((p) => p.map((x) => (x.id === r.id ? { ...x, status: "done" } : x))))}>
+                    onClick={() => void run(r.id, () => (USE_NEON ? adminReportOp("done", r.id) : updateDoc(doc(getDb(), "reports", r.id), { status: "done", updatedAt: serverTimestamp() })), () => setItems((p) => p.map((x) => (x.id === r.id ? { ...x, status: "done" } : x))))}>
                     تمت المعالجة
                   </button>
                 )}
                 <button type="button" className="btn btn--ghost btn--sm" disabled={busy === r.id}
-                  onClick={() => void run(r.id, () => updateDoc(doc(getDb(), "videos", r.videoId), { hidden: true, updatedAt: serverTimestamp() }).then(() => bumpVideosVersion()), () => {})}
+                  onClick={() => void run(r.id, () => (USE_NEON ? adminHideFromReport(r.id, r.videoId) : updateDoc(doc(getDb(), "videos", r.videoId), { hidden: true, updatedAt: serverTimestamp() })).then(() => bumpVideosVersion()), () => {})}
                   title="يخفي الفيديو عن الزوار">
                   إخفاء الفيديو
                 </button>
                 <button type="button" className="btn btn--ghost btn--sm danger" disabled={busy === r.id}
-                  onClick={() => void run(r.id, () => deleteDoc(doc(getDb(), "reports", r.id)), () => setItems((p) => p.filter((x) => x.id !== r.id)))}>
+                  onClick={() => void run(r.id, () => (USE_NEON ? adminReportOp("delete", r.id) : deleteDoc(doc(getDb(), "reports", r.id))), () => setItems((p) => p.filter((x) => x.id !== r.id)))}>
                   حذف البلاغ
                 </button>
               </div>
