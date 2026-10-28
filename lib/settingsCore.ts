@@ -322,6 +322,10 @@ export function parseMobileThumbRatio(v: unknown): { w: number; h: number } | nu
   const r = w / h;
   return r >= MOBILE_THUMB_RATIO_MIN && r <= MOBILE_THUMB_RATIO_MAX ? { w, h } : null;
 }
+/** عرض صورة الفيديو على الجوال كنسبة مئوية من عرض مكانها (الصف/البطاقة)؛ الارتفاع يتبع النسبة أعلاه. الافتراضي 100% (كما كانت). */
+export const MOBILE_THUMB_WIDTH_MIN = 40;
+export const MOBILE_THUMB_WIDTH_MAX = 100;
+export const MOBILE_THUMB_WIDTH_DEFAULT = 100;
 /** قيمة aspect-ratio في CSS لنسبة محفوظة. */
 export function mobileThumbCss(id: MobileThumbRatio): string {
   const p = parseMobileThumbRatio(id);
@@ -445,6 +449,8 @@ export type DisplaySettings = {
   mobileThumbRatio: MobileThumbRatio;
   /** استدارة حواف صورة الفيديو في الرئيسية على الجوال. */
   mobileThumbRadius: MobileThumbRadius;
+  /** عرض صورة الفيديو على الجوال (% من عرض مكانها). */
+  mobileThumbWidth: number;
   /** تخصيص تبويبات أعلى الرئيسية يدويًا (false = تلقائي: الكل والجديد وكل التصنيفات). */
   homeTabsCustom: boolean;
   homeTabs: HomeTab[];
@@ -480,6 +486,7 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   continueMinSec: 0,
   mobileThumbRatio: MOBILE_THUMB_RATIO_DEFAULT,
   mobileThumbRadius: MOBILE_THUMB_RADIUS_DEFAULT,
+  mobileThumbWidth: MOBILE_THUMB_WIDTH_DEFAULT,
   homeTabsCustom: false,
   homeTabs: [],
   seriesShowDuration: true,
@@ -527,6 +534,7 @@ export function cleanDisplay(v: unknown): DisplaySettings {
     continueMinSec: int("continueMinSec", 0, CONTINUE_MIN_SEC_MAX, D.continueMinSec),
     mobileThumbRatio: parseMobileThumbRatio(o.mobileThumbRatio) ? String(o.mobileThumbRatio).trim() : D.mobileThumbRatio,
     mobileThumbRadius: MOBILE_THUMB_RADII.some((x) => x.id === o.mobileThumbRadius) ? (o.mobileThumbRadius as MobileThumbRadius) : D.mobileThumbRadius,
+    mobileThumbWidth: int("mobileThumbWidth", MOBILE_THUMB_WIDTH_MIN, MOBILE_THUMB_WIDTH_MAX, D.mobileThumbWidth),
     homeTabsCustom: o.homeTabsCustom === true,
     homeTabs: cleanHomeTabs(o.homeTabs),
     seriesShowDuration: o.seriesShowDuration !== false,

@@ -22,6 +22,8 @@ import {
   MOBILE_THUMB_RATIOS,
   MOBILE_THUMB_RATIO_MAX,
   MOBILE_THUMB_RATIO_MIN,
+  MOBILE_THUMB_WIDTH_MAX,
+  MOBILE_THUMB_WIDTH_MIN,
   ROW_SIZE_DEFAULT,
   SHORTS_POS_END,
   SHORTS_POS_MAX_ROW,
@@ -141,7 +143,7 @@ function ContinuePreview({ form }: { form: DisplaySettings }) {
             return (
               <li key={i}>
                 <div className="card">
-                  <div className="thumb" style={{ ["--h" as string]: (i * 47) % 360, ...(device === "phone" ? { aspectRatio: mobileThumbCss(form.mobileThumbRatio), borderRadius: mobileThumbRadiusPx(form.mobileThumbRadius) } : {}) }}>
+                  <div className="thumb" style={{ ["--h" as string]: (i * 47) % 360, ...(device === "phone" ? { width: `${form.mobileThumbWidth}%`, marginInline: "auto", aspectRatio: mobileThumbCss(form.mobileThumbRatio), borderRadius: mobileThumbRadiusPx(form.mobileThumbRadius) } : {}) }}>
                     <span className="dur">{m.dur}</span>
                   </div>
                   <div className="card-row">
@@ -199,7 +201,7 @@ export default function DisplayTab() {
   const set = <K extends keyof DisplaySettings>(k: K, v: DisplaySettings[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
   };
-  const num = (k: "homeRows" | "newCount" | "popularCount" | "continueCount" | "continueMinSec", raw: string, max: number, min = 0) => {
+  const num = (k: "homeRows" | "newCount" | "popularCount" | "continueCount" | "continueMinSec" | "mobileThumbWidth", raw: string, max: number, min = 0) => {
     const n = Math.round(Number(raw));
     set(k, Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : min);
   };
@@ -310,6 +312,12 @@ export default function DisplayTab() {
         </Section>
 
         <Section id="dp-s-mobile" title="عرض الجوال في الرئيسية">
+          <div className="field">
+            <label htmlFor="dp-mw">عرض صورة الفيديو على الجوال (% من عرض الشاشة)</label>
+            <input id="dp-mw" type="number" inputMode="numeric" dir="ltr" min={MOBILE_THUMB_WIDTH_MIN} max={MOBILE_THUMB_WIDTH_MAX} step={1} value={form.mobileThumbWidth} onChange={(e) => num("mobileThumbWidth", e.target.value, MOBILE_THUMB_WIDTH_MAX, MOBILE_THUMB_WIDTH_MIN)} />
+            <p className="hint">من {MOBILE_THUMB_WIDTH_MIN} إلى {MOBILE_THUMB_WIDTH_MAX}. 100 = بكامل عرض مكانها (الافتراضي)، وأقل منه تصغّر الصورة وتتوسّط. الارتفاع يتبع النسبة أدناه.</p>
+          </div>
+
           <MobileRatioField value={form.mobileThumbRatio} onChange={(v) => set("mobileThumbRatio", v)} />
 
           <div className="field">
