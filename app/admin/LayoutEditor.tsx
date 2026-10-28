@@ -19,6 +19,7 @@ import {
   type TabId,
 } from "@/lib/adminSections";
 import type { AdminLayout } from "@/lib/adminLayoutStore";
+import { useSaveRegistration } from "./saveKit";
 
 const NEW_GROUP = "__new";
 
@@ -59,7 +60,7 @@ function removeTabs(d: AdminLayout, ids: TabId[], isOwner: boolean): { next: Adm
 /**
  * تبويب الترس: ينقل أي قسم إعدادات إلى أي تبويب آخر أو يغيّر مكانه، ويضيف تبويبات ويعيد تسميتها ويحذفها.
  * ما كان في تبويب محذوف ينتقل تلقائيًا إلى تبويب «غير منظم».
- * التعديلات مسودة حتى تضغط «حفظ الترتيب»، ثم تُطبَّق على كل المشرفين.
+ * التعديلات مسودة حتى تضغط «حفظ التغييرات»، ثم تُطبَّق على كل المشرفين.
  */
 export default function LayoutEditor({
   view,
@@ -178,7 +179,7 @@ export default function LayoutEditor({
     const nextTabs = [...draft.structure.tabs.filter((t) => t.id !== UNSORTED_TAB), { id: tid, label: name, group: gid }, ...unsortedT];
     setDraft({ arrangement: { ...arr, [tid]: [] }, structure: { groups: nextGroups, tabs: nextTabs } });
     setNewName("");
-    note(`أُضيف التبويب «${name}». انقل إليه مربعات من تبويب «تنظيم»، ثم اضغط «حفظ الترتيب».`);
+    note(`أُضيف التبويب «${name}». انقل إليه مربعات من تبويب «تنظيم»، ثم اضغط «حفظ التغييرات».`);
   };
 
   const renameGroup = (id: string, label: string) => {
@@ -212,12 +213,12 @@ export default function LayoutEditor({
   };
   const isDefault = sameArrangement(draft.arrangement, defaultArrangement()) && sameStructure(draft.structure, DEFAULT_STRUCTURE);
 
-  async function save() {
+  async function save(): Promise<boolean> {
     const problem = problemOf(draft.structure);
     if (problem) {
       setMsg("");
       setError(problem);
-      return;
+      return false;
     }
     const tidy: AdminLayout = { arrangement: draft.arrangement, structure: tidyStructure(draft.structure) };
     setBusy(true);
@@ -226,12 +227,17 @@ export default function LayoutEditor({
       await onSave(tidy);
       setDraft(tidy);
       setMsg("تم حفظ الترتيب ✓ — يظهر لكل المشرفين.");
+      return true;
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
+      return false;
     } finally {
       setBusy(false);
     }
   }
+
+  // الحفظ والعودة للافتراضي من شريط الحفظ الموحّد أعلى التبويب؛ الخطأ يُمرَّر إليه كي يظهر أيضًا في نافذة «حفظ / تجاهل».
+  useSaveRegistration({ dirty, isDefault, error, busy, save, reset: resetDefault });
 
   return (
     <div className="layout-ed">
@@ -239,26 +245,13 @@ export default function LayoutEditor({
         <h2>تخصيص اللوحة</h2>
         {view === "arrange" ? (
           <p className="hint">
-            اسحب أي مربع إعدادات وأفلته في أي تبويب أو في مكان آخر داخل تبويبه، أو استعمل السهمين وقائمة «نقل إلى». يبقى المربع محتفظًا بحفظه كما هو؛ يتغيّر مكان ظهوره فقط.
-            عند نقل مربع من تبويب آخر يظهر معه زر حفظ ذلك التبويب أسفل مربعاته.
+            اسحب أي مربع إعدادات وأفلته في أي تبويب أو في مكان آخر داخل تبويبه، أو استعمل السهمين وقائمة «نقل إلى». يبقى المربع محتفظًا بإعداداته كما هي؛ يتغيّر مكان ظهوره فقط.
+            المربع المنقول يُحفظ مع باقي التبويب من زر «حفظ التغييرات» في أعلاه.
           </p>
         ) : (
-          <p className="hint">عدّل أسماء التبويبات أو أضف تبويبات أو احذفها، ثم اضغط «حفظ الترتيب». تبقى التعديلات مسودة عند التنقل بين «التبويبات» و«تنظيم».</p>
+          <p className="hint">عدّل أسماء التبويبات أو أضف تبويبات أو احذفها، ثم اضغط «حفظ التغييرات». تبقى التعديلات مسودة عند التنقل بين «التبويبات» و«تنظيم».</p>
         )}
-        {error && <p className="field-error" role="alert">{error}</p>}
         {msg && <p className="hint" role="status">{msg}</p>}
-        <div className="addrow">
-          <button type="button" className="btn" disabled={busy || !dirty} onClick={() => void save()}>
-            {busy ? "جارٍ الحفظ…" : "حفظ الترتيب"}
-          </button>
-          <button type="button" className="btn btn--ghost" disabled={busy || !dirty} onClick={() => { touch(); setDraft({ arrangement, structure }); }}>
-            تراجع عن التعديلات
-          </button>
-          <button type="button" className="btn btn--ghost" disabled={busy || isDefault} onClick={resetDefault}>
-            الترتيب الافتراضي
-          </button>
-          {dirty && <span className="dirty-dot">● تعديلات غير محفوظة</span>}
-        </div>
       </section>
 
       {view === "tabs" && (

@@ -67,6 +67,33 @@ export async function saveSettings(s: SiteSettings): Promise<SiteSettings> {
   return clean;
 }
 
+/**
+ * يحفظ حقولًا محددة فوق آخر نسخة معروفة من الخادم (Firestore أو Neon؛ لا فوق نسخة قديمة في ذاكرة المكوّن).
+ * بهذا يمكن حفظ عدّة أقسام بالتتابع (زر «حفظ التغييرات» الموحّد) دون أن يعيد أحدها قيم قسم سبقه إلى ما كانت عليه.
+ */
+export async function saveSettingsPatch(patch: Partial<SiteSettings>): Promise<SiteSettings> {
+  if (!baseline) {
+    const snap = await readSiteDoc(true);
+    baseline = { settings: snap.exists ? merge(snap.data) : DEFAULT_SETTINGS, exists: snap.exists };
+  }
+  return saveSettings({ ...baseline.settings, ...patch });
+}
+
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** هل مسودة القسم (حقول من SiteSettings) تختلف عن المحفوظ؟ تُقارَن بعد التنظيف نفسه الذي يجريه الحفظ. */
+export function patchDiffers(saved: SiteSettings, patch: Partial<SiteSettings>): boolean {
+  const next = merge({ ...saved, ...patch });
+  return (Object.keys(patch) as (keyof SiteSettings)[]).some((k) => !sameJson(next[k], saved[k]));
+}
+
+/** هل مسودة القسم مطابقة للقيم الافتراضية؟ (لتعطيل زر «العودة إلى الافتراضي» حين لا جدوى منه). */
+export function patchIsDefault(patch: Partial<SiteSettings>): boolean {
+  const defaults = merge({ ...DEFAULT_SETTINGS });
+  const next = merge({ ...DEFAULT_SETTINGS, ...patch });
+  return (Object.keys(patch) as (keyof SiteSettings)[]).every((k) => sameJson(next[k], defaults[k]));
+}
+
 /** يكتب CSS الثيم في <style id="site-theme">، ويحدّث لون شريط المتصفح، ويحفظ نسخة محلية. */
 export function applyTheme(theme: Theme, persist = true) {
   if (typeof document === "undefined") return;

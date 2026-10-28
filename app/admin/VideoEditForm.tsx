@@ -11,6 +11,7 @@ import { formatClock } from "@/lib/format";
 import { deleteThumb, saveThumb } from "@/lib/thumbs";
 import { useRandomFrame } from "@/lib/useRandomFrame";
 import { bumpVideosVersion, type useNamedList, type VideoDoc } from "@/lib/videos";
+import { useHasSaveBar, useSaveApi, useSaveRegistration } from "./saveKit";
 
 type NamedList = ReturnType<typeof useNamedList>;
 
@@ -40,9 +41,19 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
   const newFrame = thumbMode === "random" && frame.status === "ok" && frame.dataUrl ? frame.dataUrl : "";
   const shownThumb = newFrame || (thumbMode === "drive" && video.driveId ? driveThumbnail(video.driveId) : video.thumbnail);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!title.trim()) return setError("العنوان مطلوب.");
+  const bar = useHasSaveBar();
+  const saveApi = useSaveApi();
+  const num0 = (v: number | null | undefined) => v?.toString() ?? "";
+  const dirty =
+    title !== video.title || description !== video.description || categoryId !== video.categoryId || seriesId !== video.seriesId ||
+    season !== num0(video.season) || episode !== num0(video.episode) || isShort !== video.isShort || hidden !== video.hidden || thumbMode !== "keep";
+
+  /** يحفظ التعديلات؛ يعيد true عند النجاح (والنموذج يُغلقه المستدعي عبر onSaved). */
+  async function save(): Promise<boolean> {
+    if (!title.trim()) {
+      setError("العنوان مطلوب.");
+      return false;
+    }
     setSaving(true);
     setError("");
     try {
@@ -56,7 +67,7 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
         } catch {
           setError("تعذّر حفظ الصورة المختارة. حدّث قواعد Firestore (thumbs) من firestore.rules.");
           setSaving(false);
-          return;
+          return false;
         }
       } else if (thumbMode === "drive" && video.driveId) {
         thumbnail = driveThumbnail(video.driveId);
@@ -81,14 +92,39 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
       bumpVideosVersion();
       if (thumbMode === "drive") void deleteThumb(video.id); // لم تعد اللقطة المحفوظة مستعملة
       onSaved({ ...video, ...patch });
+      return true;
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore.");
       setSaving(false);
+      return false;
     }
   }
 
+  /** يعيد كل الحقول إلى ما هو محفوظ للفيديو. */
+  function revert() {
+    setError("");
+    setTitle(video.title);
+    setDescription(video.description);
+    setCategoryId(video.categoryId);
+    setSeriesId(video.seriesId);
+    setSeason(num0(video.season));
+    setEpisode(num0(video.episode));
+    setIsShort(video.isShort);
+    setHidden(video.hidden);
+    setThumbMode("keep");
+  }
+
+  // داخل لوحة التحكم: الحفظ من الشريط أعلى الصفحة (وEnter في أي حقل يعادله).
+  useSaveRegistration({ dirty, isDefault: !dirty, error, busy: saving || capturing, save, reset: revert });
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (bar && saveApi) void saveApi.saveAll();
+    else void save();
+  }
+
   return (
-    <form className="auth-form arow-form" onSubmit={(e) => void submit(e)}>
+    <form className="auth-form arow-form" onSubmit={submit}>
       <div className="field">
         <label htmlFor={`t-${video.id}`}>العنوان</label>
         <input id={`t-${video.id}`} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} required />
@@ -124,7 +160,7 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
           </div>
         )}
         {capturing && <p className="hint" role="status">جارٍ التقاط صورة من الفيديو…</p>}
-        {thumbMode === "random" && frame.status === "ok" && <p className="hint">اللقطة من الثانية {formatClock(frame.time)} — تُحفظ عند الضغط على «حفظ التعديلات».</p>}
+        {thumbMode === "random" && frame.status === "ok" && <p className="hint">اللقطة من الثانية {formatClock(frame.time)} — تُحفظ عند الضغط على «حفظ التغييرات».</p>}
         {thumbMode === "random" && frame.message && <p className="hint" role="status">{frame.message}</p>}
       </div>
       <CreatableSelect label="التصنيف" items={categories.items} value={categoryId} onChange={setCategoryId} onCreate={categories.create}
@@ -147,8 +183,8 @@ export default function VideoEditForm({ video, categories, series, onSaved, onCa
       <label className="check"><input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> مخفي عن الزوار</label>
       {error && <p className="field-error" role="alert">{error}</p>}
       <div className="addrow">
-        <button type="submit" disabled={saving || capturing}>{saving ? "جارٍ الحفظ…" : "حفظ التعديلات"}</button>
-        <button type="button" className="btn btn--ghost" onClick={onCancel}>إلغاء</button>
+        {!bar && <button type="submit" disabled={saving || capturing}>{saving ? "جارٍ الحفظ…" : "حفظ التعديلات"}</button>}
+        <button type="button" className="btn btn--ghost" disabled={saving} onClick={() => (dirty && !window.confirm("لديك تعديلات غير محفوظة. إغلاق النموذج يتجاهلها. متابعة؟") ? undefined : onCancel())}>إلغاء</button>
       </div>
     </form>
   );

@@ -1,25 +1,36 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Icon from "@/components/Icon";
 import type { IconName } from "@/lib/data";
-import { WATCH_BUILTINS, WATCH_LINK_ICONS, cleanUrl, saveSettings, useSettings, type WatchButton } from "@/lib/settings";
+import { DEFAULT_SETTINGS, WATCH_BUILTINS, WATCH_LINK_ICONS, cleanUrl, useSettings, type WatchButton } from "@/lib/settings";
 import { usePreviewDraft } from "@/lib/preview";
-import { MovableSection, OwnerFooter, OwnerForm } from "./sectionKit";
+import { MovableSection } from "./sectionKit";
+import { useSettingsOwner } from "./saveKit";
 
 const builtinLabel = (id: string) => WATCH_BUILTINS.find((b) => b.id === id)?.label ?? id;
 
 /** تحرير الأزرار أسفل مشغّل الفيديو: ترتيبها وإظهارها وإضافة أزرار روابط. */
 export default function WatchButtonsEditor() {
-  const { settings, update, ready } = useSettings();
+  const { settings, ready } = useSettings();
   const [list, setList] = useState<WatchButton[]>(settings.watchButtons);
   usePreviewDraft("watch-buttons", { watchButtons: list.filter((b) => b.kind !== "link" || (b.label.trim() && cleanUrl(b.href))).map((b) => (b.kind === "link" ? { ...b, label: b.label.trim(), href: cleanUrl(b.href) } : b)) });
   const [open, setOpen] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const draftPatch = useMemo(() => ({ watchButtons: list.map((b) => (b.kind === "link" ? { ...b, label: b.label.trim(), href: cleanUrl(b.href) } : b)) }), [list]);
+  useSettingsOwner({
+    patch: draftPatch,
+    validate: () => {
+      for (const b of list) {
+        if (b.kind !== "link") continue;
+        if (!b.label.trim()) return "اكتب اسمًا لكل زر رابط.";
+        if (!cleanUrl(b.href)) return `رابط «${b.label.trim()}» غير صالح (يجب أن يبدأ بـ https://).`;
+      }
+      return "";
+    },
+    afterSave: (saved) => setList(saved.watchButtons),
+    reset: () => setList(DEFAULT_SETTINGS.watchButtons),
+  });
 
   const change = (fn: (l: WatchButton[]) => WatchButton[]) => {
-    setDone(false);
     setList(fn);
   };
   const move = (i: number, dir: -1 | 1) =>
@@ -38,31 +49,9 @@ export default function WatchButtonsEditor() {
     setOpen(id);
   };
 
-  async function save() {
-    setError("");
-    for (const b of list) {
-      if (b.kind !== "link") continue;
-      if (!b.label.trim()) return setError("اكتب اسمًا لكل زر رابط.");
-      if (!cleanUrl(b.href)) return setError(`رابط «${b.label.trim()}» غير صالح (يجب أن يبدأ بـ https://).`);
-    }
-    setSaving(true);
-    try {
-      const clean = list.map((b) => (b.kind === "link" ? { ...b, label: b.label.trim(), href: cleanUrl(b.href) } : b));
-      const saved = await saveSettings({ ...settings, watchButtons: clean });
-      update(saved);
-      setList(saved.watchButtons);
-      setDone(true);
-    } catch {
-      setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore (settings).");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
 
   return (
-    <>
     <MovableSection id="watch.buttons">
     <div className="panel menu-admin">
       <h2>أزرار صفحة الفيديو</h2>
@@ -121,16 +110,10 @@ export default function WatchButtonsEditor() {
           </li>
         ))}
       </ul>
-    </div>
-    </MovableSection>
-    <OwnerFooter>
-      {error && <p className="field-error" role="alert">{error}</p>}
-      {done && <p className="hint" role="status">تم حفظ الأزرار ✓</p>}
       <div className="addrow">
-        <button type="button" onClick={() => void save()} disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ الأزرار"}</button>
         <button type="button" className="btn btn--ghost" onClick={addLink} disabled={list.length >= 24}>＋ إضافة زر رابط</button>
       </div>
-    </OwnerFooter>
-    </>
+    </div>
+    </MovableSection>
   );
 }
