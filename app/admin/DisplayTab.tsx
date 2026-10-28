@@ -161,7 +161,7 @@ function ContinuePreview({ form }: { form: DisplaySettings }) {
 }
 
 /** قسم داخل مربع الرئيسية: عنوان بشارة ملوّنة وفاصل مميّز قبله. */
-const SECTION_IDS: Record<string, string> = { "dp-s-tabs": "display.tabs", "dp-s-cont": "display.cont", "dp-s-rows": "display.rows", "dp-s-shorts": "display.shorts" };
+const SECTION_IDS: Record<string, string> = { "dp-s-tabs": "display.tabs", "dp-s-cont": "display.cont", "dp-s-rows": "display.rows", "dp-s-mobile": "display.mobile", "dp-s-shorts": "display.shorts" };
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
     <MovableSection id={SECTION_IDS[id]}>
@@ -287,19 +287,6 @@ export default function DisplayTab() {
             </select>
           </div>
 
-          <fieldset className="cset">
-            <legend>عرض الجوال في الرئيسية</legend>
-            <MobileRatioField value={form.mobileThumbRatio} onChange={(v) => set("mobileThumbRatio", v)} />
-
-            <div className="field">
-              <label htmlFor="dp-radius">استدارة حواف صورة الفيديو على الجوال</label>
-              <select id="dp-radius" value={form.mobileThumbRadius} onChange={(e) => set("mobileThumbRadius", e.target.value as MobileThumbRadius)}>
-                {MOBILE_THUMB_RADII.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </select>
-              <p className="hint">تُطبَّق مع الأبعاد أعلاه على الجوال فقط، وتظهر في المعاينة بوضع «جوال».</p>
-            </div>
-          </fieldset>
-
           <div className="field">
             <label htmlFor="dp-t1">عنوان يسبق المجموعة الأولى من الصفوف</label>
             <input id="dp-t1" value={form.titleTop} onChange={(e) => set("titleTop", e.target.value)} maxLength={60} placeholder="مثال: الجديد والأكثر مشاهدة" />
@@ -311,6 +298,18 @@ export default function DisplayTab() {
             <p className="hint">اتركهما فارغين لعدم إظهار أي عنوان (والأيقونة تظهر مع العنوان فقط).</p>
           </div>
           <IconPicker id="dp-i2" label="أيقونة العنوان" value={form.iconRest} onChange={(v) => set("iconRest", v)} />
+        </Section>
+
+        <Section id="dp-s-mobile" title="عرض الجوال في الرئيسية">
+          <MobileRatioField value={form.mobileThumbRatio} onChange={(v) => set("mobileThumbRatio", v)} />
+
+          <div className="field">
+            <label htmlFor="dp-radius">استدارة حواف صورة الفيديو على الجوال</label>
+            <select id="dp-radius" value={form.mobileThumbRadius} onChange={(e) => set("mobileThumbRadius", e.target.value as MobileThumbRadius)}>
+              {MOBILE_THUMB_RADII.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+            <p className="hint">تُطبَّق مع الأبعاد أعلاه على الجوال فقط، وتظهر في المعاينة بوضع «جوال».</p>
+          </div>
         </Section>
 
         <Section id="dp-s-shorts" title="صف المقاطع القصيرة">
