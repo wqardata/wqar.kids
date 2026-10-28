@@ -114,6 +114,15 @@ button, input { font: inherit; }
   .card h3, .card p, .page-title, .watch .meta, .watch .desc, .watch h2, .watch article > h1, .empty-note { margin-inline: 2px; padding-inline: 0; }
   .page-title, .empty-note { padding-inline: 2px; }
 }
+/* الهاتف: الصورة المصغّرة مستطيلة 16:9 كما في يوتيوب، بحواف مستديرة وهامش جانبي يحاذي النص تحتها
+   (كانت ملتصقة بحافتَي الشاشة بلا استدارة فتبدو شبه مربعة). المقاطع القصيرة 9:16 وصفوفها لها قواعدها. */
+@media (max-width: 599px) {
+  .grid:not(.grid--shorts) .card > .thumb,
+  .grid:not(.grid--shorts) > .skel-card > .thumb,
+  .cont-row .card > .thumb { aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; }
+  .grid:not(.grid--shorts) .card > .thumb,
+  .grid:not(.grid--shorts) > .skel-card > .thumb { margin-inline: 14px; }
+}
 @media (min-width: 900px) {
   .side { display: block; position: fixed; inset-block: var(--top) 0; inset-inline-start: 0; width: var(--side);
     padding: 12px; overflow-y: auto; border-inline-end: 1px solid var(--line); }
