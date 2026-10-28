@@ -49,6 +49,16 @@ export const PRUNE_NOTICES_SQL =
 export const DELETE_NOTICES_SQL = "delete from notifications where id = any($1::text[])";
 export const OPEN_REPORTS_COUNT_SQL = "select count(*)::int as n from reports where status = 'open'";
 
+// ───────── الإحصاءات (تبويب الإحصاءات في اللوحة) ─────────
+/** مجاميع الموقع في جملة واحدة: مشاهدات وإعجابات وعدد الفيديوهات والمخفي والقصير والبلاغات المفتوحة. */
+export const STATS_TOTALS_SQL =
+  "select coalesce(sum(views), 0)::bigint as views, coalesce(sum(likes), 0)::bigint as likes, count(*)::int as videos, " +
+  "(count(*) filter (where hidden))::int as hidden, (count(*) filter (where is_short))::int as shorts, " +
+  "(select count(*)::int from reports where status = 'open') as reports_open from videos";
+/** مشاهدات الأيام منذ $1 (YYYY-MM-DD بتوقيت UTC) بالأقدم أولًا، بحد أقصى $2 صفًّا. */
+// مقارنة نصّية (YYYY-MM-DD ترتّب كالتاريخ) كي يعمل الاستعلام سواء كان عمود day من نوع date أو نصًّا.
+export const STATS_DAILY_SQL = "select day::text as day, views from stats where day::text >= $1::text order by 1 limit $2::int";
+
 // ───────── الصور المصغّرة (المرحلة 6ج) ─────────
 export const SAVE_THUMB_SQL = "insert into thumbs (id, b64) values ($1, $2) on conflict (id) do update set b64 = excluded.b64, updated_at = now()";
 export const DELETE_THUMBS_SQL = "delete from thumbs where id = any($1::text[])";
