@@ -5,6 +5,7 @@ import { USE_NEON } from "@/lib/backend";
 import { getDb } from "@/lib/firebase";
 import { adminSetOrder, adminVideoList } from "@/lib/neonAdminClient";
 import { bumpVideosVersion, compareInSeries, toVideo, type VideoDoc } from "@/lib/videos";
+import { useHasSaveBar, useSaveRegistration } from "./saveKit";
 
 const BATCH = 400;
 
@@ -26,6 +27,9 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
   const [msg, setMsg] = useState("");
   const [dragId, setDragId] = useState("");
   const [overId, setOverId] = useState("");
+  const bar = useHasSaveBar();
+  // آخر ترتيب محفوظ/محمَّل: إليه تعود «العودة إلى الافتراضي» من الشريط.
+  const orig = useRef<VideoDoc[]>([]);
   const rows = useRef<Map<string, HTMLLIElement>>(new Map());
   const focusAfter = useRef<{ id: string; dir: "up" | "down" } | null>(null);
 
@@ -35,7 +39,9 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
     (USE_NEON ? adminVideoList(seriesId) : getDocs(query(collection(getDb(), "videos"), where("seriesId", "==", seriesId))).then((snap) => snap.docs.map((d) => toVideo(d.id, d.data()))))
       .then((vids) => {
         if (off) return;
-        setList(vids.sort(compareInSeries));
+        const sorted = vids.sort(compareInSeries);
+        orig.current = sorted;
+        setList(sorted);
         setError("");
       })
       .catch(() => !off && setError("تعذّر تحميل حلقات المجموعة."))
@@ -80,7 +86,7 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
     apply(next);
   }
 
-  async function save() {
+  async function save(): Promise<boolean> {
     setSaving(true);
     setError("");
     setMsg("");
@@ -96,22 +102,36 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
         }
       }
       bumpVideosVersion();
-      setList((prev) => prev.map((v, i) => ({ ...v, seriesOrder: i + 1 })));
+      const saved = list.map((v, i) => ({ ...v, seriesOrder: i + 1 }));
+      orig.current = saved;
+      setList(saved);
       setDirty(false);
       setMsg("تم حفظ الترتيب ✓ (يظهر للزوار في صفحة المجموعة)");
+      return true;
     } catch {
       setError("تعذّر حفظ الترتيب. تأكد من صلاحياتك وقواعد Firestore ثم أعد المحاولة.");
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
+  function revert() {
+    setList(orig.current);
+    setDirty(false);
+    setError("");
+    setMsg("");
+  }
+
+  // الحفظ من الشريط أعلى الصفحة (انظر saveKit).
+  useSaveRegistration({ dirty, isDefault: !dirty, error, busy: saving, save, reset: revert });
+
   return (
     <section className="sorder panel" aria-label="ترتيب حلقات المجموعة">
       <h3>ترتيب الحلقات</h3>
-      <p className="hint">اسحب الحلقة إلى مكانها أو استعمل الأسهم، ثم اضغط «حفظ الترتيب». الحلقات المخفية تظهر هنا بعلامة وتحتفظ بمكانها.</p>
+      <p className="hint">اسحب الحلقة إلى مكانها أو استعمل الأسهم، ثم اضغط «حفظ التغييرات» أعلى الصفحة. الحلقات المخفية تظهر هنا بعلامة وتحتفظ بمكانها.</p>
       <div aria-live="polite">
-        {error && <p className="field-error" role="alert">{error}</p>}
+        {error && !bar && <p className="field-error" role="alert">{error}</p>}
         {msg && <p className="hint" role="status">{msg}</p>}
       </div>
       {loading ? (
@@ -170,7 +190,7 @@ export default function SeriesOrder({ seriesId, onClose }: { seriesId: string; o
         </ol>
       )}
       <div className="addrow">
-        <button type="button" className="btn btn--sm" disabled={!dirty || saving} onClick={() => void save()}>{saving ? "جارٍ الحفظ…" : "حفظ الترتيب"}</button>
+        {!bar && <button type="button" className="btn btn--sm" disabled={!dirty || saving} onClick={() => void save()}>{saving ? "جارٍ الحفظ…" : "حفظ الترتيب"}</button>}
         <button type="button" className="btn btn--ghost btn--sm" disabled={saving || list.length < 2} onClick={() => apply(autoSort(list))}>ترتيب حسب الموسم والحلقة</button>
         <button type="button" className="btn btn--ghost btn--sm" disabled={saving} onClick={() => (dirty && !window.confirm("لديك ترتيب غير محفوظ. إغلاقه يتجاهله. متابعة؟") ? undefined : onClose())}>إغلاق</button>
       </div>

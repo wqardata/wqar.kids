@@ -1207,7 +1207,7 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
 .savebar-status { flex: 1 1 180px; min-width: 0; font-size: .9rem; }
 .savebar-status .field-error { margin-top: 0; }
 .savebar-ok { color: var(--accent); font-weight: 600; }
-.savebar-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-inline-start: auto; }
+.savebar-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .savebar .btn, .unsaved-box .btn { margin-top: 0; min-height: 40px; padding: 6px 18px; }
 .savebar .btn:disabled, .unsaved-box .btn:disabled { opacity: .5; cursor: not-allowed; }
 /* نافذة التحذير عند مغادرة تبويب فيه تعديلات غير محفوظة */

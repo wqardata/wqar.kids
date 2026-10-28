@@ -15,6 +15,7 @@ import { deleteThumb, deleteThumbs } from "@/lib/thumbs";
 import { bumpVideosVersion, toVideo, useNamedList, type VideoDoc } from "@/lib/videos";
 import ShortForm from "./ShortForm";
 import VideoEditForm from "./VideoEditForm";
+import { useSaveRegistration } from "./saveKit";
 
 const PAGE_SIZE = 50;
 const NONE = "__none"; // قيمة «بدون» في مرشحات التصنيف والمجموعة
@@ -60,6 +61,8 @@ export default function VideosTab({ shortsOnly = false }: { shortsOnly?: boolean
   const [bulkSer, setBulkSer] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkMsg, setBulkMsg] = useState("");
+  // يُظهر شريط الحفظ في هذا التبويب دائمًا؛ يتفعّل حين يُفتح نموذج «تعديل» لفيديو (وهو من يسجّل مسودته).
+  useSaveRegistration({ dirty: false, isDefault: true, error: "", busy: false, save: async () => true, reset: () => {} });
 
   useEffect(() => {
     let off = false;

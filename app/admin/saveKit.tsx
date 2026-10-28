@@ -30,6 +30,8 @@ type SaveApi = {
 const SaveCtx = createContext<SaveApi | null>(null);
 export const SaveProvider = SaveCtx.Provider;
 export const useSaveApi = () => useContext(SaveCtx);
+/** هل نحن داخل لوحة التحكم (فيها شريط حفظ)؟ خارجها (مثل صفحة عرض الفيديو) يبقى للنموذج زر حفظه. */
+export const useHasSaveBar = () => useContext(SaveCtx) !== null;
 
 export type SaveStore = {
   api: SaveApi;
@@ -91,7 +93,7 @@ export function useSaveStore(): SaveStore {
   );
 
   const resetAll = useCallback(() => {
-    if (!window.confirm("ستُستبدل قيم هذا التبويب بالقيم الافتراضية، ولن يُحفظ شيء حتى تضغط «حفظ التغييرات». متابعة؟")) return;
+    if (!window.confirm("ستعود أقسام هذا التبويب إلى القيم الافتراضية (وفي نماذج تعديل فيديو أو تصنيف أو مجموعة: إلى القيم المحفوظة)، ولن يُحفظ شيء حتى تضغط «حفظ التغييرات». متابعة؟")) return;
     for (const get of [...entries.current.values()]) get().reset();
     setSaved(false);
   }, []);
@@ -199,6 +201,15 @@ export function SaveBar({ store }: { store: SaveStore }) {
   if (store.count === 0) return null;
   return (
     <div className="savebar" role="region" aria-label="حفظ التغييرات">
+      {/* الأزرار أولًا في الترتيب: تظهر أعلى يمين الصفحة (RTL)، وحالة المسودة بجانبها. */}
+      <div className="savebar-btns">
+        <button type="button" className="btn" disabled={!store.dirty || store.busy} onClick={() => void store.saveAll()}>
+          {store.busy ? "جارٍ الحفظ…" : "حفظ التغييرات"}
+        </button>
+        <button type="button" className="btn btn--ghost" disabled={store.busy || store.allDefault} onClick={store.resetAll}>
+          العودة إلى الافتراضي
+        </button>
+      </div>
       <div className="savebar-status" aria-live="polite">
         {store.error ? (
           <span className="field-error" role="alert">{store.error}</span>
@@ -207,14 +218,6 @@ export function SaveBar({ store }: { store: SaveStore }) {
         ) : store.saved ? (
           <span className="savebar-ok">تم الحفظ ✓</span>
         ) : null}
-      </div>
-      <div className="savebar-btns">
-        <button type="button" className="btn" disabled={!store.dirty || store.busy} onClick={() => void store.saveAll()}>
-          {store.busy ? "جارٍ الحفظ…" : "حفظ التغييرات"}
-        </button>
-        <button type="button" className="btn btn--ghost" disabled={store.busy || store.allDefault} onClick={store.resetAll}>
-          العودة إلى الافتراضي
-        </button>
       </div>
     </div>
   );

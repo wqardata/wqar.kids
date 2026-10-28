@@ -10,6 +10,7 @@ import { cleanAvatarUrl, cleanCoverImage, clearVideoCache, normalizeAr, pickCove
 import { driveThumbnail, parseDriveId } from "@/lib/drive";
 import { deleteThumb, fileToJpegDataUrl, saveThumb } from "@/lib/thumbs";
 import SeriesOrder from "./SeriesOrder";
+import { useSaveApi, useSaveRegistration } from "./saveKit";
 
 type Coll = "categories" | "series";
 type Item = { id: string; name: string; count: number; coverVideoId: string; coverImage: string; vids: VideoDoc[] };
@@ -211,14 +212,16 @@ export default function NamedManager({ coll }: { coll: Coll }) {
     setMsg("");
   }
 
-  async function onRename(e: FormEvent, i: Item) {
-    e.preventDefault();
+  /** يحفظ تعديل العنصر المفتوح (الاسم والصورة)؛ يعيد true عند النجاح. */
+  async function saveEdit(): Promise<boolean> {
+    const i = items.find((x) => x.id === editing);
+    if (!i) return false;
     const name = clean(editName);
     setError("");
     setMsg("");
-    if (!name) return setError("الاسم مطلوب.");
+    if (!name) return setError("الاسم مطلوب."), false;
     const other = taken.get(normalizeAr(name));
-    if (other && other !== i.id) return setError("يوجد عنصر آخر بهذا الاسم.");
+    if (other && other !== i.id) return setError("يوجد عنصر آخر بهذا الاسم."), false;
     setBusy(i.id);
     try {
       // نحفظ الاسم الجديد أولًا ثم نزامنه في الفيديوهات (لأنها تحمل نسخة من الاسم).
@@ -234,13 +237,13 @@ export default function NamedManager({ coll }: { coll: Coll }) {
           if (coverFile) nextImage = await saveThumb(i.id, coverFile);
           else if (!isUploaded(i.coverImage)) {
             setError("اختر صورة من جهازك أولًا، أو غيّر مصدر الصورة.");
-            return;
+            return false;
           }
         } else {
           const id = parseDriveId(coverLink);
           if (!id) {
             setError("الصق رابط صورة درايف صحيحًا (مشاركة: «أي شخص لديه الرابط»).");
-            return;
+            return false;
           }
           nextImage = driveThumbnail(id, 640);
         }
@@ -266,14 +269,39 @@ export default function NamedManager({ coll }: { coll: Coll }) {
         const n = name !== i.name ? (USE_NEON ? synced : await patchVideos(t.idField, i.id, { [t.nameField]: name })) : 0;
         setEditing("");
         setMsg(n ? `تم الحفظ وتحديث ${n} فيديو ✓` : "تم الحفظ ✓");
+        return true;
       } catch {
-        setError("تغيّر الاسم لكن تعذّر تحديثه في بعض الفيديوهات. اضغط «تعديل» ثم «حفظ» مرة أخرى لإعادة المزامنة.");
+        setError("تغيّر الاسم لكن تعذّر تحديثه في بعض الفيديوهات. اضغط «تعديل» ثم «حفظ التغييرات» مرة أخرى لإعادة المزامنة.");
+        return false;
       }
     } catch {
       setError("تعذّر الحفظ. تأكد من صلاحياتك وقواعد Firestore.");
+      return false;
     } finally {
       setBusy("");
     }
+  }
+
+  // الحفظ من الشريط أعلى الصفحة؛ وEnter في حقل الاسم يعادله. «العودة» تُرجع الحقول إلى المحفوظ.
+  const saveApi = useSaveApi();
+  const editItem = items.find((x) => x.id === editing);
+  const initMode: CoverMode = editItem?.coverImage ? (isUploaded(editItem.coverImage) ? "upload" : "drive") : "video";
+  const initLink = editItem?.coverImage && !isUploaded(editItem.coverImage) ? editItem.coverImage : "";
+  const editDirty =
+    !!editItem &&
+    (clean(editName) !== editItem.name ||
+      (coll === "series" && (coverMode !== initMode || coverFile !== "" || editCover !== editItem.coverVideoId || coverLink !== initLink)));
+  useSaveRegistration({
+    dirty: editDirty,
+    isDefault: !editDirty,
+    error: editing ? error : "",
+    busy: busy !== "" || coverBusy,
+    save: saveEdit,
+    reset: () => editItem && startEdit(editItem),
+  });
+  function cancelEdit() {
+    if (editDirty && !window.confirm("لديك تعديلات غير محفوظة. الإلغاء يتجاهلها. متابعة؟")) return;
+    setEditing("");
   }
 
   async function onDelete(i: Item) {
@@ -312,7 +340,7 @@ export default function NamedManager({ coll }: { coll: Coll }) {
       </form>
 
       <div aria-live="polite">
-        {error && <p className="field-error" role="alert">{error}</p>}
+        {error && !editing && <p className="field-error" role="alert">{error}</p>}
         {msg && <p className="hint" role="status">{msg}</p>}
       </div>
 
@@ -326,9 +354,9 @@ export default function NamedManager({ coll }: { coll: Coll }) {
             {items.map((i) => (
               <li key={i.id} className="nrow">
                 {editing === i.id ? (
-                  <form className="addrow nrow-edit" onSubmit={(e) => void onRename(e, i)}>
+                  <form className="addrow nrow-edit" onSubmit={(e) => { e.preventDefault(); if (saveApi) void saveApi.saveAll(); else void saveEdit(); }}>
                     <label htmlFor={`ed-${i.id}`} className="sr-only">الاسم الجديد</label>
-                    <input id={`ed-${i.id}`} value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={80} autoFocus onKeyDown={(e) => e.key === "Escape" && setEditing("")} />
+                    <input id={`ed-${i.id}`} value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={80} autoFocus onKeyDown={(e) => e.key === "Escape" && cancelEdit()} />
                     {coll === "series" && (() => {
                       const driveId = parseDriveId(coverLink);
                       const preview =
@@ -376,8 +404,8 @@ export default function NamedManager({ coll }: { coll: Coll }) {
                         </fieldset>
                       );
                     })()}
-                    <button type="submit" className="btn btn--sm" disabled={busy === i.id || coverBusy}>{busy === i.id ? "..." : "حفظ"}</button>
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing("")}>إلغاء</button>
+                    {!saveApi && <button type="submit" className="btn btn--sm" disabled={busy === i.id || coverBusy}>{busy === i.id ? "..." : "حفظ"}</button>}
+                    <button type="button" className="btn btn--ghost btn--sm" disabled={busy === i.id} onClick={cancelEdit}>إلغاء</button>
                   </form>
                 ) : (
                   <>
