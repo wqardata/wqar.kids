@@ -56,11 +56,11 @@ export function bearer(req: Request): string {
   return header.startsWith("Bearer ") ? header.slice(7) : "";
 }
 
-/** هل البريد ضمن ADMIN_EMAILS؟ (فارغة = يُسمح لأي مسجَّل، مطابقًا لسلوك الموقع الحالي). */
+/** هل البريد ضمن ADMIN_EMAILS؟ (صارم: قائمة فارغة أو غير مضبوطة = لا أحد، فنسيان المتغير لا يفتح الباب لأي حساب جوجل). */
 export function isAdminEmail(email: string): boolean {
   const admins = (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
-  return admins.length === 0 || admins.includes(email);
+  return admins.includes(email.toLowerCase());
 }

@@ -37,10 +37,10 @@ const admins = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
 
-/** هل يحق لهذا البريد إضافة فيديوهات؟ (التحقق الحقيقي في firestore.rules وفي الـ API) */
+/** هل يحق لهذا البريد إضافة فيديوهات؟ (التحقق الحقيقي في firestore.rules وفي الـ API). صارم: قائمة فارغة = لا أحد. */
 export function canAddVideos(email?: string | null): boolean {
   if (!email) return false;
-  return admins.length === 0 || admins.includes(email.toLowerCase());
+  return admins.includes(email.toLowerCase());
 }
 
 /** هل البريد من «المالكين» في NEXT_PUBLIC_ADMIN_EMAILS؟ (صارم: قائمة فارغة = لا أحد). هم وحدهم يديرون الأعضاء. */
