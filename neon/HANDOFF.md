@@ -26,7 +26,7 @@
    - في Vercel ← Settings ← Environment Variables أضف `DATABASE_URL` و`NEXT_PUBLIC_DATA_BACKEND=neon` لبيئة **Preview** فقط.
    - Redeploy لنشر الفرع `neon-phases-2-6c` دون Build Cache (القيمة تُدمج وقت البناء).
    - أضف نطاق المعاينة إلى Firebase ← Authentication ← Settings ← Authorized domains.
-   - افحص: `/api/db-health` (يجب `tables: 11`)، الرئيسية وصفحة فيديو وتصنيف، المشاهدة والإعجاب، دخول المشرف وإضافة فيديو وتعديله وحذفه، الإعدادات، الإشعارات، الصور المصغّرة.
+   - افحص: تبويب «الإحصاءات» في اللوحة (يقرأ من Neon؛ `/api/db-health` صار للمشرفين فقط بترويسة Authorization ويجب أن يعيد `tables: 11`)، الرئيسية وصفحة فيديو وتصنيف، المشاهدة والإعجاب، دخول المشرف وإضافة فيديو وتعديله وحذفه، الإعدادات، الإشعارات، الصور المصغّرة.
    - ملاحظة: دخول المشرف يقرأ من Firestore، فقد يتعثر ما دامت الحصة منتهية.
 3. **التبديل النهائي:** أعد `--write` مرة أخيرة (لتحديث المشاهدات والإعجابات)، ثم اضبط `DATABASE_URL` و`NEXT_PUBLIC_DATA_BACKEND=neon` لبيئة Production وأعد النشر، وراقب الموقع. للرجوع في أي لحظة: `NEXT_PUBLIC_DATA_BACKEND=firestore` وإعادة النشر.
 4. **المرحلة 8 (التنظيف):** إزالة كود Firestore المباشر للبيانات وقواعده بعد أيام من الاستقرار، مع الإبقاء على Auth ومجموعتي `users` و`allowed`.
