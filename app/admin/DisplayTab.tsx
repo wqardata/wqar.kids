@@ -86,13 +86,22 @@ function MobileRatioField({ value, onChange }: { value: MobileThumbRatio; onChan
 
   return (
     <div className="field">
-      <label htmlFor="dp-ratio-w">أبعاد صورة الفيديو على الجوال (العرض : الارتفاع)</label>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <input id="dp-ratio-w" type="number" inputMode="decimal" dir="ltr" aria-label="العرض" min={MOBILE_THUMB_DIM_MIN} max={MOBILE_THUMB_DIM_MAX} step={0.1} value={w} style={{ width: 90 }}
-          onChange={(e) => { setW(e.target.value); commit(e.target.value, h); }} />
-        <span aria-hidden="true">:</span>
-        <input id="dp-ratio-h" type="number" inputMode="decimal" dir="ltr" aria-label="الارتفاع" min={MOBILE_THUMB_DIM_MIN} max={MOBILE_THUMB_DIM_MAX} step={0.1} value={h} style={{ width: 90 }}
-          onChange={(e) => { setH(e.target.value); commit(w, e.target.value); }} />
+      <span className="lbl">أبعاد صورة الفيديو على الجوال</span>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+        {/* العرض على اليسار والارتفاع على اليمين (كما تُكتب النسبة 16:9)، وفوق كل حقل عنوانه الظاهر. */}
+        <div dir="ltr" style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <label htmlFor="dp-ratio-w" style={{ display: "grid", gap: 4, fontSize: ".85rem" }}>
+            <span>العرض</span>
+            <input id="dp-ratio-w" type="number" inputMode="decimal" dir="ltr" min={MOBILE_THUMB_DIM_MIN} max={MOBILE_THUMB_DIM_MAX} step={0.1} value={w} style={{ width: 90 }}
+              onChange={(e) => { setW(e.target.value); commit(e.target.value, h); }} />
+          </label>
+          <span aria-hidden="true" style={{ paddingBottom: 10 }}>:</span>
+          <label htmlFor="dp-ratio-h" style={{ display: "grid", gap: 4, fontSize: ".85rem" }}>
+            <span>الارتفاع</span>
+            <input id="dp-ratio-h" type="number" inputMode="decimal" dir="ltr" min={MOBILE_THUMB_DIM_MIN} max={MOBILE_THUMB_DIM_MAX} step={0.1} value={h} style={{ width: 90 }}
+              onChange={(e) => { setH(e.target.value); commit(w, e.target.value); }} />
+          </label>
+        </div>
         <select id="dp-ratio" aria-label="نسب جاهزة" value={presetId} onChange={(e) => e.target.value && onChange(e.target.value as MobileThumbRatio)}>
           <option value="">نسبة مخصّصة</option>
           {MOBILE_THUMB_RATIOS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
