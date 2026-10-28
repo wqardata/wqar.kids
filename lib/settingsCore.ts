@@ -297,6 +297,19 @@ export const CONTINUE_COUNT_MAX = 12;
 export const CONTINUE_SIZE_MIN = 140;
 export const CONTINUE_SIZE_MAX = 420;
 export const CONTINUE_SIZE_DEFAULT = 280;
+/** أبعاد صورة الفيديو (المصغّرة) في الرئيسية على الجوال فقط. الافتراضي 16:9 (كما كانت). */
+export const MOBILE_THUMB_RATIOS = [
+  { id: "16/9", label: "عريضة 16:9 (الافتراضي)", css: "16 / 9" },
+  { id: "4/3", label: "أقل عرضًا 4:3", css: "4 / 3" },
+  { id: "1/1", label: "مربعة 1:1", css: "1 / 1" },
+  { id: "4/5", label: "طويلة 4:5", css: "4 / 5" },
+] as const;
+export type MobileThumbRatio = (typeof MOBILE_THUMB_RATIOS)[number]["id"];
+export const MOBILE_THUMB_RATIO_DEFAULT: MobileThumbRatio = "16/9";
+/** قيمة aspect-ratio في CSS لنسبة محفوظة. */
+export function mobileThumbCss(id: MobileThumbRatio): string {
+  return MOBILE_THUMB_RATIOS.find((r) => r.id === id)?.css ?? "16 / 9";
+}
 /** أقصى حد أدنى (بالثواني) لمدة المشاهدة كي يظهر الفيديو في صف «تابع المشاهدة». */
 export const CONTINUE_MIN_SEC_MAX = 120;
 
@@ -398,6 +411,8 @@ export type DisplaySettings = {
   continueSize: number;
   /** أقل مدة مشاهدة (ثوانٍ) ليظهر الفيديو في «تابع المشاهدة». 0 = أي فيديو سبق فتحه ولم يكتمل. */
   continueMinSec: number;
+  /** أبعاد صورة الفيديو في الرئيسية على الجوال (الحاسوب لا يتأثر). */
+  mobileThumbRatio: MobileThumbRatio;
   /** تخصيص تبويبات أعلى الرئيسية يدويًا (false = تلقائي: الكل والجديد وكل التصنيفات). */
   homeTabsCustom: boolean;
   homeTabs: HomeTab[];
@@ -431,6 +446,7 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   continueTitle: "تابع المشاهدة",
   continueSize: CONTINUE_SIZE_DEFAULT,
   continueMinSec: 0,
+  mobileThumbRatio: MOBILE_THUMB_RATIO_DEFAULT,
   homeTabsCustom: false,
   homeTabs: [],
   seriesShowDuration: true,
@@ -476,6 +492,7 @@ export function cleanDisplay(v: unknown): DisplaySettings {
     continueTitle: textOr("continueTitle", D.continueTitle),
     continueSize: int("continueSize", CONTINUE_SIZE_MIN, CONTINUE_SIZE_MAX, D.continueSize),
     continueMinSec: int("continueMinSec", 0, CONTINUE_MIN_SEC_MAX, D.continueMinSec),
+    mobileThumbRatio: MOBILE_THUMB_RATIOS.some((x) => x.id === o.mobileThumbRatio) ? (o.mobileThumbRatio as MobileThumbRatio) : D.mobileThumbRatio,
     homeTabsCustom: o.homeTabsCustom === true,
     homeTabs: cleanHomeTabs(o.homeTabs),
     seriesShowDuration: o.seriesShowDuration !== false,

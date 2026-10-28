@@ -16,15 +16,18 @@ import {
   DISPLAY_ROWS_MAX,
   GROUP_ORDERS,
   HOME_ORDERS,
+  MOBILE_THUMB_RATIOS,
   ROW_SIZE_DEFAULT,
   SHORTS_POS_END,
   SHORTS_POS_MAX_ROW,
   cleanDisplay,
+  mobileThumbCss,
   useSettings,
   type ContinueLayout,
   type DisplaySettings,
   type GroupOrder,
   type HomeOrder,
+  type MobileThumbRatio,
 } from "@/lib/settings";
 import { usePreviewDraft } from "@/lib/preview";
 import { MovableSection, OwnerForm } from "./sectionKit";
@@ -73,7 +76,7 @@ function ContinuePreview({ form }: { form: DisplaySettings }) {
             return (
               <li key={i}>
                 <div className="card">
-                  <div className="thumb" style={{ ["--h" as string]: (i * 47) % 360 }}>
+                  <div className="thumb" style={{ ["--h" as string]: (i * 47) % 360, ...(device === "phone" ? { aspectRatio: mobileThumbCss(form.mobileThumbRatio) } : {}) }}>
                     <span className="dur">{m.dur}</span>
                   </div>
                   <div className="card-row">
@@ -226,6 +229,14 @@ export default function DisplayTab() {
             <select id="dp-order" value={form.homeOrder} onChange={(e) => set("homeOrder", e.target.value as HomeOrder)}>
               {HOME_ORDERS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="dp-ratio">أبعاد صورة الفيديو على الجوال</label>
+            <select id="dp-ratio" value={form.mobileThumbRatio} onChange={(e) => set("mobileThumbRatio", e.target.value as MobileThumbRatio)}>
+              {MOBILE_THUMB_RATIOS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+            <p className="hint">تُطبَّق على صور الفيديوهات في الرئيسية (وكذلك صف «تابع المشاهدة») عند التصفح من الجوال فقط؛ الحاسوب يبقى 16:9. تظهر في معاينة «تابع المشاهدة» بوضع «جوال».</p>
           </div>
 
           <div className="field">

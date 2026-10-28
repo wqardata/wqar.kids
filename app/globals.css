@@ -1020,6 +1020,8 @@ html, body { overflow-x: clip; }
 .cont-row { list-style: none; margin: 0; padding: 0 16px 6px; display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; -ms-overflow-style: none; }
 .cont-row::-webkit-scrollbar { display: none; }
 .cont-row > li { flex: 0 0 min(var(--cont-w, 280px), 86%); scroll-snap-align: start; }
+/* أبعاد صورة الفيديو في الرئيسية على الجوال فقط (من «العرض» في لوحة التحكم). صف المقاطع القصيرة له نسبته الخاصة. */
+@media (max-width: 599.98px) { .home-mratio .grid .thumb, .home-mratio .cont-row .thumb { aspect-ratio: var(--m-ratio, 16 / 9); } }
 @media (min-width: 600px) { .cont-row { padding-inline: 2px; } }
 .icon-picker { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: var(--bg); }
 .icon-picker summary { display: flex; align-items: center; gap: 10px; cursor: pointer; min-height: 36px; }
