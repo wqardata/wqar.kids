@@ -14,7 +14,7 @@ export const HostCtx = createContext<HostValue | null>(null);
 export const OwnerCtx = createContext<{ owner: OwnerId; formId: string; home: TabId } | null>(null);
 
 /** يجعل Enter وزر submit يعملان رغم أن الحقول صارت خارج وسم <form> مالكها. */
-function formProxy(formId: string | undefined) {
+function formProxy(formId: string | undefined, saveAll?: () => Promise<boolean>) {
   const form = () => (formId ? (document.getElementById(formId) as HTMLFormElement | null) : null);
   return {
     onKeyDown(e: KeyboardEvent<HTMLElement>) {
@@ -25,6 +25,10 @@ function formProxy(formId: string | undefined) {
       if (f) {
         e.preventDefault();
         f.requestSubmit();
+      } else if (saveAll) {
+        // المالك بلا <form> (يحفظ عبر شريط الحفظ): Enter يعادل «حفظ التغييرات».
+        e.preventDefault();
+        void saveAll();
       }
     },
     onClick(e: MouseEvent<HTMLElement>) {
@@ -42,11 +46,12 @@ function formProxy(formId: string | undefined) {
 export function MovableSection({ id, children }: { id: string; children: ReactNode }) {
   const host = useContext(HostCtx);
   const owner = useContext(OwnerCtx);
+  const save = useSaveApi();
   if (!host?.el) return null;
   const i = (host.arrangement[host.tab] ?? []).indexOf(id);
   if (i < 0) return null;
   return createPortal(
-    <div className="msec" data-section={id} style={{ order: i * 2 }} {...formProxy(owner?.formId)}>
+    <div className="msec" data-section={id} style={{ order: i * 2 }} {...formProxy(owner?.formId, save?.saveAll)}>
       {children}
     </div>,
     host.el,
