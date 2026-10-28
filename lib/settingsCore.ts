@@ -336,6 +336,18 @@ export function cleanNoticeCount(v: unknown): number {
   return Number.isFinite(n) ? Math.min(NOTICE_COUNT_MAX, Math.max(NOTICE_COUNT_MIN, n)) : DEFAULT_NOTICE_COUNT;
 }
 
+/** كل كم دقيقة يحدّث الجرس نفسه ما دامت الصفحة ظاهرة (0 = بلا تحديث دوري: يتحدّث فقط عند العودة للصفحة). */
+export const NOTICE_REFRESH_MIN = 5;
+export const NOTICE_REFRESH_MAX = 1440;
+export const DEFAULT_NOTICE_REFRESH_MIN = 30;
+export function cleanNoticeRefreshMin(v: unknown): number {
+  if (v === null || v === undefined || (typeof v === "string" && v.trim() === "")) return DEFAULT_NOTICE_REFRESH_MIN;
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return DEFAULT_NOTICE_REFRESH_MIN;
+  if (n <= 0) return 0;
+  return Math.min(NOTICE_REFRESH_MAX, Math.max(NOTICE_REFRESH_MIN, n));
+}
+
 /** صفوف الرئيسية المخصّصة: لكل صف عدد فيديوهاته (الافتراضي 3 في الصف) ويمكن إضافة صفوف وحذفها. */
 export const ROW_SIZE_MIN = 1;
 export const ROW_SIZE_MAX = 6;
@@ -656,6 +668,8 @@ export type SiteSettings = {
   watchPage: WatchPageSettings;
   /** عدد الإشعارات الظاهرة في قائمة الجرس. */
   noticeCount: number;
+  /** مدة تحديث الجرس الدورية بالدقائق (0 = إيقاف). */
+  noticeRefreshMin: number;
 };
 
 /** شاشة الشعار عند فتح الموقع. */
@@ -753,6 +767,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   display: DEFAULT_DISPLAY,
   watchPage: DEFAULT_WATCH_PAGE,
   noticeCount: DEFAULT_NOTICE_COUNT,
+  noticeRefreshMin: DEFAULT_NOTICE_REFRESH_MIN,
 };
 
 export const GLASS_MIN = 0;
@@ -897,6 +912,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     display: cleanDisplay(d.display),
     watchPage: cleanWatchPage(d.watchPage),
     noticeCount: cleanNoticeCount(d.noticeCount ?? DEFAULT_NOTICE_COUNT),
+    noticeRefreshMin: cleanNoticeRefreshMin(d.noticeRefreshMin),
   };
 }
 

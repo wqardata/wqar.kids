@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cleanLayout, cleanSitePatch, MAX_LAYOUT_JSON } from "../lib/adminInput";
 import { RESET_LAYOUT_SQL, SAVE_LAYOUT_SQL, SAVE_SITE_SQL } from "../lib/adminSql";
-import { DEFAULT_SETTINGS } from "../lib/settingsCore";
+import { DEFAULT_NOTICE_REFRESH_MIN, DEFAULT_SETTINGS, NOTICE_REFRESH_MAX, NOTICE_REFRESH_MIN, cleanNoticeRefreshMin, merge } from "../lib/settingsCore";
 
 test("إعدادات الموقع: الحقول المرسَلة فقط تعود منظّفة، والباقي لا يُلمس", () => {
   const p = cleanSitePatch({ patch: { siteName: "  عالم الصغار  ", glass: 9999 } });
@@ -57,4 +57,29 @@ test("جمل SQL: الدمج السطحي للموقع، والاستبدال ا
   assert.match(SAVE_LAYOUT_SQL, /data = excluded\.data/);
   assert.match(RESET_LAYOUT_SQL, /key = 'adminLayout'/);
   for (const q of [SAVE_SITE_SQL, SAVE_LAYOUT_SQL, RESET_LAYOUT_SQL]) assert.doesNotMatch(q, /\$\{/);
+});
+
+test("مدة تحديث الجرس: الافتراضي 30، و0 يوقف الدوري، والباقي يُقيَّد بين الحدّين", () => {
+  assert.equal(DEFAULT_NOTICE_REFRESH_MIN, 30);
+  assert.equal(DEFAULT_SETTINGS.noticeRefreshMin, 30);
+  assert.equal(cleanNoticeRefreshMin(0), 0);
+  assert.equal(cleanNoticeRefreshMin(-4), 0);
+  assert.equal(cleanNoticeRefreshMin(1), NOTICE_REFRESH_MIN); // أقل من الحد الأدنى يرفع إليه (لا يتحوّل لإيقاف)
+  assert.equal(cleanNoticeRefreshMin("45"), 45);
+  assert.equal(cleanNoticeRefreshMin(7.6), 8);
+  assert.equal(cleanNoticeRefreshMin(999999), NOTICE_REFRESH_MAX);
+});
+
+test("مدة تحديث الجرس: قيمة فارغة أو غير رقمية أو غير موجودة = الافتراضي (لا إيقاف بالخطأ)", () => {
+  for (const v of ["", "  ", "abc", null, undefined, NaN]) assert.equal(cleanNoticeRefreshMin(v), DEFAULT_NOTICE_REFRESH_MIN, String(v));
+  assert.equal(merge({}).noticeRefreshMin, DEFAULT_NOTICE_REFRESH_MIN);
+  assert.equal(merge({ noticeRefreshMin: 0 }).noticeRefreshMin, 0);
+  assert.equal(merge({ noticeRefreshMin: 60 }).noticeRefreshMin, 60);
+});
+
+test("مدة تحديث الجرس: الخادم يقبل المفتاح وينظّفه عند الحفظ", () => {
+  const p = cleanSitePatch({ patch: { noticeRefreshMin: 2 } })!;
+  assert.ok(p, "المفتاح ضمن القائمة المسموحة");
+  assert.equal(p.noticeRefreshMin, NOTICE_REFRESH_MIN);
+  assert.equal(cleanSitePatch({ patch: { noticeRefreshMin: 0 } })!.noticeRefreshMin, 0);
 });

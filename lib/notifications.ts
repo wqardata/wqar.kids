@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { collection, getDocs, limit, onSnapshot, query, where } from "firebase/firestore";
 import { getDb, getFirebaseAuth, isFirebaseConfigured } from "./firebase";
-import { DEFAULT_NOTICE_COUNT } from "./settingsCore";
+import { DEFAULT_NOTICE_COUNT, DEFAULT_NOTICE_REFRESH_MIN } from "./settingsCore";
 import { USE_NEON } from "./backend";
 import { neonNotices } from "./neonClient";
 import { adminOpenReportsCount } from "./neonAdminClient";
@@ -23,12 +23,19 @@ export const AUDIENCES: readonly { id: Audience; label: string; note: string }[]
 export const DEFAULT_AUDIENCE: Audience = "all";
 export const audienceLabel = (a: Audience) => AUDIENCES.find((x) => x.id === a)?.label ?? a;
 
+/** مدة تحديث الجرس الدورية بالمللي ثانية من إعداد «noticeRefreshMin» (بالدقائق). 0 أو غير صالح → بلا مؤقّت دوري. */
+export function bellPollMs(min: number = DEFAULT_NOTICE_REFRESH_MIN): number | undefined {
+  return Number.isFinite(min) && min > 0 ? Math.round(min) * 60_000 : undefined;
+}
+
 /**
  * يُشغّل `fn` عند عودة الزائر إلى الصفحة (فتح التطبيق/التبويب، العودة للاتصال)، بحدّ أدنى `minGapMs` بين مرّتين.
  * الاشتراك المباشر (onSnapshot) كثيرًا ما يتجمّد في متصفحات الجوال بعد أن تذهب الصفحة للخلفية،
- * فنُحدّث البيانات من الخادم عند العودة فقط (بلا مؤقّت دوري) كي لا نستهلك حصّة قراءات Firestore المجانية.
+ * فنُحدّث البيانات من الخادم عند العودة.
+ * `intervalMs` (اختياري): يُشغّل `fn` أيضًا كل هذه المدة ما دامت الصفحة ظاهرة فقط (لا شيء والصفحة في الخلفية).
+ * بلا `intervalMs` لا يوجد مؤقّت دوري (يحمي حصّة قراءات Firestore، ويقلّل إيقاظ قاعدة Neon).
  */
-export function useRefreshOnReturn(fn: () => void, enabled: boolean, minGapMs = 300_000) {
+export function useRefreshOnReturn(fn: () => void, enabled: boolean, minGapMs = 300_000, intervalMs?: number) {
   useEffect(() => {
     if (!enabled) return;
     let last = Date.now();
@@ -37,15 +44,22 @@ export function useRefreshOnReturn(fn: () => void, enabled: boolean, minGapMs = 
       last = Date.now();
       fn();
     };
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      last = Date.now();
+      fn();
+    };
+    const timer = intervalMs && intervalMs > 0 ? setInterval(tick, intervalMs) : null;
     document.addEventListener("visibilitychange", run);
     window.addEventListener("online", run);
     window.addEventListener("pageshow", run);
     return () => {
+      if (timer !== null) clearInterval(timer);
       document.removeEventListener("visibilitychange", run);
       window.removeEventListener("online", run);
       window.removeEventListener("pageshow", run);
     };
-  }, [fn, enabled, minGapMs]);
+  }, [fn, enabled, minGapMs, intervalMs]);
 }
 
 export function toNotice(id: string, d: Record<string, unknown>): Notice {
@@ -66,12 +80,12 @@ export function toNotice(id: string, d: Record<string, unknown>): Notice {
  * هكذا تُثبت قواعد Firestore أن كل استعلام مسموح، ولا يُسقط رفضُ فئة واحدة بقية الفئات.
  * `ready` = انتهى تحميل حالة الدخول (قبلها لا نشترك كي لا نبدأ كزائر ثم نتحوّل لعضو).
  */
-export function useNotifications(uid: string | null, isAdmin: boolean, ready = true, count = DEFAULT_NOTICE_COUNT) {
+export function useNotifications(uid: string | null, isAdmin: boolean, ready = true, count = DEFAULT_NOTICE_COUNT, refreshMin = DEFAULT_NOTICE_REFRESH_MIN) {
   const [byAud, setByAud] = useState<Partial<Record<Audience, Notice[]>>>({});
   const [denied, setDenied] = useState<Audience[]>([]);
   const show = Math.min(NOTICE_KEEP, Math.max(1, Math.round(count) || DEFAULT_NOTICE_COUNT));
 
-  // Neon: لا اشتراك مباشر. نجلب من /api/data/notifications (الخادم يحدّد الفئات من رمز Firebase) عند التحميل وعند العودة للتطبيق.
+  // Neon: لا اشتراك مباشر. نجلب من /api/data/notifications (الخادم يحدّد الفئات من رمز Firebase) عند التحميل وعند العودة للصفحة وكل مدة يضبطها المشرف (الافتراضي 30 دقيقة) ما دامت ظاهرة.
   const [neon, setNeon] = useState<{ items: Notice[] | null; failed: boolean }>({ items: null, failed: false });
   const seq = useRef(0);
   const loadNeon = useCallback(() => {
@@ -92,7 +106,7 @@ export function useNotifications(uid: string | null, isAdmin: boolean, ready = t
     setNeon({ items: null, failed: false });
     loadNeon();
   }, [loadNeon]);
-  useRefreshOnReturn(loadNeon, USE_NEON && ready);
+  useRefreshOnReturn(loadNeon, USE_NEON && ready, 300_000, bellPollMs(refreshMin)); // عند العودة للصفحة، وكل `refreshMin` دقيقة ما دامت ظاهرة (إعداد من اللوحة)
 
   useEffect(() => {
     setByAud({});
@@ -136,7 +150,7 @@ export function useNotifications(uid: string | null, isAdmin: boolean, ready = t
 }
 
 /** عدد البلاغات المفتوحة (للمشرف فقط) مباشرةً: يتحدّث فور وصول بلاغ جديد. */
-export function useOpenReports(enabled: boolean) {
+export function useOpenReports(enabled: boolean, refreshMin = DEFAULT_NOTICE_REFRESH_MIN) {
   const [count, setCount] = useState(0);
   const loadNeon = useCallback(() => {
     if (!USE_NEON || !enabled) return;
@@ -145,7 +159,7 @@ export function useOpenReports(enabled: boolean) {
   useEffect(() => {
     if (USE_NEON) {
       if (!enabled) setCount(0);
-      else loadNeon(); // لا اشتراك مباشر على Neon: الجلب عند التحميل ثم عند العودة للتطبيق
+      else loadNeon(); // لا اشتراك مباشر على Neon: الجلب عند التحميل ثم عند العودة للصفحة وكل مدة يضبطها المشرف ما دامت ظاهرة
       return;
     }
     if (!enabled || !isFirebaseConfigured) {
@@ -165,7 +179,7 @@ export function useOpenReports(enabled: boolean) {
       .then((snap) => setCount(snap.size))
       .catch(() => {});
   }, [enabled]);
-  useRefreshOnReturn(refresh, enabled && (USE_NEON || isFirebaseConfigured), USE_NEON ? 60_000 : 300_000);
+  useRefreshOnReturn(refresh, enabled && (USE_NEON || isFirebaseConfigured), USE_NEON ? 60_000 : 300_000, USE_NEON ? bellPollMs(refreshMin) : undefined);
   return { count, refresh };
 }
 

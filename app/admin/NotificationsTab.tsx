@@ -6,7 +6,7 @@ import { getDb } from "@/lib/firebase";
 import { adminDeleteNotices, adminNotices, adminSendNotice } from "@/lib/neonAdminClient";
 import SoundSettings from "@/app/admin/SoundSettings";
 import { usePreviewDraft } from "@/lib/preview";
-import { DEFAULT_SETTINGS, NOTICE_COUNT_MAX, NOTICE_COUNT_MIN, cleanNoticeCount, useSettings } from "@/lib/settings";
+import { DEFAULT_SETTINGS, NOTICE_COUNT_MAX, NOTICE_COUNT_MIN, NOTICE_REFRESH_MAX, NOTICE_REFRESH_MIN, cleanNoticeCount, cleanNoticeRefreshMin, useSettings } from "@/lib/settings";
 import { AUDIENCES, DEFAULT_AUDIENCE, audienceLabel, cleanLink, newNoticeId, NOTICE_KEEP, timeAgo, toNotice, type Audience, type Notice } from "@/lib/notifications";
 import { MovableSection } from "./sectionKit";
 import { useSettingsOwner } from "./saveKit";
@@ -14,17 +14,25 @@ import { useSettingsOwner } from "./saveKit";
 const TITLE_MAX = 80;
 const BODY_MAX = 500;
 
-/** عدد الإشعارات التي تظهر في قائمة الجرس لكل زائر. */
+/** عدد الإشعارات التي تظهر في قائمة الجرس لكل زائر، ومدة تحديث الجرس. */
 function NoticeCountSettings() {
   const { settings } = useSettings();
   const [value, setValue] = useState(String(settings.noticeCount));
+  const [refresh, setRefresh] = useState(String(settings.noticeRefreshMin));
   const next = cleanNoticeCount(value);
-  const patch = useMemo(() => ({ noticeCount: next }), [next]);
-  usePreviewDraft("notice-count", { noticeCount: next });
+  const nextRefresh = cleanNoticeRefreshMin(refresh);
+  const patch = useMemo(() => ({ noticeCount: next, noticeRefreshMin: nextRefresh }), [next, nextRefresh]);
+  usePreviewDraft("notice-count", { noticeCount: next, noticeRefreshMin: nextRefresh });
   useSettingsOwner({
     patch,
-    afterSave: (saved) => setValue(String(saved.noticeCount)),
-    reset: () => setValue(String(DEFAULT_SETTINGS.noticeCount)),
+    afterSave: (saved) => {
+      setValue(String(saved.noticeCount));
+      setRefresh(String(saved.noticeRefreshMin));
+    },
+    reset: () => {
+      setValue(String(DEFAULT_SETTINGS.noticeCount));
+      setRefresh(String(DEFAULT_SETTINGS.noticeRefreshMin));
+    },
   });
 
   return (
@@ -34,6 +42,11 @@ function NoticeCountSettings() {
         <label htmlFor="nc-n">عدد الإشعارات الظاهرة في قائمة الجرس</label>
         <input id="nc-n" type="number" inputMode="numeric" dir="ltr" min={NOTICE_COUNT_MIN} max={NOTICE_COUNT_MAX} step={1} value={value} onChange={(e) => setValue(e.target.value)} />
         <p className="hint">من {NOTICE_COUNT_MIN} إلى {NOTICE_COUNT_MAX}. يرى كل زائر أحدث هذا العدد من إشعارات فئته. يحتفظ الموقع بآخر {NOTICE_KEEP} إشعارًا لكل فئة ويحذف الأقدم تلقائيًا عند إرسال جديد.</p>
+      </div>
+      <div className="field">
+        <label htmlFor="nc-r">مدة تحديث الجرس (بالدقائق)</label>
+        <input id="nc-r" type="number" inputMode="numeric" dir="ltr" min={0} max={NOTICE_REFRESH_MAX} step={1} value={refresh} onChange={(e) => setRefresh(e.target.value)} />
+        <p className="hint">من {NOTICE_REFRESH_MIN} إلى {NOTICE_REFRESH_MAX} دقيقة (الافتراضي 30). يحدّث الجرس نفسه بهذه المدة ما دامت الصفحة ظاهرة أمام الزائر، وأيضًا عند عودته إليها بعد غياب (بفاصل 5 دقائق على الأقل). اكتب 0 لإيقاف التحديث الدوري فيكتفي بالتحديث عند العودة. كلما قصرت المدة زاد استهلاك قاعدة البيانات.</p>
       </div>
     </section>
   );
