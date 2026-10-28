@@ -7,7 +7,7 @@ import { NewList } from "@/components/NewVideos";
 import RowIcon, { RowTitle } from "@/components/RowIcon";
 import VideoCaption from "@/components/VideoCaption";
 import { shuffled } from "@/lib/format";
-import { CONTINUE_SIZE_DEFAULT, HOME_TAB_DEFAULT_LABEL, MOBILE_THUMB_RADIUS_DEFAULT, MOBILE_THUMB_RATIO_DEFAULT, ROW_SIZE_DEFAULT, SHORTS_POS_END, mobileThumbCss, mobileThumbRadiusPx, useSettings, type DisplaySettings } from "@/lib/settings";
+import { CONTINUE_SIZE_DEFAULT, HOME_TAB_DEFAULT_LABEL, MOBILE_THUMB_RADIUS_DEFAULT, MOBILE_THUMB_RATIO_DEFAULT, MOBILE_THUMB_WIDTH_DEFAULT, ROW_SIZE_DEFAULT, SHORTS_POS_END, mobileThumbCss, mobileThumbRadiusPx, useSettings, type DisplaySettings } from "@/lib/settings";
 import { useHistory } from "@/lib/history";
 import { useDragScroll } from "@/lib/useDragScroll";
 import { formatClock } from "@/lib/format";
@@ -252,8 +252,8 @@ export default function HomeFeed({ emptyNote }: { emptyNote?: string }) {
   const isNew = current === "new";
   const cat = current.startsWith("cat:") ? current.slice(4) : "";
 
-  // يُفعَّل تنسيق الجوال فقط إن غُيّرت النسبة أو الاستدارة عن الافتراضي.
-  const mThumb = disp.mobileThumbRatio !== MOBILE_THUMB_RATIO_DEFAULT || disp.mobileThumbRadius !== MOBILE_THUMB_RADIUS_DEFAULT;
+  // يُفعَّل تنسيق الجوال فقط إن غُيّرت النسبة أو الاستدارة أو العرض عن الافتراضي.
+  const mThumb = disp.mobileThumbRatio !== MOBILE_THUMB_RATIO_DEFAULT || disp.mobileThumbRadius !== MOBILE_THUMB_RADIUS_DEFAULT || disp.mobileThumbWidth !== MOBILE_THUMB_WIDTH_DEFAULT;
 
   const filtered = useMemo(() => (cat ? shuffled(pool.filter((v) => v.categoryId === cat)) : []), [pool, cat]);
 
@@ -261,7 +261,7 @@ export default function HomeFeed({ emptyNote }: { emptyNote?: string }) {
     <section
       aria-label="الفيديوهات"
       className={mThumb ? "home-mthumb" : undefined}
-      style={mThumb ? ({ ["--m-ratio" as string]: mobileThumbCss(disp.mobileThumbRatio), ["--m-radius" as string]: `${mobileThumbRadiusPx(disp.mobileThumbRadius)}px` }) : undefined}
+      style={mThumb ? ({ ["--m-ratio" as string]: mobileThumbCss(disp.mobileThumbRatio), ["--m-radius" as string]: `${mobileThumbRadiusPx(disp.mobileThumbRadius)}px`, ["--m-width" as string]: `${disp.mobileThumbWidth}%` }) : undefined}
     >
       {tabs.length > 0 && (cats.length > 0 || videos.length > 0 || disp.homeTabsCustom) && (
         <div ref={chipsRef} className="chips" role="tablist" aria-label="التصنيفات">

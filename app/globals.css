@@ -1021,7 +1021,7 @@ html, body { overflow-x: clip; }
 .cont-row::-webkit-scrollbar { display: none; }
 .cont-row > li { flex: 0 0 min(var(--cont-w, 280px), 86%); scroll-snap-align: start; }
 /* أبعاد صورة الفيديو واستدارة حوافها في الرئيسية على الجوال فقط (من «العرض» في لوحة التحكم). صف المقاطع القصيرة له نسبته الخاصة. */
-@media (max-width: 599.98px) { .home-mthumb .grid .thumb, .home-mthumb .cont-row .thumb { aspect-ratio: var(--m-ratio, 16 / 9); border-radius: var(--m-radius, 0); overflow: hidden; } }
+@media (max-width: 599.98px) { .home-mthumb .grid .thumb, .home-mthumb .cont-row .thumb { width: var(--m-width, 100%); margin-inline: auto; aspect-ratio: var(--m-ratio, 16 / 9); border-radius: var(--m-radius, 0); overflow: hidden; } }
 @media (min-width: 600px) { .cont-row { padding-inline: 2px; } }
 .icon-picker { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: var(--bg); }
 .icon-picker summary { display: flex; align-items: center; gap: 10px; cursor: pointer; min-height: 36px; }
