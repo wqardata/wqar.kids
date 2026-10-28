@@ -67,6 +67,9 @@ const OWNER_IDS = Object.keys(OWNERS) as OwnerId[];
 /** التبويب الأصلي لكل مالك (لإظهار اسمه فوق زر الحفظ إن عُرض في غير مكانه). */
 const OWNER_HOME = Object.fromEntries(SECTIONS.map((s) => [s.owner, s.home]).reverse()) as Record<OwnerId, TabId>;
 
+/** مفتاح حفظ آخر تبويب مفتوح في اللوحة (sessionStorage). */
+const NAV_KEY = "admin.nav";
+
 export default function AdminPanel({ initial }: { initial?: "series" | "reports" }) {
   const { user, loading, configured, canAdd, isOwner } = useAuth();
   const { arrangement, structure, save } = useAdminArrangement();
@@ -87,6 +90,38 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
   // يُتذكَّر آخر تبويب فرعي في كل مجموعة عند التنقل بينها.
   // (القيمة غير الصالحة — كتبويب حُذف — تُستبدل بأول تبويب فرعي متاح.)
   const [subs, setSubs] = useState<Record<Group, Sub>>({ [CUSTOMIZE_GROUP]: "layout-tabs" });
+
+  // إعادة تحميل الصفحة تفتح نفس التبويب (لا الإحصائيات): نحفظ المجموعة والتبويب الفرعي في sessionStorage (لهذه النافذة فقط)
+  // ونستعيدهما بعد التحميل. قيمة غير صالحة (تبويب حُذف أو نُقل) تُعالَج لاحقًا بالرجوع إلى أول تبويب متاح.
+  // الرابط /admin?go=… له الأولوية فلا نستعيد معه.
+  const [navReady, setNavReady] = useState(false);
+  useEffect(() => {
+    if (!initial) {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(NAV_KEY) ?? "null");
+        if (saved && typeof saved.group === "string") {
+          setGroup(saved.group);
+          if (saved.subs && typeof saved.subs === "object") {
+            const clean: Record<string, Sub> = {};
+            for (const [k, v] of Object.entries(saved.subs)) if (typeof v === "string") clean[k] = v;
+            setSubs((p) => ({ ...p, ...clean }));
+          }
+        }
+      } catch {
+        /* التخزين غير متاح: نبدأ من الافتراضي */
+      }
+    }
+    setNavReady(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!navReady) return; // لا نكتب قبل الاستعادة كي لا تُمحى القيمة المحفوظة بالافتراضية
+    try {
+      sessionStorage.setItem(NAV_KEY, JSON.stringify({ group, subs }));
+    } catch {
+      /* تجاهل */
+    }
+  }, [navReady, group, subs]);
 
   // ما يتغيّر في اللوحة (فيديوهات/مجموعات/تصنيفات) يجب أن يظهر فورًا للمشرف: نمسح التخزين المؤقت عند مغادرتها.
   useEffect(() => () => clearVideoCache(), []);
