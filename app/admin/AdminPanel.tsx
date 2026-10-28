@@ -82,11 +82,10 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
   const [epoch, setEpoch] = useState(0);
   const [group, setGroup] = useState<Group>(initial === "series" ? "content" : "stats");
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
-  // المعاينة مفتوحة افتراضيًا على الشاشات العريضة فقط (على الجوال تُفتح بزر).
+  // المعاينة مخفية افتراضيًا على كل الشاشات، وتظهر عند الضغط على زر العين فقط.
   const [showPreview, setShowPreview] = useState(false);
   // القسم الذي يعمل عليه المشرف الآن (آخر مربع نقر أو ركّز فيه): المعاينة تنزل إلى العنصر الذي يؤثّر عليه.
   const [activeSection, setActiveSection] = useState("");
-  useEffect(() => setShowPreview(window.matchMedia("(min-width: 1100px)").matches), []);
   // يُتذكَّر آخر تبويب فرعي في كل مجموعة عند التنقل بينها.
   // (القيمة غير الصالحة — كتبويب حُذف — تُستبدل بأول تبويب فرعي متاح.)
   const [subs, setSubs] = useState<Record<Group, Sub>>({ [CUSTOMIZE_GROUP]: "layout-tabs" });
@@ -301,8 +300,15 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
 
         {previewPath && (
           <div className="admin-pvtoggle">
-            <button type="button" className="btn btn--ghost btn--sm" aria-expanded={showPreview} onClick={() => setShowPreview((v) => !v)}>
-              {showPreview ? "إخفاء المعاينة" : "إظهار المعاينة"}
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm admin-pvbtn"
+              aria-pressed={showPreview}
+              aria-label={showPreview ? "إخفاء المعاينة" : "إظهار المعاينة"}
+              title={showPreview ? "إخفاء المعاينة" : "إظهار المعاينة"}
+              onClick={() => setShowPreview((v) => !v)}
+            >
+              <Icon name={showPreview ? "eyeoff" : "eye"} size={20} />
             </button>
           </div>
         )}
