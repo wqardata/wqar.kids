@@ -310,6 +310,19 @@ export const MOBILE_THUMB_RATIO_DEFAULT: MobileThumbRatio = "16/9";
 export function mobileThumbCss(id: MobileThumbRatio): string {
   return MOBILE_THUMB_RATIOS.find((r) => r.id === id)?.css ?? "16 / 9";
 }
+/** استدارة حواف صورة الفيديو في الرئيسية على الجوال فقط. الافتراضي بلا استدارة (كما كانت). */
+export const MOBILE_THUMB_RADII = [
+  { id: "none", label: "بلا استدارة (الافتراضي)", px: 0 },
+  { id: "sm", label: "خفيفة", px: 8 },
+  { id: "md", label: "متوسطة", px: 14 },
+  { id: "lg", label: "كبيرة", px: 22 },
+] as const;
+export type MobileThumbRadius = (typeof MOBILE_THUMB_RADII)[number]["id"];
+export const MOBILE_THUMB_RADIUS_DEFAULT: MobileThumbRadius = "none";
+/** نصف قطر الحواف بالبكسل لقيمة محفوظة. */
+export function mobileThumbRadiusPx(id: MobileThumbRadius): number {
+  return MOBILE_THUMB_RADII.find((r) => r.id === id)?.px ?? 0;
+}
 /** أقصى حد أدنى (بالثواني) لمدة المشاهدة كي يظهر الفيديو في صف «تابع المشاهدة». */
 export const CONTINUE_MIN_SEC_MAX = 120;
 
@@ -413,6 +426,8 @@ export type DisplaySettings = {
   continueMinSec: number;
   /** أبعاد صورة الفيديو في الرئيسية على الجوال (الحاسوب لا يتأثر). */
   mobileThumbRatio: MobileThumbRatio;
+  /** استدارة حواف صورة الفيديو في الرئيسية على الجوال. */
+  mobileThumbRadius: MobileThumbRadius;
   /** تخصيص تبويبات أعلى الرئيسية يدويًا (false = تلقائي: الكل والجديد وكل التصنيفات). */
   homeTabsCustom: boolean;
   homeTabs: HomeTab[];
@@ -447,6 +462,7 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   continueSize: CONTINUE_SIZE_DEFAULT,
   continueMinSec: 0,
   mobileThumbRatio: MOBILE_THUMB_RATIO_DEFAULT,
+  mobileThumbRadius: MOBILE_THUMB_RADIUS_DEFAULT,
   homeTabsCustom: false,
   homeTabs: [],
   seriesShowDuration: true,
@@ -493,6 +509,7 @@ export function cleanDisplay(v: unknown): DisplaySettings {
     continueSize: int("continueSize", CONTINUE_SIZE_MIN, CONTINUE_SIZE_MAX, D.continueSize),
     continueMinSec: int("continueMinSec", 0, CONTINUE_MIN_SEC_MAX, D.continueMinSec),
     mobileThumbRatio: MOBILE_THUMB_RATIOS.some((x) => x.id === o.mobileThumbRatio) ? (o.mobileThumbRatio as MobileThumbRatio) : D.mobileThumbRatio,
+    mobileThumbRadius: MOBILE_THUMB_RADII.some((x) => x.id === o.mobileThumbRadius) ? (o.mobileThumbRadius as MobileThumbRadius) : D.mobileThumbRadius,
     homeTabsCustom: o.homeTabsCustom === true,
     homeTabs: cleanHomeTabs(o.homeTabs),
     seriesShowDuration: o.seriesShowDuration !== false,
