@@ -108,7 +108,7 @@ export default function NamedManager({ coll }: { coll: Coll }) {
         }
         setItems(
           list
-            .map((n) => ({ id: n.id, name: n.name, count: counts.get(n.id) ?? 0, coverVideoId: n.coverVideoId, coverImage: n.coverImage, vids: byId.get(n.id) ?? [] }))
+            .map((n) => ({ id: n.id, name: n.name, count: counts.get(n.id) ?? 0, coverVideoId: n.coverVideoId ?? "", coverImage: n.coverImage ?? "", vids: byId.get(n.id) ?? [] }))
             .sort((a, b) => a.name.localeCompare(b.name, "ar")),
         );
         return;
