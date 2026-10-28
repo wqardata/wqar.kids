@@ -82,6 +82,7 @@ export const SECTIONS: SectionDef[] = [
   S("display.tabs", "التبويبات أعلى الصفحة الرئيسية", "display", "display", "/"),
   S("display.cont", "صف «تابع المشاهدة»", "display", "display", "/"),
   S("display.rows", "صفوف الفيديوهات", "display", "display", "/"),
+  S("display.mobile", "عرض الجوال في الرئيسية", "display", "display", "/"),
   S("display.shorts", "صف المقاطع القصيرة", "display", "display", "/"),
   S("display.groups", "المجموعات", "display", "display", "/subscriptions"),
 
@@ -129,6 +130,7 @@ export const PREVIEW_FOCUS: Record<string, string> = {
   "display.tabs": ".chips",
   "display.cont": ".home-continue",
   "display.rows": ".home-blocks",
+  "display.mobile": ".grid--home",
   "display.shorts": ".home-shorts",
   "display.groups": "#main .grid",
   "notif.send": ".bell",
