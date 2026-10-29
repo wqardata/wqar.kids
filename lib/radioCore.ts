@@ -8,13 +8,17 @@ export type Nasheed = {
   drive: string;
 };
 
-export type RadioSettings = { items: Nasheed[] };
+export type RadioSettings = {
+  items: Nasheed[];
+  /** عند انتهاء آخر نشيد: true = تعود الإذاعة لأول القائمة وتستمر، false = تتوقف. */
+  loop: boolean;
+};
 
 export const RADIO_MAX = 200;
 export const RADIO_TITLE_MAX = 80;
 export const RADIO_RAW_MAX = 300;
 
-export const DEFAULT_RADIO: RadioSettings = { items: [] };
+export const DEFAULT_RADIO: RadioSettings = { items: [], loop: true };
 
 export function newNasheedId(): string {
   return `n-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -23,7 +27,8 @@ export function newNasheedId(): string {
 /** ينظّف القائمة: يُهمل ما ليس له رابط درايف صالح، ويحوّل الرابط إلى معرّفه، ويعطي عنوانًا افتراضيًا لمن لا عنوان له. */
 export function cleanRadio(v: unknown): RadioSettings {
   const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
-  if (!Array.isArray(o.items)) return DEFAULT_RADIO;
+  const loop = o.loop !== false;
+  if (!Array.isArray(o.items)) return { ...DEFAULT_RADIO, loop };
   const items: Nasheed[] = [];
   const seen = new Set<string>();
   for (const raw of o.items.slice(0, RADIO_MAX)) {
@@ -36,5 +41,5 @@ export function cleanRadio(v: unknown): RadioSettings {
     const title = typeof r.title === "string" ? r.title.replace(/\s+/g, " ").trim().slice(0, RADIO_TITLE_MAX) : "";
     items.push({ id, title: title || `نشيد ${items.length + 1}`, drive });
   }
-  return { items };
+  return { items, loop };
 }

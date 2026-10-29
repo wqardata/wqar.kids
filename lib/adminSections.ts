@@ -6,7 +6,7 @@ import { SIGNUP_FIELDS } from "./settingsCore";
  */
 export type BuiltinTabId =
   | "stats" | "settings" | "signup" | "appearance" | "menu" | "watch" | "display"
-  | "adhan" | "adhkar" | "radio" | "notifications" | "members" | "videos" | "shorts" | "categories" | "series";
+  | "adhan" | "adhkar" | "radio" | "radiotune" | "notifications" | "members" | "videos" | "shorts" | "categories" | "series";
 
 /** معرّف التبويب: الأصلية أعلاه، وما ينشئه المشرف يأخذ معرّفًا مولَّدًا (t_…). */
 export type TabId = string;
@@ -101,6 +101,7 @@ export const SECTIONS: SectionDef[] = [
   S("adhkar.preview", "معاينة الأذكار", "adhkar", "adhkar", "/preview/adhkar"),
 
   S("radio.list", "أناشيد الإذاعة", "radio", "radio", "/radio"),
+  S("radio.tune", "ضبط تشغيل الإذاعة", "radiotune", "radio", "/radio"),
 
   S("notif.send", "إرسال إشعار", "notifications", "notifications", "/"),
   S("notif.count", "عرض الإشعارات (العدد)", "notifications", "notifications", "/"),
@@ -186,6 +187,7 @@ export const DEFAULT_STRUCTURE: Structure = {
     { id: "menu", label: "القوائم", group: "organize" },
     { id: "watch", label: "صفحة الفيديو", group: "organize" },
     { id: "display", label: "العرض", group: "organize" },
+    { id: "radiotune", label: "ضبط الإذاعة", group: "organize" },
     { id: "members", label: "الأعضاء", group: "organize", ownerOnly: true },
     { id: "videos", label: "الفيديوهات", group: "content" },
     { id: "shorts", label: "المقاطع القصيرة", group: "content" },
@@ -195,6 +197,9 @@ export const DEFAULT_STRUCTURE: Structure = {
     { id: UNSORTED_TAB, label: UNSORTED_LABEL, group: UNSORTED_GROUP },
   ],
 };
+
+/** تبويب «ضبط الإذاعة» تحت «التنظيم» (انظر reconcileStructure). */
+const RADIOTUNE_TAB = "radiotune";
 
 /** تبويب الإذاعة (انظر reconcileStructure). */
 const RADIO_TAB = "radio";
@@ -241,6 +246,12 @@ export function reconcileStructure(raw: unknown): Structure {
   if (!tids.has(RADIO_TAB) && gids.has("content")) {
     const last = tabs.map((t) => t.group).lastIndexOf("content");
     tabs.splice(last + 1, 0, { id: RADIO_TAB, label: "الإذاعة", group: "content" });
+  }
+
+  // تبويب «ضبط الإذاعة» أُضيف بعد أن حفظ بعض المشرفين بنيتهم: إن غاب يُلحق بآخر تبويبات «التنظيم» .
+  if (!tids.has(RADIOTUNE_TAB) && gids.has("organize")) {
+    const last = tabs.map((t) => t.group).lastIndexOf("organize");
+    tabs.splice(last + 1, 0, { id: RADIOTUNE_TAB, label: "ضبط الإذاعة", group: "organize" });
   }
 
   const used = new Set(tabs.map((t) => t.group));

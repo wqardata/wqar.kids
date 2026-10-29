@@ -259,7 +259,7 @@ export default function RadioPlayer() {
           onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
           onLoadedMetadata={(e) => setDur(e.currentTarget.duration || 0)}
           onDurationChange={(e) => setDur(Number.isFinite(e.currentTarget.duration) ? e.currentTarget.duration : 0)}
-          onEnded={() => { if (idx < items.length - 1) step(1); else if (items.length > 1) pick(items[0].id); else setPlaying(false); }} // بعد آخر نشيد نعود لأول القائمة فلا تتوقف الإذاعة
+          onEnded={() => { if (idx < items.length - 1) step(1); else if (settings.radio.loop && items.length > 1) pick(items[0].id); else setPlaying(false); }} // بعد آخر نشيد: نعود لأول القائمة إن فُعّل التكرار (الافتراضي) وإلا نتوقف
           onError={() => {
             // رفض المتصفح الرابط المباشر (حدود درايف وغيرها): نعرض مشغّل درايف الأصلي لهذا النشيد.
             const id = loadedId.current;

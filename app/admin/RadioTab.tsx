@@ -16,7 +16,7 @@ export default function RadioTab() {
   const { settings, ready } = useSettings();
   const [form, setForm] = useState<RadioSettings>(settings.radio);
   const items = form.items;
-  const setItems = (next: Nasheed[]) => setForm({ items: next });
+  const setItems = (next: Nasheed[]) => setForm((f) => ({ ...f, items: next }));
   const patch = (id: string, p: Partial<Nasheed>) => setItems(items.map((x) => (x.id === id ? { ...x, ...p } : x)));
   const move = (i: number, d: -1 | 1) => {
     const j = i + d;
@@ -131,6 +131,16 @@ export default function RadioTab() {
   if (!ready) return <p className="empty-note" role="status">جارٍ التحميل…</p>;
 
   return (
+    <>
+    <MovableSection id="radio.tune">
+      <section className="panel panel--wide auth-form" aria-labelledby="rt-h">
+        <h2 id="rt-h">ضبط تشغيل الإذاعة</h2>
+        <label className="check">
+          <input type="checkbox" checked={form.loop} onChange={(e) => setForm((f) => ({ ...f, loop: e.target.checked }))} /> إعادة القائمة من أولها بعد آخر نشيد
+        </label>
+        <p className="hint">عند التفعيل تستمر الإذاعة في التشغيل بلا توقف، وعند الإلغاء تتوقف بعد آخر نشيد.</p>
+      </section>
+    </MovableSection>
     <MovableSection id="radio.list">
       <section className="panel panel--wide auth-form" aria-labelledby="rd-h">
         <h2 id="rd-h">أناشيد الإذاعة ({new Intl.NumberFormat("ar-EG").format(items.length)})</h2>
@@ -250,5 +260,6 @@ export default function RadioTab() {
         </div>
       </section>
     </MovableSection>
+    </>
   );
 }
