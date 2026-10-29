@@ -1263,7 +1263,7 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
 
 /* ---------- الإذاعة (/radio): مشغّل درايف أعلى الصفحة وقائمة أناشيد على لوحة زجاجية مبهجة للأطفال ---------- */
 .radio { max-width: 760px; margin-inline: auto; }
-.radio-player { padding: 0 16px; display: grid; gap: 10px; }
+.radio-player { padding: 0 16px; display: grid; gap: 10px; overflow-x: clip; }
 .radio-player .player { aspect-ratio: 16 / 7; min-height: 150px; }
 .radio-now { display: flex; align-items: center; gap: 10px; }
 .radio-title { flex: 1; min-width: 0; text-align: center; line-height: 1.35; }
@@ -1286,7 +1286,7 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
 .radio-vol > button { width: 36px; height: 36px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; cursor: pointer; background: transparent; color: var(--mute); }
 .radio-vol > button:hover, .radio-vol > button[aria-expanded="true"] { color: var(--accent); }
 .radio-vol svg { width: 22px; height: 22px; }
-.radio-vol-pop { position: absolute; z-index: 6; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: 44px; height: 140px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
+.radio-vol-pop { position: absolute; z-index: 6; top: calc(100% + 8px); right: 0; width: 44px; height: 140px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
 .radio-vol-pop input[type="range"] { position: absolute; left: 50%; top: 50%; flex: none; width: 110px; height: 28px; margin: -14px 0 0 -55px; transform: rotate(-90deg); touch-action: none; }
 .radio-time { flex: none; font-size: .82rem; font-variant-numeric: tabular-nums; color: var(--mute); white-space: nowrap; }
 
