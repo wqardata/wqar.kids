@@ -139,6 +139,14 @@ export default function RadioTab() {
           <input type="checkbox" checked={form.loop} onChange={(e) => setForm((f) => ({ ...f, loop: e.target.checked }))} /> إعادة القائمة من أولها بعد آخر نشيد
         </label>
         <p className="hint">عند التفعيل تستمر الإذاعة في التشغيل بلا توقف، وعند الإلغاء تتوقف بعد آخر نشيد.</p>
+        <label className="check">
+          <input type="checkbox" checked={form.shuffle} onChange={(e) => setForm((f) => ({ ...f, shuffle: e.target.checked }))} /> تشغيل الأناشيد بترتيب عشوائي
+        </label>
+        <p className="hint">عند التفعيل يتغيّر الترتيب في كل مرة تُفتح فيها صفحة الإذاعة، وعند الإلغاء تُشغَّل بترتيب القائمة في «الإذاعة».</p>
+        <label className="check">
+          <input type="checkbox" checked={form.autoplay} onChange={(e) => setForm((f) => ({ ...f, autoplay: e.target.checked }))} /> بدء التشغيل تلقائيًا عند فتح الصفحة
+        </label>
+        <p className="hint">قد تمنع بعض المتصفحات، وخاصة على الجوال، التشغيل التلقائي حتى يلمس الزائر الصفحة. عند الإلغاء تنتظر الإذاعة ضغط زر التشغيل.</p>
       </section>
     </MovableSection>
     <MovableSection id="radio.list">

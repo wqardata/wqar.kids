@@ -34,9 +34,10 @@ function fmt(t: number): string {
 export default function RadioPlayer() {
   const { settings, ready } = useSettings();
   const raw = settings.radio.items;
-  // ترتيب عشوائي جديد عند كل فتح للصفحة (ويبقى ثابتًا ما دامت الأناشيد نفسها؛ تعديل عنوان نشيد لا يعيد الخلط).
+  // ترتيب عشوائي جديد عند كل فتح للصفحة إن فُعّل «العشوائي» (ويبقى ثابتًا ما دامت الأناشيد نفسها؛ تعديل عنوان نشيد لا يعيد الخلط)، وإلا فترتيب القائمة.
   const idsKey = raw.map((x) => x.id).join(",");
-  const order = useMemo(() => shuffle(idsKey ? idsKey.split(",") : []), [idsKey]);
+  const mix = settings.radio.shuffle;
+  const order = useMemo(() => (mix ? shuffle(idsKey ? idsKey.split(",") : []) : idsKey ? idsKey.split(",") : []), [idsKey, mix]);
   const items = useMemo(() => {
     const byId = new Map(raw.map((x) => [x.id, x]));
     return order.map((id) => byId.get(id)).filter((x): x is (typeof raw)[number] => Boolean(x));
@@ -156,6 +157,7 @@ export default function RadioPlayer() {
   useEffect(() => {
     if (!ready || started.current || items.length === 0 || !audio.current) return;
     started.current = true;
+    if (!settings.radio.autoplay) { want.current = false; return; } // بلا تشغيل تلقائي: يبدأ حين يضغط الزائر زر التشغيل (انظر زر التشغيل: يبدأ النشيد الحالي إن لم يُحمَّل شيء)
     start(items[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, items]);
