@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { RADIO_MAX, RADIO_RAW_MAX, RADIO_TITLE_MAX, cleanRadio, newNasheedId, type Nasheed, type RadioSettings } from "@/lib/radioCore";
 import { parseDriveId, parseFolderId } from "@/lib/drive";
 import { useAuth } from "@/lib/auth";
+import Icon from "@/components/Icon";
 import { DEFAULT_SETTINGS, useSettings } from "@/lib/settings";
 import { usePreviewDraft } from "@/lib/preview";
 import { MovableSection } from "./sectionKit";
@@ -24,8 +25,18 @@ export default function RadioTab() {
     [a[i], a[j]] = [a[j], a[i]];
     setItems(a);
   };
-  const remove = (id: string) => setItems(items.filter((x) => x.id !== id));
-  const add = () => items.length < RADIO_MAX && setItems([...items, { id: newNasheedId(), title: "", drive: "" }]);
+  const remove = (id: string) => {
+    setItems(items.filter((x) => x.id !== id));
+    setEditing((e) => (e === id ? null : e));
+  };
+  /** النشيد المفتوح للتعديل (عنوانه ورابطه)؛ البقية تظهر كسطر في القائمة. */
+  const [editing, setEditing] = useState<string | null>(null);
+  const add = () => {
+    if (items.length >= RADIO_MAX) return;
+    const id = newNasheedId();
+    setItems([...items, { id, title: "", drive: "" }]);
+    setEditing(id);
+  };
 
   const { user } = useAuth();
   const known = new Set(items.map((x) => parseDriveId(x.drive)).filter((x): x is string => Boolean(x)));
@@ -182,32 +193,57 @@ export default function RadioTab() {
 
         {items.length === 0 && <p className="hint">لا أناشيد بعد. أضف نشيدًا من الرابط أو من مجلد.</p>}
 
-        {items.map((it, i) => {
-          const bad = Boolean(it.drive.trim()) && !parseDriveId(it.drive);
-          return (
-            <div className="adhkar-ed" key={it.id}>
-              <div className="addrow">
-                <span className="adhkar-ed-n">{new Intl.NumberFormat("ar-EG").format(i + 1)}</span>
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`رفع النشيد ${i + 1}`}>▲</button>
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => move(i, 1)} disabled={i === items.length - 1} aria-label={`خفض النشيد ${i + 1}`}>▼</button>
-                <button type="button" className="btn btn--ghost btn--sm danger" onClick={() => remove(it.id)} aria-label={`حذف النشيد ${i + 1}`}>حذف</button>
-              </div>
-              <label className="sr-only" htmlFor={`rd-t-${it.id}`}>عنوان النشيد {i + 1}</label>
-              <input id={`rd-t-${it.id}`} value={it.title} maxLength={RADIO_TITLE_MAX} placeholder="عنوان النشيد" onChange={(e) => patch(it.id, { title: e.target.value })} />
-              <label className="sr-only" htmlFor={`rd-d-${it.id}`}>رابط درايف للنشيد {i + 1}</label>
-              <input
-                id={`rd-d-${it.id}`}
-                dir="ltr"
-                value={it.drive}
-                maxLength={RADIO_RAW_MAX}
-                placeholder="https://drive.google.com/file/d/…/view"
-                aria-invalid={bad}
-                onChange={(e) => patch(it.id, { drive: e.target.value })}
-              />
-              {bad && <p className="field-error" role="alert">لم أفهم هذا الرابط: انسخ رابط الملف من درايف (مشاركة ← نسخ الرابط).</p>}
-            </div>
-          );
-        })}
+        {items.length > 0 && (
+          <ul className="alist rd-list">
+            {items.map((it, i) => {
+              const bad = Boolean(it.drive.trim()) && !parseDriveId(it.drive);
+              const open = editing === it.id;
+              const n = num.format(i + 1);
+              return (
+                <li className="rd-row" key={it.id}>
+                  <div className="rd-line">
+                    <span className="adhkar-ed-n">{n}</span>
+                    <div className="arow-info">
+                      <strong>{it.title.trim() || "بدون عنوان"}</strong>
+                      {bad && <small className="field-error">رابط غير صالح</small>}
+                    </div>
+                    <div className="rd-actions">
+                      <button type="button" className="iconbtn" title="رفع" aria-label={`رفع النشيد ${n}`} onClick={() => move(i, -1)} disabled={i === 0}>
+                        <Icon name="up" size={20} />
+                      </button>
+                      <button type="button" className="iconbtn" title="خفض" aria-label={`خفض النشيد ${n}`} onClick={() => move(i, 1)} disabled={i === items.length - 1}>
+                        <Icon name="chevdown" size={20} />
+                      </button>
+                      <button type="button" className={open ? "iconbtn on" : "iconbtn"} title="تعديل" aria-label={`تعديل النشيد ${n}`} aria-pressed={open} onClick={() => setEditing(open ? null : it.id)}>
+                        <Icon name="edit" size={20} />
+                      </button>
+                      <button type="button" className="iconbtn danger" title="حذف" aria-label={`حذف النشيد ${n}`} onClick={() => remove(it.id)}>
+                        <Icon name="trash" size={20} />
+                      </button>
+                    </div>
+                  </div>
+                  {open && (
+                    <div className="rd-edit">
+                      <label className="sr-only" htmlFor={`rd-t-${it.id}`}>عنوان النشيد {n}</label>
+                      <input id={`rd-t-${it.id}`} value={it.title} maxLength={RADIO_TITLE_MAX} placeholder="عنوان النشيد" onChange={(e) => patch(it.id, { title: e.target.value })} />
+                      <label className="sr-only" htmlFor={`rd-d-${it.id}`}>رابط درايف للنشيد {n}</label>
+                      <input
+                        id={`rd-d-${it.id}`}
+                        dir="ltr"
+                        value={it.drive}
+                        maxLength={RADIO_RAW_MAX}
+                        placeholder="https://drive.google.com/file/d/…/view"
+                        aria-invalid={bad}
+                        onChange={(e) => patch(it.id, { drive: e.target.value })}
+                      />
+                      {bad && <p className="field-error" role="alert">لم أفهم هذا الرابط: انسخ رابط الملف من درايف (مشاركة ← نسخ الرابط).</p>}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
         <div className="addrow">
           <button type="button" className="btn btn--ghost btn--sm" onClick={add} disabled={items.length >= RADIO_MAX}>＋ سطر فارغ (إدخال يدوي)</button>
