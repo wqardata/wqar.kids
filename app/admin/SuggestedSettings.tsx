@@ -69,12 +69,9 @@ export default function SuggestedSettings() {
 
   return (
     <OwnerForm>
-    <MovableSection id="watch.suggested">
-    <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-h">
-      <h2 id="sg-h">إعدادات صفحة الفيديو</h2>
-
-      <section className="dsec" aria-labelledby="sg-s-drive">
-        <h3 id="sg-s-drive" className="dsec-h">مشغّل درايف على الجوال</h3>
+    <MovableSection id="watch.drive">
+      <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-s-drive">
+        <h2 id="sg-s-drive">مشغّل درايف على الجوال</h2>
         <div className="field">
           <label htmlFor="sg-dz">حجم الأزرار ({form.driveBtnScale}%)</label>
           <input
@@ -103,10 +100,11 @@ export default function SuggestedSettings() {
           />
           <p className="hint">يتحكم بحجم الزر الأوسط في مشغّل يوتيوب. زر درايف الأوسط جزء من إطار درايف نفسه فيتبع «حجم الأزرار» أعلاه. الافتراضي 100%.</p>
         </div>
-      </section>
-
-      <section className="dsec" aria-labelledby="sg-s-tip">
-        <h3 id="sg-s-tip" className="dsec-h">مشغّل درايف الخاص: فقاعة «المشاهدة عبر Drive»</h3>
+      </div>
+    </MovableSection>
+    <MovableSection id="watch.tip">
+      <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-s-tip">
+        <h2 id="sg-s-tip">مشغّل درايف الخاص: فقاعة «المشاهدة عبر Drive»</h2>
         <p className="hint">فقاعة صغيرة مؤقتة تشير إلى أيقونة درايف في المشغّل الخاص وتظهر عند أول تشغيل، لتعريف الزائر بأن الضغط عليها يفتح مشغّل درايف الأصلي لتغيير الجودة.</p>
         {flag("driveTipShow", "إظهار الفقاعة")}
         {form.driveTipShow && (
@@ -164,23 +162,27 @@ export default function SuggestedSettings() {
             </div>
           </>
         )}
-      </section>
-
-      <section className="dsec" aria-labelledby="sg-s-yt">
-        <h3 id="sg-s-yt" className="dsec-h">مشغّل يوتيوب</h3>
+      </div>
+    </MovableSection>
+    <MovableSection id="watch.yt">
+      <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-s-yt">
+        <h2 id="sg-s-yt">مشغّل يوتيوب</h2>
         {flag("ytNoMusic", "اختيار نسخة «بدون موسيقى» تلقائيًا", "يعمل فقط إن كان صاحب الفيديو رفع مسارًا صوتيًا بدون موسيقى ضمن الفيديو نفسه (تعدد المسارات الصوتية)، وإلا يبقى الصوت الأصلي.")}
         {flag("ytMuted", "تشغيل الفيديو بدون صوت (بدون موسيقى)", "الصوت كله يُكتم، فلا يمكن فصل الموسيقى عن الكلام. يستطيع الزائر تشغيل الصوت من زر الصوت في المشغّل.")}
-      </section>
-
-      <h3 className="dsec-h">الفيديوهات المقترحة</h3>
-      <p className="hint">تظهر تحت الفيديو على الجوال، وبجانبه على الشاشات الكبيرة.</p>
-
-      {flag("sugShow", "إظهار قسم الفيديوهات المقترحة")}
-
-      {form.sugShow && (
-        <>
-          <section className="dsec" aria-labelledby="sg-s-basic">
-            <h3 id="sg-s-basic" className="dsec-h">العدد وطريقة العرض</h3>
+      </div>
+    </MovableSection>
+    <MovableSection id="watch.suggested">
+      <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-h-sug">
+        <h2 id="sg-h-sug">الفيديوهات المقترحة</h2>
+        <p className="hint">تظهر تحت الفيديو على الجوال، وبجانبه على الشاشات الكبيرة.</p>
+        {flag("sugShow", "إظهار قسم الفيديوهات المقترحة")}
+      </div>
+    </MovableSection>
+    {form.sugShow && (
+      <>
+    <MovableSection id="watch.sugbasic">
+      <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-s-basic">
+            <h2 id="sg-s-basic">العدد وطريقة العرض</h2>
             <div className="two">
               <div className="field">
                 <label htmlFor="sg-count">عدد الفيديوهات</label>
@@ -198,11 +200,11 @@ export default function SuggestedSettings() {
               <input id="sg-title" value={form.sugTitle} onChange={(e) => set("sugTitle", e.target.value)} maxLength={60} placeholder="فيديوهات مقترحة" />
               <p className="hint">اتركه فارغًا لإخفاء العنوان.</p>
             </div>
-            <p className="hint">يُختار المقترح من أحدث {80} فيديو في الموقع.</p>
-          </section>
-
-          <section className="dsec" aria-labelledby="sg-s-rel">
-            <h3 id="sg-s-rel" className="dsec-h">الصلة بالفيديو المشغَّل</h3>
+          </div>
+    </MovableSection>
+    <MovableSection id="watch.sugrel">
+      <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-s-rel">
+            <h2 id="sg-s-rel">الصلة بالفيديو المشغَّل</h2>
             <div className="field">
               <label htmlFor="sg-scope">مصدر المقترحات</label>
               <select id="sg-scope" value={form.sugScope} onChange={(e) => set("sugScope", e.target.value as SugScope)}>
@@ -213,10 +215,11 @@ export default function SuggestedSettings() {
             {flag("sugPrioSeries", "تقديم فيديوهات نفس المجموعة")}
             {flag("sugPrioCategory", "تقديم فيديوهات نفس التصنيف")}
             {flag("sugNextFirst", "الحلقة التالية من نفس المجموعة أولًا", "تُحدَّد بالموسم ثم رقم الحلقة المسجّلين في تعديل الفيديو.")}
-          </section>
-
-          <section className="dsec" aria-labelledby="sg-s-crit">
-            <h3 id="sg-s-crit" className="dsec-h">معايير الاختيار والترتيب</h3>
+          </div>
+    </MovableSection>
+    <MovableSection id="watch.sugcrit">
+      <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-s-crit">
+            <h2 id="sg-s-crit">معايير الاختيار والترتيب</h2>
             <div className="field">
               <label htmlFor="sg-pool">الاختيار من</label>
               <select id="sg-pool" value={form.sugPool} onChange={(e) => set("sugPool", e.target.value as SugPool)}>
@@ -239,20 +242,19 @@ export default function SuggestedSettings() {
             )}
             {flag("sugHideWatched", "إخفاء ما أكمل الزائر مشاهدته", "يعتمد على سجل المشاهدة في متصفح كل زائر.")}
             {flag("sugShorts", "تضمين المقاطع القصيرة")}
-          </section>
-
-          <section className="dsec" aria-labelledby="sg-s-show">
-            <h3 id="sg-s-show" className="dsec-h">ما يظهر على كل فيديو</h3>
+          </div>
+    </MovableSection>
+    <MovableSection id="watch.sugshow">
+      <div className="panel menu-admin auth-form dbox" aria-labelledby="sg-s-show">
+            <h2 id="sg-s-show">ما يظهر على كل فيديو</h2>
             {flag("sugShowDuration", "مدة الفيديو على الصورة")}
             {flag("sugShowSeries", "اسم المجموعة")}
             {flag("sugShowEpisode", "الموسم والحلقة")}
             {flag("sugShowViews", "المشاهدات ووقت النشر")}
-          </section>
-        </>
-      )}
-
-    </div>
+          </div>
     </MovableSection>
+      </>
+    )}
     </OwnerForm>
   );
 }
