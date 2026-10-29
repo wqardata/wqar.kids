@@ -4,8 +4,9 @@ import "@/app/player.css";
 import DrivePlayer from "@/components/DrivePlayer";
 import Icon from "@/components/Icon";
 import PlayLoader from "@/components/PlayLoader";
-import { DRIVE_ID } from "@/lib/drive";
+import { DRIVE_ID, driveThumbnail } from "@/lib/drive";
 import { CUSTOM_VIDEO_PLAYER, driveVideoUrl } from "@/lib/driveVideo";
+import { clearPos, getPos, savePos } from "@/lib/videoPos";
 
 type Props = {
   driveId?: string;
@@ -36,8 +37,10 @@ function fmt(t: number): string {
 export default function DriveVideoPlayer({ driveId, title, hue, autoplay = false, startAt = 0 }: Props) {
   // معرّف الفيديو الذي رفضه المتصفح (يُعاد المحاولة تلقائيًا إن تغيّر الفيديو).
   const [bad, setBad] = useState("");
-  // اللحظة التي كان عندها المشاهد حين ضغط «الجودة»: يكمل مشغّل درايف من عندها.
-  const [resume, setResume] = useState(0);
+  // اللحظة التي كان عندها المشاهد حين ضغط «الجودة» أو انقطع التشغيل: يكمل مشغّل درايف من عندها.
+  // مربوطة بمعرّف الفيديو كي لا تنتقل إلى فيديو آخر عند التنقل بين الفيديوهات.
+  const [resumeAt, setResumeAt] = useState<{ id: string; t: number } | null>(null);
+  const resume = resumeAt && resumeAt.id === driveId ? resumeAt.t : 0;
   if (!CUSTOM_VIDEO_PLAYER || !driveId || !DRIVE_ID.test(driveId) || bad === driveId) {
     return <DrivePlayer driveId={driveId} title={title} hue={hue} autoplay={autoplay || resume > 0} startAt={resume || startAt} />;
   }
@@ -50,13 +53,13 @@ export default function DriveVideoPlayer({ driveId, title, hue, autoplay = false
       hue={hue}
       autoplay={autoplay}
       startAt={startAt}
-      onFail={() => setBad(id)}
-      onQuality={(t) => { setResume(Math.floor(t)); setBad(id); }}
+      onFail={(t) => { if (t >= 1) setResumeAt({ id, t: Math.floor(t) }); setBad(id); }}
+      onQuality={(t) => { setResumeAt({ id, t: Math.floor(t) }); setBad(id); }}
     />
   );
 }
 
-function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQuality }: Required<Omit<Props, "driveId">> & { driveId: string; onFail: () => void; onQuality: (t: number) => void }) {
+function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQuality }: Required<Omit<Props, "driveId">> & { driveId: string; onFail: (t: number) => void; onQuality: (t: number) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const vid = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -84,8 +87,13 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   // لمسة (لا فأرة) بدأت والأزرار مخفية: تُظهر الأزرار فقط ولا تبدّل التشغيل.
   const hiddenOnTouch = useRef(false);
   const sawData = useRef(false);
+  // آخر موضع معروف (يُقرأ عند الإغلاق حين يكون عنصر video قد أُزيل من الصفحة).
+  const pos = useRef({ t: 0, d: 0 });
+  const lastSave = useRef(0);
 
   const v = () => vid.current;
+  /** حفظ موضع التشغيل للاستئناف لاحقًا (في متصفح الزائر فقط). */
+  const persist = () => { if (pos.current.d > 0) savePos(driveId, pos.current.t, pos.current.d); };
   const clearStall = () => { clearTimeout(stallTimer.current); stallTimer.current = undefined; };
 
   const toggle = () => {
@@ -151,6 +159,8 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
     setCanFs(!!document.fullscreenEnabled || "webkitEnterFullscreen" in document.createElement("video"));
     const on = () => setFs(document.fullscreenElement === box.current);
     document.addEventListener("fullscreenchange", on);
+    const onHide = () => persist();
+    window.addEventListener("pagehide", onHide);
     try {
       const s = localStorage.getItem("video-vol");
       const el = vid.current;
@@ -162,6 +172,8 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
     } catch { /* التخزين غير متاح */ }
     return () => {
       document.removeEventListener("fullscreenchange", on);
+      window.removeEventListener("pagehide", onHide);
+      persist();
       clearTimeout(idleTimer.current);
       clearTimeout(tapTimer.current);
       clearTimeout(stallTimer.current);
@@ -182,7 +194,7 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   // عند التشغيل: إن لم تصل أي بيانات خلال المدة نرجع لمشغّل درايف الأصلي.
   const armStall = () => {
     if (sawData.current || stallTimer.current) return;
-    stallTimer.current = setTimeout(() => { if (!sawData.current) onFail(); }, STALL_MS);
+    stallTimer.current = setTimeout(() => { if (!sawData.current) onFail(0); }, STALL_MS);
   };
 
   const onSurface = (e: ReactMouseEvent<HTMLDivElement>) => {
@@ -242,11 +254,12 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
         ref={vid}
         className="dp-video"
         src={driveVideoUrl(driveId)}
+        poster={driveThumbnail(driveId, 640)}
         preload="metadata"
         playsInline
         autoPlay={autoplay}
         onPlay={() => { setPlaying(true); setStarted(true); armStall(); wake(); }}
-        onPause={() => { setPlaying(false); setIdle(false); }}
+        onPause={() => { setPlaying(false); setIdle(false); persist(); }}
         onWaiting={() => setWaiting(true)}
         onPlaying={() => { setWaiting(false); setReady(true); }}
         onCanPlay={() => { setWaiting(false); setReady(true); endBoot(); }}
@@ -256,19 +269,29 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
           clearStall();
           const el = e.currentTarget;
           setDur(Number.isFinite(el.duration) ? el.duration : 0);
-          if (startAt >= 1 && Number.isFinite(el.duration) && startAt < el.duration) el.currentTime = startAt;
+          pos.current.d = Number.isFinite(el.duration) ? el.duration : 0;
+          // البداية: الوقت المطلوب صراحةً، وإلا آخر موضع محفوظ لهذا الفيديو (استئناف).
+          const begin = startAt >= 1 ? startAt : getPos(driveId);
+          if (begin >= 1 && Number.isFinite(el.duration) && begin < el.duration * 0.9) { el.currentTime = begin; pos.current.t = begin; }
           el.playbackRate = rate;
         }}
         onLoadedData={() => { sawData.current = true; clearStall(); setReady(true); endBoot(); }}
         onDurationChange={(e) => setDur(Number.isFinite(e.currentTarget.duration) ? e.currentTarget.duration : 0)}
-        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+        onTimeUpdate={(e) => {
+          const t = e.currentTarget.currentTime;
+          setTime(t);
+          pos.current.t = t;
+          const now = Date.now();
+          if (now - lastSave.current > 5000) { lastSave.current = now; persist(); } // كل 5 ثوانٍ كحد أقصى
+        }}
         onProgress={(e) => {
           const b = e.currentTarget.buffered;
           setBuf(b.length ? b.end(b.length - 1) : 0);
         }}
-        onEnded={() => { setPlaying(false); setIdle(false); }}
+        onEnded={() => { setPlaying(false); setIdle(false); pos.current = { t: 0, d: 0 }; clearPos(driveId); }}
         // رفض المتصفح الرابط المباشر (حدود درايف أو ملف غير مشارك): مشغّل درايف الأصلي لهذا الفيديو.
-        onError={onFail}
+        // وإن حدث الخطأ أثناء المشاهدة (انقطاع الشبكة مثلًا) يكمل مشغّل درايف من اللحظة نفسها لا من البداية.
+        onError={(e) => onFail(sawData.current ? e.currentTarget.currentTime : 0)}
       />
       <div
         className="dp-surface"

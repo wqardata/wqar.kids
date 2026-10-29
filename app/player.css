@@ -1,4 +1,4 @@
-/* ---------- المشغّل المخصّص (components/DrivePlayer.tsx) ---------- */
+/* ---------- مشغّل الفيديو الخاص (components/DriveVideoPlayer.tsx، وتستعمله الإذاعة وبقية المشغّلات) ---------- */
 .player.dp { background: #000; color: #fff; overflow: hidden; outline: none; user-select: none; -webkit-user-select: none; direction: ltr; --dp-a: var(--accent); }
 .dp:focus-visible { box-shadow: 0 0 0 3px var(--focus) inset; }
 .dp-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
@@ -25,7 +25,7 @@
 .dp-ui { position: absolute; inset-inline: 0; bottom: 0; z-index: 4; padding: 28px 10px 6px; transition: opacity .2s, transform .2s;
   background: linear-gradient(to top, rgba(0, 0, 0, .82), rgba(0, 0, 0, .45) 55%, transparent); }
 .dp-row { display: flex; align-items: center; gap: 2px; }
-.dp-row button, .dp-menu button, .dp-chip { font: inherit; }
+.dp-row button, .dp-menu button { font: inherit; }
 .dp-row > button, .dp-vol > button { display: grid; place-items: center; min-width: 40px; height: 40px; padding: 0 6px; border: 0; border-radius: 10px; background: transparent; color: #fff; cursor: pointer; }
 .dp-row > button:hover, .dp-vol > button:hover { background: rgba(255, 255, 255, .16); }
 .dp-row > button:focus-visible, .dp-vol > button:focus-visible, .dp-menu button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
@@ -62,12 +62,6 @@
 .dp-menu [aria-checked="true"] { color: var(--dp-a); font-weight: 700; }
 .dp-menu-head { font-weight: 700; border-bottom: 1px solid rgba(255, 255, 255, .14) !important; border-radius: 10px 10px 0 0 !important; margin-bottom: 4px; }
 .dp-menu-head svg { transform: scaleX(-1); }
-.dp-menu-note { margin: 6px 10px 4px; font-size: .75rem; line-height: 1.6; opacity: .7; }
-
-/* زر الرجوع للمشغّل المخصّص فوق إطار درايف */
-.dp-chip { position: absolute; z-index: 3; top: 8px; inset-inline-start: 8px; height: 30px; padding: 0 12px; border: 0; border-radius: 999px; cursor: pointer; font-size: .78rem; font-weight: 600;
-  background: rgba(0, 0, 0, .62); color: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, .25); }
-.dp-chip:hover { background: var(--accent); color: var(--accent-ink); }
 
 /* اللمس: أهداف أكبر، ولا شريط صوت (الصوت من أزرار الجهاز) */
 @media (pointer: coarse) {
@@ -78,11 +72,11 @@
   .dp-seek input[type="range"]::-webkit-slider-thumb { transform: scale(1); margin-top: 7px; }
   .dp-seek input[type="range"]::-moz-range-thumb { transform: scale(1); }
 }
-@media (max-width: 420px) { .dp-time { padding: 0 4px; font-size: .75rem; } .dp-pip { display: none !important; } .dp-rate { padding: 0 6px !important; } }
+@media (max-width: 420px) { .dp-time { padding: 0 4px; font-size: .75rem; } .dp-rate { padding: 0 6px !important; } }
 @media (prefers-reduced-motion: reduce) { .dp-ui, .dp-track, .dp-center { transition: none; } .dp-flash { animation-duration: .01s; } .dp-spin { animation-duration: 2s; } }
 
 /* الشريط المصغّر: بلا أزرار تحكم (الشريط كله زر للعودة) */
-.mp--mini .dp-ui, .mp--mini .dp-center, .mp--mini .dp-flash, .mp--mini .dp-chip, .mp--mini .dp-spin { display: none !important; }
+.mp--mini .dp-ui, .mp--mini .dp-center, .mp--mini .dp-flash, .mp--mini .dp-spin { display: none !important; }
 .mp--mini .dp-surface { pointer-events: none; }
 .mp--mini .dp-video { object-fit: cover; }
 .mp--mini .yt-menu { display: none; }
