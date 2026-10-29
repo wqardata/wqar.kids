@@ -78,6 +78,8 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   const tapTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const stallTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastTap = useRef(0);
+  // لمسة (لا فأرة) بدأت والأزرار مخفية: تُظهر الأزرار فقط ولا تبدّل التشغيل.
+  const hiddenOnTouch = useRef(false);
   const sawData = useRef(false);
 
   const v = () => vid.current;
@@ -189,7 +191,10 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
     }
     lastTap.current = now;
     clearTimeout(tapTimer.current);
-    tapTimer.current = setTimeout(toggle, 250);
+    tapTimer.current = setTimeout(() => {
+      if (hiddenOnTouch.current) { hiddenOnTouch.current = false; return; } // اللمسة الأولى: أظهرنا الأزرار (wake) وكفى
+      toggle();
+    }, 250);
   };
 
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -256,7 +261,11 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
         // رفض المتصفح الرابط المباشر (حدود درايف أو ملف غير مشارك): مشغّل درايف الأصلي لهذا الفيديو.
         onError={onFail}
       />
-      <div className="dp-surface" onClick={onSurface} />
+      <div
+        className="dp-surface"
+        onPointerDown={(e) => { hiddenOnTouch.current = e.pointerType !== "mouse" && showIdle; }}
+        onClick={onSurface}
+      />
       {flash && <span key={flash.k} className={`dp-flash dp-flash--${flash.dir}`} aria-hidden="true">{flash.dir === "back" ? `−${SKIP}` : `+${SKIP}`}</span>}
       {waiting && playing && ready && <span className="dp-spin" aria-hidden="true" />}
       {!playing && !loading && (
