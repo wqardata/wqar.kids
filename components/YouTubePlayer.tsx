@@ -46,8 +46,8 @@ function loadApi(): Promise<YTApi> {
   return apiPromise;
 }
 
-/** الجودة الافتراضية: small = 240p. يوتيوب يعامل هذا الطلب كاقتراح فقط وقد يتجاهله (مثلًا مع تغيّر الشبكة). */
-const DEFAULT_QUALITY = "small";
+/** الجودة الافتراضية: medium = 360p، تُفرض بتثبيت مدى الجودة (انظر applyQuality) إلى أن يختار الزائر غيرها. */
+const DEFAULT_QUALITY = "medium"; // الجودة المطلوبة (medium = 360p)
 
 const Q_LABEL: Record<string, string> = {
   highres: "4320p", hd2880: "2880p", hd2160: "2160p", hd1440: "1440p", hd1080: "1080p", hd720: "720p", large: "480p", medium: "360p", small: "240p", tiny: "144p", auto: "تلقائي", default: "تلقائي",
@@ -101,10 +101,8 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   const [muted, setMuted] = useState(settings.watchPage.ytMuted);
   const [menu, setMenu] = useState(false);
   const [levels, setLevels] = useState<string[]>(Q_FALLBACK);
-  const [quality, setQuality] = useState(DEFAULT_QUALITY); // الجودة المطلوبة (small = 240p)
+  const [quality, setQuality] = useState(DEFAULT_QUALITY);
   const qRef = useRef(DEFAULT_QUALITY);
-  // لا نفرض الجودة الافتراضية (240p) بالمدى؛ المدى يُطبَّق فقط بعد أن يختار الزائر جودة بنفسه.
-  const pickedRef = useRef(false);
   const [rate, setRate] = useState(1);
   // زر الوسط يظهر أثناء التشغيل لثوانٍ بعد لمس المشغّل (وهو الوحيد الذي يُشغّل ويوقف).
   const [ctl, setCtl] = useState(false);
@@ -121,7 +119,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
     let dead = false;
     const wrap = host.current;
     audioTried.current = false;
-    qRef.current = DEFAULT_QUALITY; pickedRef.current = false; setQuality(DEFAULT_QUALITY); setRate(1); setMenu(false);
+    qRef.current = DEFAULT_QUALITY; setQuality(DEFAULT_QUALITY); setRate(1); setMenu(false);
     setReady(false); setState(-1); setFailed(false); setCur(0); setDur(0); setBuf(0); setMuted(muteRef.current);
 
     const q = new URLSearchParams({
@@ -143,7 +141,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
       if (dead) return;
       player.current = new YT.Player(f, {
         events: {
-          onReady: () => { if (!dead) { setReady(true); try { if (muteRef.current) player.current?.mute(); } catch { /* غير مدعوم */ } try { if (pickedRef.current) applyQuality(player.current, qRef.current); else player.current?.setPlaybackQuality(qRef.current); } catch { /* غير مدعوم */ } } },
+          onReady: () => { if (!dead) { setReady(true); try { if (muteRef.current) player.current?.mute(); } catch { /* غير مدعوم */ } try { applyQuality(player.current, qRef.current); } catch { /* غير مدعوم */ } } },
           onStateChange: (e) => {
             if (dead) return;
             setState(e.data);
@@ -156,7 +154,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
                 if (hit) player.current?.setAudioTrack?.(hit);
               } catch { /* غير مدعوم */ }
             }
-            if (e.data === PLAYING || e.data === BUFFERING) { try { if (pickedRef.current) applyQuality(player.current, qRef.current); else player.current?.setPlaybackQuality(qRef.current); } catch { /* غير مدعوم */ } }
+            if (e.data === PLAYING || e.data === BUFFERING) { try { applyQuality(player.current, qRef.current); } catch { /* غير مدعوم */ } }
           },
           onError: () => { if (!dead) setFailed(true); },
         },
@@ -203,7 +201,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   };
   const pickQuality = (q: string) => {
     const p = player.current;
-    qRef.current = q; pickedRef.current = true; setQuality(q); setMenu(false);
+    qRef.current = q; setQuality(q); setMenu(false);
     if (!p) return;
     try {
       applyQuality(p, q);
