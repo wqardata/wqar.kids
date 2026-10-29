@@ -133,6 +133,8 @@
 .player--native .yt-host iframe { pointer-events: auto; }
 .player--native .yt-guard { position: absolute; z-index: 3; inset-inline: 0; }
 .player--native .yt-guard--top { top: 0; height: 56px; }
+/* فوق شريط التحكم السفلي (--yt-ctl-h) وتحت منتصف الفيديو: هنا يعرض يوتيوب المقترحات عند الإيقاف. عدّل القيمتين إن لزم. */
+.player--native .yt-guard--rel { bottom: var(--yt-ctl-h, 56px); height: var(--yt-rel-h, 26%); }
 .player--native .yt-cover { pointer-events: auto; display: grid; place-items: center; }
 .player--native .dp-center { pointer-events: auto; }
 /* الشريط المصغّر: كله زر للعودة، فلا يستقبل الإطار شيئًا */
