@@ -197,19 +197,21 @@ export function useSettingsOwner({
 }
 
 /** الشريط الثابت أعلى الإعدادات: «حفظ التغييرات» و«العودة إلى الافتراضي» وحالة المسودة. */
-export function SaveBar({ store }: { store: SaveStore }) {
+export function SaveBar({ store, hideButtons = false }: { store: SaveStore; /** يخفي زرّي «حفظ التغييرات» و«العودة إلى الافتراضي» ويُبقي حالة المسودة. */ hideButtons?: boolean }) {
   if (store.count === 0) return null;
   return (
     <div className="savebar" role="region" aria-label="حفظ التغييرات">
       {/* الأزرار أولًا في الترتيب: تظهر أعلى يمين الصفحة (RTL)، وحالة المسودة بجانبها. */}
-      <div className="savebar-btns">
-        <button type="button" className="btn" disabled={!store.dirty || store.busy} onClick={() => void store.saveAll()}>
-          {store.busy ? "جارٍ الحفظ…" : "حفظ التغييرات"}
-        </button>
-        <button type="button" className="btn btn--ghost" disabled={store.busy || store.allDefault} onClick={store.resetAll}>
-          العودة إلى الافتراضي
-        </button>
-      </div>
+      {!hideButtons && (
+        <div className="savebar-btns">
+          <button type="button" className="btn" disabled={!store.dirty || store.busy} onClick={() => void store.saveAll()}>
+            {store.busy ? "جارٍ الحفظ…" : "حفظ التغييرات"}
+          </button>
+          <button type="button" className="btn btn--ghost" disabled={store.busy || store.allDefault} onClick={store.resetAll}>
+            العودة إلى الافتراضي
+          </button>
+        </div>
+      )}
       <div className="savebar-status" aria-live="polite">
         {store.error ? (
           <span className="field-error" role="alert">{store.error}</span>

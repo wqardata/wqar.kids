@@ -317,7 +317,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
 
         <div className={previewPath && showPreview ? "admin-split" : "admin-split admin-split--solo"}>
           <div className="admin-split-main" id="admin-panel" onFocusCapture={pickSection} onPointerDownCapture={pickSection} role="tabpanel" aria-labelledby={visibleSubs.length > 1 ? `tab-${sub}` : `group-${current.id}`}>
-            <SaveBar store={store} />
+            <SaveBar store={store} hideButtons={tab === "radio"} />
             {isLayout ? (
               <LayoutEditor key={`layout-${epoch}`} view={sub === "layout-tabs" ? "tabs" : "arrange"} structure={structure} arrangement={arrangement} isOwner={isOwner} onSave={save} />
             ) : (
