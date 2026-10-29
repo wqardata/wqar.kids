@@ -11,12 +11,12 @@ export type IconName =
   | "like" | "flag" | "up" | "chevdown" | "trash" | "plus" | "close"
   | "star" | "film" | "book" | "music" | "fire" | "globe" | "tv" | "info" | "camera" | "trophy"
   | "gear" | "history" | "check" | "copy" | "eye" | "eyeoff"
-  | "share" | "link" | "menu" | "sun" | "moon" | "auto" | "edit" | "scissors" | "bell";
+  | "share" | "link" | "menu" | "sun" | "moon" | "auto" | "edit" | "scissors" | "bell" | "radio";
 
 /** الأيقونات التي يمكن اختيارها لعناصر القائمة من لوحة التحكم. */
 export const MENU_ICONS: readonly IconName[] = [
   "home", "bolt", "stack", "live", "game", "spark", "heart", "like", "down", "gift", "mail", "play",
-  "star", "film", "book", "music", "fire", "globe", "tv", "info", "camera", "trophy", "user", "search", "history",
+  "star", "film", "book", "music", "fire", "globe", "tv", "info", "camera", "trophy", "user", "search", "history", "radio",
 ];
 
 export type NavItem = { href: string; label: string; icon: IconName };
@@ -26,6 +26,7 @@ export const nav: readonly NavItem[] = [
   { href: "/shorts", label: "قصيرة", icon: "bolt" },
   { href: "/subscriptions", label: "مجموعاتي", icon: "stack" },
   { href: "/games", label: "ألعاب", icon: "game" },
+  { href: "/radio", label: "إذاعة", icon: "radio" },
 ];
 
 export const more: readonly NavItem[] = [
