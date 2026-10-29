@@ -1285,7 +1285,7 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
 .radio-glass-h { display: flex; align-items: center; gap: 8px; padding: 0 6px 10px; font-weight: 700; font-size: 1.02rem; }
 .radio-glass-h span { display: inline-block; animation: radio-bounce 2.2s ease-in-out infinite; }
 
-.radio-list { display: grid; gap: 9px; max-height: min(52dvh, 440px); overflow-y: auto; overflow-x: hidden; padding: 4px 6px 6px; scroll-behavior: smooth; overscroll-behavior: contain; touch-action: pan-y; }
+.radio-list { display: grid; gap: 9px; max-height: min(52dvh, 440px); overflow-y: auto; overflow-x: hidden; padding: 4px 10px 6px; scroll-behavior: smooth; overscroll-behavior: contain; touch-action: pan-y; }
 .radio-list li { --c: #22b8f0; animation: radio-in .5s cubic-bezier(.2, .9, .3, 1.3) both; animation-delay: calc(var(--i, 0) * 55ms); }
 .radio-item { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; text-align: start; cursor: pointer; color: var(--ink);
   background: color-mix(in srgb, var(--surface) 55%, transparent); border: 1.5px solid rgba(255, 255, 255, .6); border-radius: 20px;
