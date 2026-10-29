@@ -9,7 +9,7 @@ import { useHistory } from "@/lib/history";
 import { useSettings, type WatchPageSettings } from "@/lib/settings";
 import { fetchLatestVideos, type VideoDoc } from "@/lib/videos";
 
-const POOL = 80; // نقرأ أحدث 80 فيديو فقط (كل قراءة تُحتسب من حصة Firestore) ثم نختار منها حسب الإعدادات
+// نقرأ أحدث N فيديو فقط (N من إعدادات «صفحة الفيديو»، والافتراضي 80) ثم نختار منها حسب الإعدادات؛ ما هو أقدم من ذلك لا يظهر مقترحًا.
 
 const seKey = (v: Pick<VideoDoc, "season" | "episode">) => (v.season ?? 0) * 10_000 + (v.episode ?? 0);
 
@@ -85,6 +85,7 @@ function Thumb({ v, showDuration }: { v: VideoDoc; showDuration: boolean }) {
 export default function SuggestedVideos({ current }: { current: VideoDoc }) {
   const { settings } = useSettings();
   const w = settings.watchPage;
+  const poolSize = w.sugPool;
   const [pool, setPool] = useState<VideoDoc[]>([]);
   const [ready, setReady] = useState(!isFirebaseConfigured);
   const history = useHistory();
@@ -99,14 +100,14 @@ export default function SuggestedVideos({ current }: { current: VideoDoc }) {
     if (!isFirebaseConfigured) return;
     let off = false;
     // مخزّنة 15 دقيقة في المتصفح: فتح فيديو بعد آخر لا يقرأ من Firestore مجددًا.
-    fetchLatestVideos(POOL)
+    fetchLatestVideos(poolSize)
       .then((list) => !off && setPool(list))
       .catch(() => {})
       .finally(() => !off && setReady(true));
     return () => {
       off = true;
     };
-  }, []);
+  }, [poolSize]);
 
   const doneKey = history.filter((e) => e.done).map((e) => e.id).join(",");
   // eslint-disable-next-line react-hooks/exhaustive-deps
