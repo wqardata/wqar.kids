@@ -1010,7 +1010,7 @@ html, body { overflow-x: clip; }
 @media (min-width: 600px) { .watch-series { margin-inline: 2px; } }
 
 /* ---------- فواصل الصفوف وعناوينها وأيقوناتها ---------- */
-.home-blocks { display: grid; gap: 40px; }
+.home-blocks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; } /* minmax(0,…): بلا ذلك يتمدد العمود بعرض الصفوف الأفقية (تابع المشاهدة/المقاطع) فتخرج الصور عن الشاشة */
 .home-blocks > .home-shorts { margin: 0; }
 .row-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px 12px; }
 @media (min-width: 600px) { .row-head { padding-inline: 2px; } }
