@@ -6,7 +6,7 @@ import Icon from "@/components/Icon";
 import PlayLoader from "@/components/PlayLoader";
 import { DRIVE_ID, driveThumbnail } from "@/lib/drive";
 import { CUSTOM_VIDEO_PLAYER, DRIVE_TIP_KEY, driveVideoUrl } from "@/lib/driveVideo";
-import { useSettings } from "@/lib/settings";
+import { inkOn, useSettings } from "@/lib/settings";
 import { clearPos, getPos, savePos } from "@/lib/videoPos";
 
 type Props = {
@@ -270,6 +270,14 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   const bufPct = dur > 0 ? Math.min(100, (buf / dur) * 100) : 0;
   // «أسفل الشعار» لا يتسع في ملء الشاشة (الشريط عند الحافة السفلية) فنعود فيه إلى «أعلى».
   const tipBelow = tipCfg.driveTipPos === "below" && !fs;
+  // لون الفقاعة وعتامتها من الإعدادات؛ اللون الفارغ = لون الموقع الأساسي، ولون النص يُختار تلقائيًا ليبقى مقروءًا.
+  const tipStyle: CSSProperties | undefined = tipCfg.driveTipColor || tipCfg.driveTipOpacity < 100
+    ? ({
+        "--tip-bg": tipCfg.driveTipColor || "var(--accent)",
+        "--tip-op": `${tipCfg.driveTipOpacity}%`,
+        ...(tipCfg.driveTipColor ? { color: inkOn(tipCfg.driveTipColor) } : {}),
+      } as CSSProperties)
+    : undefined;
   const cls = `player dp${showIdle ? " dp--idle" : ""}${fs ? " dp--fs" : ""}${tip && !menu && tipBelow ? " dp--tipbelow" : ""}`;
 
   return (
@@ -397,7 +405,7 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
           </button>
           <span className="dp-q">
             {tip && !menu && (
-              <button type="button" className={tipBelow ? "dp-tip dp-tip--below" : "dp-tip"} onClick={openDrive} tabIndex={-1} aria-hidden="true">
+              <button type="button" className={tipBelow ? "dp-tip dp-tip--below" : "dp-tip"} style={tipStyle} onClick={openDrive} tabIndex={-1} aria-hidden="true">
                 {tipCfg.driveTipText}
               </button>
             )}

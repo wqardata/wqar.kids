@@ -595,6 +595,16 @@ export const DRIVE_TIP_SEC_MIN = 2;
 export const DRIVE_TIP_SEC_MAX = 15;
 /** أقصى عدد مرات تُعرض فيها الفقاعة لنفس الزائر؛ 0 = في كل مرة يبدأ فيها فيديو. */
 export const DRIVE_TIP_MAX_MAX = 20;
+/** أقل عتامة مسموحة للفقاعة (كي لا تختفي كليًا). */
+export const DRIVE_TIP_OPACITY_MIN = 20;
+
+/** لون نص مقروء (أسود/أبيض) فوق خلفية #rrggbb. */
+export function inkOn(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const lin = (c: number) => { const x = c / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return L > 0.4 ? "#111111" : "#ffffff";
+}
 
 export type WatchPageSettings = {
   /** حجم أزرار مشغّل درايف على الجوال (%). */
@@ -609,6 +619,10 @@ export type WatchPageSettings = {
   driveTipMax: number;
   /** مكان الفقاعة: أعلى شعار درايف أو أسفله. */
   driveTipPos: DriveTipPos;
+  /** لون الفقاعة (#rrggbb؛ فارغ = لون الموقع الأساسي). */
+  driveTipColor: string;
+  /** عتامة الفقاعة % (100 = معتمة تمامًا، وأقل = أشفّ). */
+  driveTipOpacity: number;
   /** حجم زر التشغيل/الإيقاف الأوسط (%). */
   playBtnScale: number;
   /** تشغيل فيديوهات يوتيوب بلا صوت افتراضيًا (الزائر يستطيع تشغيل الصوت من زر الصوت). */
@@ -649,6 +663,8 @@ export const DEFAULT_WATCH_PAGE: WatchPageSettings = {
   driveTipSec: 6,
   driveTipMax: 3,
   driveTipPos: "above",
+  driveTipColor: "",
+  driveTipOpacity: 100,
   playBtnScale: 100,
   ytMuted: false,
   ytNoMusic: true,
@@ -686,6 +702,8 @@ export function cleanWatchPage(v: unknown): WatchPageSettings {
     driveTipSec: int("driveTipSec", DRIVE_TIP_SEC_MIN, DRIVE_TIP_SEC_MAX, D.driveTipSec),
     driveTipMax: int("driveTipMax", 0, DRIVE_TIP_MAX_MAX, D.driveTipMax),
     driveTipPos: DRIVE_TIP_POSITIONS.some((x) => x.id === o.driveTipPos) ? (o.driveTipPos as DriveTipPos) : D.driveTipPos,
+    driveTipColor: typeof o.driveTipColor === "string" && HEX.test(o.driveTipColor) ? o.driveTipColor.toLowerCase() : "",
+    driveTipOpacity: int("driveTipOpacity", DRIVE_TIP_OPACITY_MIN, 100, D.driveTipOpacity),
     playBtnScale: int("playBtnScale", PLAY_BTN_SCALE_MIN, PLAY_BTN_SCALE_MAX, D.playBtnScale),
     ytMuted: flag("ytMuted", D.ytMuted),
     ytNoMusic: flag("ytNoMusic", D.ytNoMusic),

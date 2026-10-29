@@ -15,6 +15,7 @@ import {
   SUG_LAYOUTS,
   SUG_ORDERS,
   DRIVE_TIP_POSITIONS,
+  DRIVE_TIP_OPACITY_MIN,
   type DriveTipPos,
   SUG_SCOPES,
   cleanWatchPage,
@@ -119,6 +120,21 @@ export default function SuggestedSettings() {
                 {DRIVE_TIP_POSITIONS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
               <p className="hint">«أعلى الشعار» فوق شريط التحكم داخل الفيديو (الافتراضي). «أسفل الشعار» تنزل تحت المشغّل (وفي ملء الشاشة تظهر أعلى الشعار).</p>
+            </div>
+            <div className="two">
+              <div className="field">
+                <label htmlFor="sg-tip-color">لون الفقاعة</label>
+                <div className="addrow">
+                  <input id="sg-tip-color" type="color" value={form.driveTipColor || "#087a68"} onChange={(e) => set("driveTipColor", e.target.value)} />
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => set("driveTipColor", "")} disabled={!form.driveTipColor}>لون الموقع الأساسي</button>
+                </div>
+                <p className="hint">{form.driveTipColor ? "لون النص يُضبط تلقائيًا ليبقى مقروءًا." : "الآن: لون الموقع الأساسي."}</p>
+              </div>
+              <div className="field">
+                <label htmlFor="sg-tip-op">الشفافية: العتامة {form.driveTipOpacity}%</label>
+                <input id="sg-tip-op" type="range" min={DRIVE_TIP_OPACITY_MIN} max={100} step={5} value={form.driveTipOpacity} onChange={(e) => set("driveTipOpacity", int(e.target.value, DRIVE_TIP_OPACITY_MIN, 100))} />
+                <p className="hint">100% = معتمة تمامًا، وأقل = أشفّ (الحد الأدنى {DRIVE_TIP_OPACITY_MIN}%).</p>
+              </div>
             </div>
             <div className="two">
               <div className="field">
