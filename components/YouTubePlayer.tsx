@@ -49,6 +49,14 @@ function loadApi(): Promise<YTApi> {
 /** الجودة الافتراضية: medium = 360p، تُفرض بتثبيت مدى الجودة (انظر applyQuality) إلى أن يختار الزائر غيرها. */
 const DEFAULT_QUALITY = "medium"; // الجودة المطلوبة (medium = 360p)
 
+/**
+ * true  = أزرار يوتيوب الأصلية ظاهرة وتعمل (controls=1) مع منع أي خروج إلى يوتيوب:
+ *         الإطار sandbox بلا allow-popups ولا allow-top-navigation فلا يفتح الضغط على الشعار/الرابط أي نافذة ولا ينقل الصفحة،
+ *         وطبقة شفافة فوق شريط العنوان (نسخ الرابط/مشاهدة لاحقًا/مشاركة) تمنع الضغط عليه أصلًا.
+ * false = أزرارنا المخصّصة فوق إطار بلا واجهة يوتيوب.
+ */
+const NATIVE_CONTROLS = true;
+
 const Q_LABEL: Record<string, string> = {
   highres: "4320p", hd2880: "2880p", hd2160: "2160p", hd1440: "1440p", hd1080: "1080p", hd720: "720p", large: "480p", medium: "360p", small: "240p", tiny: "144p", auto: "تلقائي", default: "تلقائي",
 };
@@ -127,7 +135,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
     if (!f || !wrap) return;
     const h = Q_HEIGHT[q];
     const boxW = wrap.clientWidth, boxH = wrap.clientHeight;
-    if (!h || !boxW || !boxH) { f.style.width = ""; f.style.height = ""; f.style.transform = ""; f.style.transformOrigin = ""; return; }
+    if (NATIVE_CONTROLS || !h || !boxW || !boxH) { f.style.width = ""; f.style.height = ""; f.style.transform = ""; f.style.transformOrigin = ""; return; }
     const dpr = window.devicePixelRatio || 1;
     // الإطار بنسبة أبعاد المشغّل نفسه (فيبقى شكل الفيديو داخله كما كان)، وارتفاعه يطابق الجودة المطلوبة.
     const ratio = boxW / boxH;
@@ -156,7 +164,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
     setReady(false); setState(-1); setFailed(false); setCur(0); setDur(0); setBuf(0); setMuted(muteRef.current);
 
     const q = new URLSearchParams({
-      enablejsapi: "1", controls: "0", rel: "0", playsinline: "1", modestbranding: "1", disablekb: "1", fs: "0", iv_load_policy: "3", origin: window.location.origin,
+      enablejsapi: "1", controls: NATIVE_CONTROLS ? "1" : "0", rel: "0", playsinline: "1", modestbranding: "1", disablekb: NATIVE_CONTROLS ? "0" : "1", fs: NATIVE_CONTROLS ? "1" : "0", iv_load_policy: "3", origin: window.location.origin,
     });
     if (autoplay) q.set("autoplay", "1");
     if (startAt >= 1) q.set("start", String(Math.floor(startAt)));
@@ -164,7 +172,8 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
     const f = document.createElement("iframe");
     f.src = `https://www.youtube-nocookie.com/embed/${youtubeId}?${q}`;
     f.title = `مشغّل يوتيوب — ${title}`;
-    f.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture";
+    f.allow = `accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture${NATIVE_CONTROLS ? "; fullscreen" : ""}`;
+    if (NATIVE_CONTROLS) f.allowFullscreen = true;
     f.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation"); // بلا allow-popups: لا نوافذ خارجية
     f.referrerPolicy = "strict-origin-when-cross-origin";
     wrap.appendChild(f);
@@ -268,6 +277,29 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
 
   if (!YT_ID.test(youtubeId)) {
     return <div className="player" role="img" aria-label={`الفيديو غير متوفر — ${title}`}><span className="soon">الفيديو غير متوفر</span></div>;
+  }
+
+  if (NATIVE_CONTROLS) {
+    return (
+      <div ref={box} className="player player--yt player--native dp">
+        <div ref={host} className="yt-host" />
+        {failed ? (
+          <span className="soon">تعذّر تشغيل الفيديو</span>
+        ) : (
+          <>
+            {/* حاجز شفاف فوق شريط عنوان يوتيوب (الشعار/نسخ الرابط/مشاهدة لاحقًا/مشاركة) كي لا يُضغط عليه. */}
+            <div className="yt-guard yt-guard--top" aria-hidden="true" />
+            {/* عند الانتهاء نغطّي الإطار كي لا تظهر مقترحات يوتيوب، ونعرض زر إعادة التشغيل. */}
+            {ready && state === ENDED && (
+              <div className="yt-cover">
+                <button type="button" className="dp-center" onClick={toggle} aria-label="إعادة التشغيل">{I.play}</button>
+              </div>
+            )}
+          </>
+        )}
+        <PlayLoader show={!ready && !failed} />
+      </div>
+    );
   }
 
   const playing = state === PLAYING || state === BUFFERING;

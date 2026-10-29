@@ -128,6 +128,17 @@
   .player--yt.yt-idle .dp-center, .player--yt.yt-idle .yt-cover { display: none; }
 }
 
+/* أزرار يوتيوب الأصلية (NATIVE_CONTROLS في YouTubePlayer.tsx): يصل النقر واللمس إلى الإطار،
+   والخروج إلى يوتيوب ممنوع بالـ sandbox + حاجز شفاف فوق شريط العنوان. */
+.player--native .yt-host iframe { pointer-events: auto; }
+.player--native .yt-guard { position: absolute; z-index: 3; inset-inline: 0; }
+.player--native .yt-guard--top { top: 0; height: 56px; }
+.player--native .yt-cover { pointer-events: auto; display: grid; place-items: center; }
+.player--native .dp-center { pointer-events: auto; }
+/* الشريط المصغّر: كله زر للعودة، فلا يستقبل الإطار شيئًا */
+.mp--mini .player--native .yt-host iframe, .mp--mini .player--native .yt-cover { pointer-events: none; }
+.mp--mini .player--native .yt-guard { inset: 0; height: auto; }
+
 /* ملء الشاشة لمشغّل درايف: الغلاف هو الذي يملأ الشاشة، والإطار يُرسم أكبر ثم يُصغَّر بـ --dz كما في الوضع العادي. */
 .dp-fsbtn { position: absolute; z-index: 3; top: 8px; inset-inline-end: 8px; width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 10px;
   background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer; box-shadow: 0 0 0 1px rgba(255, 255, 255, .25); }
