@@ -140,13 +140,17 @@ export default function RadioPlayer() {
     setMuted(m);
     try { localStorage.setItem("radio-vol", String(v)); localStorage.setItem("radio-muted", m ? "1" : "0"); } catch { /* التخزين غير متاح */ }
   };
-  const toggleMute = () => {
-    const m = !muted;
-    // إلغاء الكتم والمستوى صفر: نرجع لمستوى مسموع.
-    if (!m && vol === 0) setVol(0.6);
-    setMuted(m);
-    try { localStorage.setItem("radio-muted", m ? "1" : "0"); } catch { /* التخزين غير متاح */ }
-  };
+  // منزلق الصوت الطولي: يُغلق بالضغط خارجه أو بمفتاح Escape (وبعد التحديد، انظر onPointerUp).
+  const [volOpen, setVolOpen] = useState(false);
+  const volBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!volOpen) return;
+    const down = (e: PointerEvent) => { if (!volBox.current?.contains(e.target as Node)) setVolOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") setVolOpen(false); };
+    document.addEventListener("pointerdown", down);
+    document.addEventListener("keydown", key);
+    return () => { document.removeEventListener("pointerdown", down); document.removeEventListener("keydown", key); };
+  }, [volOpen]);
 
   // عند فتح الصفحة: نجهّز أول نشيد ونحاول تشغيله (قد يمنعه المتصفح حتى يضغط الزائر زر التشغيل).
   useEffect(() => {
@@ -218,24 +222,32 @@ export default function RadioPlayer() {
               aria-label="موضع التشغيل"
             />
             <span className="radio-time" dir="ltr">{fmt(time)} / {fmt(dur)}</span>
-            <div className="radio-vol">
-              <button type="button" onClick={toggleMute} aria-label={muted || vol === 0 ? "تشغيل الصوت" : "كتم الصوت"} title={muted || vol === 0 ? "تشغيل الصوت" : "كتم الصوت"}>
+            <div className="radio-vol" ref={volBox}>
+              <button type="button" onClick={() => setVolOpen((o) => !o)} aria-label="مستوى الصوت" aria-haspopup="true" aria-expanded={volOpen} title="الصوت">
                 {muted || vol === 0 ? (
                   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3zm13.6 3 2.4-2.4-1.4-1.4-2.4 2.4-2.4-2.4-1.4 1.4 2.4 2.4-2.4 2.4 1.4 1.4 2.4-2.4 2.4 2.4 1.4-1.4z" /></svg>
                 ) : (
                   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z" /></svg>
                 )}
               </button>
-              <input
-                type="range"
-                dir="ltr"
-                min={0}
-                max={1}
-                step={0.05}
-                value={muted ? 0 : vol}
-                onChange={(e) => changeVol(Number(e.target.value))}
-                aria-label="مستوى الصوت"
-              />
+              {volOpen && (
+                <div className="radio-vol-pop">
+                  <input
+                    type="range"
+                    dir="ltr"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={muted ? 0 : vol}
+                    onChange={(e) => changeVol(Number(e.target.value))}
+                    onPointerUp={() => setVolOpen(false)}
+                    onKeyUp={(e) => { if (e.key === "Enter" || e.key === "Escape") setVolOpen(false); }}
+                    aria-label="مستوى الصوت"
+                    aria-orientation="vertical"
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
