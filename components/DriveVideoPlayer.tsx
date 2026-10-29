@@ -5,7 +5,8 @@ import DrivePlayer from "@/components/DrivePlayer";
 import Icon from "@/components/Icon";
 import PlayLoader from "@/components/PlayLoader";
 import { DRIVE_ID, driveThumbnail } from "@/lib/drive";
-import { CUSTOM_VIDEO_PLAYER, driveVideoUrl } from "@/lib/driveVideo";
+import { CUSTOM_VIDEO_PLAYER, DRIVE_TIP_KEY, driveVideoUrl } from "@/lib/driveVideo";
+import { useSettings } from "@/lib/settings";
 import { clearPos, getPos, savePos } from "@/lib/videoPos";
 
 type Props = {
@@ -21,10 +22,7 @@ const RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const SKIP = 10;
 /** إن بدأ التشغيل ولم تصل بيانات الفيديو خلال هذه المدة نعتبر الرابط المباشر مرفوضًا. */
 const STALL_MS = 15_000;
-/** فقاعة «اضغط للمشاهدة عبر Drive»: مدة ظهورها، وأقصى عدد مرات تُعرض فيها لنفس الزائر (ثم لا تظهر ثانية). */
-const TIP_MS = 6_000;
-const TIP_MAX = 3;
-const TIP_KEY = "dp-drive-tip";
+
 
 function fmt(t: number): string {
   const s = Math.max(0, Math.floor(t || 0));
@@ -81,6 +79,9 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   const [rate, setRate] = useState(1);
   const [menu, setMenu] = useState(false);
   // فقاعة تنبيه مؤقتة تشير إلى زر درايف (الجودة) عند أول تشغيل.
+  // نصها ومدتها وعدد مرات ظهورها وتفعيلها من لوحة التحكم (صفحة الفيديو ← مشغّل درايف الخاص).
+  const { settings } = useSettings();
+  const tipCfg = settings.watchPage;
   const [tip, setTip] = useState(false);
   const tipShown = useRef(false);
   const tipTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -104,17 +105,17 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   const persist = () => { if (pos.current.d > 0) savePos(driveId, pos.current.t, pos.current.d); };
   const clearStall = () => { clearTimeout(stallTimer.current); stallTimer.current = undefined; };
 
-  /** تُعرض الفقاعة مرة واحدة لكل مشغّل عند أول تشغيل، وبحد أقصى TIP_MAX مرات للزائر (يُعدّ في متصفحه فقط). */
+  /** تُعرض الفقاعة مرة واحدة لكل مشغّل عند أول تشغيل، وبحد أقصى driveTipMax مرات للزائر (يُعدّ في متصفحه فقط؛ 0 = بلا حد). */
   const showTip = () => {
-    if (tipShown.current) return;
+    if (tipShown.current || !tipCfg.driveTipShow) return;
     tipShown.current = true;
     let n = 0;
-    try { n = Number(localStorage.getItem(TIP_KEY)) || 0; } catch { /* التخزين غير متاح */ }
-    if (n >= TIP_MAX) return;
-    try { localStorage.setItem(TIP_KEY, String(n + 1)); } catch { /* التخزين غير متاح */ }
+    try { n = Number(localStorage.getItem(DRIVE_TIP_KEY)) || 0; } catch { /* التخزين غير متاح */ }
+    if (tipCfg.driveTipMax > 0 && n >= tipCfg.driveTipMax) return;
+    try { if (tipCfg.driveTipMax > 0) localStorage.setItem(DRIVE_TIP_KEY, String(n + 1)); } catch { /* التخزين غير متاح */ }
     setTip(true);
     clearTimeout(tipTimer.current);
-    tipTimer.current = setTimeout(() => setTip(false), TIP_MS);
+    tipTimer.current = setTimeout(() => setTip(false), tipCfg.driveTipSec * 1000);
   };
   /** الانتقال إلى مشغّل درايف الأصلي (لاختيار الجودة) من اللحظة الحالية. */
   const openDrive = () => {
@@ -395,7 +396,7 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
           <span className="dp-q">
             {tip && !menu && (
               <button type="button" className="dp-tip" onClick={openDrive} tabIndex={-1} aria-hidden="true">
-                اضغط للمشاهدة عبر Drive ولتغيير الجودة
+                {tipCfg.driveTipText}
               </button>
             )}
             <button type="button" onClick={openDrive} title="الجودات المتاحة في درايف" aria-label="اختيار الجودة (يفتح مشغّل درايف)">

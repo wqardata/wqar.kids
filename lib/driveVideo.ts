@@ -9,6 +9,9 @@
  * المشغّل الخاص للفيديوهات (components/DriveVideoPlayer.tsx): عنصر video بأزرارنا يقرأ الملف مباشرة من درايف كما تفعل الإذاعة،
  * وإن رفضه المتصفح رجع تلقائيًا إلى مشغّل درايف الأصلي. مفعّل افتراضيًا؛ لتعطيله ضع NEXT_PUBLIC_DRIVE_CUSTOM_PLAYER=0 في متغيرات البيئة.
  */
+/** مفتاح عدّاد مرات عرض فقاعة «اضغط للمشاهدة عبر Drive» في متصفح الزائر (localStorage). */
+export const DRIVE_TIP_KEY = "dp-drive-tip";
+
 export const CUSTOM_VIDEO_PLAYER = process.env.NEXT_PUBLIC_DRIVE_CUSTOM_PLAYER !== "0";
 
 export function driveVideoUrl(id: string): string {

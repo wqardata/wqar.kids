@@ -1,9 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
 import {
+  DEFAULT_DRIVE_TIP_TEXT,
   DEFAULT_WATCH_PAGE,
   DRIVE_BTN_SCALE_MAX,
   DRIVE_BTN_SCALE_MIN,
+  DRIVE_TIP_MAX_MAX,
+  DRIVE_TIP_SEC_MAX,
+  DRIVE_TIP_SEC_MIN,
+  DRIVE_TIP_TEXT_MAX,
   PLAY_BTN_SCALE_MAX,
   PLAY_BTN_SCALE_MIN,
   SUG_COUNT_MAX,
@@ -17,6 +22,7 @@ import {
   type SugScope,
   type WatchPageSettings,
 } from "@/lib/settings";
+import { DRIVE_TIP_KEY } from "@/lib/driveVideo";
 import { usePreviewDraft } from "@/lib/preview";
 import { MovableSection, OwnerForm } from "./sectionKit";
 import { useSettingsOwner } from "./saveKit";
@@ -27,6 +33,7 @@ type FlagKey = { [K in keyof WatchPageSettings]: WatchPageSettings[K] extends bo
 export default function SuggestedSettings() {
   const { settings, ready } = useSettings();
   const [form, setForm] = useState<WatchPageSettings>(settings.watchPage);
+  const [tipReset, setTipReset] = useState(false);
   usePreviewDraft("watch-page", { watchPage: cleanWatchPage(form) });
   const patch = useMemo(() => ({ watchPage: cleanWatchPage(form) }), [form]);
   useSettingsOwner({
@@ -91,6 +98,45 @@ export default function SuggestedSettings() {
           />
           <p className="hint">يتحكم بحجم الزر الأوسط في مشغّل يوتيوب. زر درايف الأوسط جزء من إطار درايف نفسه فيتبع «حجم الأزرار» أعلاه. الافتراضي 100%.</p>
         </div>
+      </section>
+
+      <section className="dsec" aria-labelledby="sg-s-tip">
+        <h3 id="sg-s-tip" className="dsec-h">مشغّل درايف الخاص: فقاعة «المشاهدة عبر Drive»</h3>
+        <p className="hint">فقاعة صغيرة مؤقتة تشير إلى أيقونة درايف في المشغّل الخاص وتظهر عند أول تشغيل، لتعريف الزائر بأن الضغط عليها يفتح مشغّل درايف الأصلي لتغيير الجودة.</p>
+        {flag("driveTipShow", "إظهار الفقاعة")}
+        {form.driveTipShow && (
+          <>
+            <div className="field">
+              <label htmlFor="sg-tip-text">النص</label>
+              <input id="sg-tip-text" value={form.driveTipText} onChange={(e) => set("driveTipText", e.target.value.slice(0, DRIVE_TIP_TEXT_MAX))} maxLength={DRIVE_TIP_TEXT_MAX} placeholder={DEFAULT_DRIVE_TIP_TEXT} />
+              <p className="hint">اتركه فارغًا لاستعمال النص الافتراضي. يُفضَّل أن يبقى قصيرًا كي لا يغطي الفيديو.</p>
+            </div>
+            <div className="two">
+              <div className="field">
+                <label htmlFor="sg-tip-sec">مدة الظهور (ثوانٍ)</label>
+                <input id="sg-tip-sec" type="number" inputMode="numeric" dir="ltr" min={DRIVE_TIP_SEC_MIN} max={DRIVE_TIP_SEC_MAX} step={1} value={form.driveTipSec} onChange={(e) => set("driveTipSec", int(e.target.value, DRIVE_TIP_SEC_MIN, DRIVE_TIP_SEC_MAX))} />
+              </div>
+              <div className="field">
+                <label htmlFor="sg-tip-max">أقصى عدد مرات لكل زائر</label>
+                <input id="sg-tip-max" type="number" inputMode="numeric" dir="ltr" min={0} max={DRIVE_TIP_MAX_MAX} step={1} value={form.driveTipMax} onChange={(e) => set("driveTipMax", int(e.target.value, 0, DRIVE_TIP_MAX_MAX))} />
+                <p className="hint">0 = تظهر في كل مرة يبدأ فيها فيديو. العدّ في متصفح كل زائر ولا يستهلك شيئًا من الخادم.</p>
+              </div>
+            </div>
+            <div className="addrow">
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => {
+                  try { localStorage.removeItem(DRIVE_TIP_KEY); } catch { /* التخزين غير متاح */ }
+                  setTipReset(true);
+                }}
+              >
+                إعادة عرض الفقاعة في متصفحي
+              </button>
+              {tipReset && <small className="hint" role="status">تمّ: ستظهر لك عند تشغيل فيديو درايف في الصفحة. (تسري القيم المحفوظة؛ احفظ التغييرات أولًا.)</small>}
+            </div>
+          </>
+        )}
       </section>
 
       <section className="dsec" aria-labelledby="sg-s-yt">

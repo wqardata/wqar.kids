@@ -581,9 +581,25 @@ export const DRIVE_BTN_SCALE_MAX = 150;
 export const PLAY_BTN_SCALE_MIN = 40;
 export const PLAY_BTN_SCALE_MAX = 180;
 
+/** فقاعة «اضغط للمشاهدة عبر Drive» في مشغّل الفيديو الخاص (components/DriveVideoPlayer.tsx). */
+export const DEFAULT_DRIVE_TIP_TEXT = "اضغط للمشاهدة عبر Drive ولتغيير الجودة";
+export const DRIVE_TIP_TEXT_MAX = 80;
+export const DRIVE_TIP_SEC_MIN = 2;
+export const DRIVE_TIP_SEC_MAX = 15;
+/** أقصى عدد مرات تُعرض فيها الفقاعة لنفس الزائر؛ 0 = في كل مرة يبدأ فيها فيديو. */
+export const DRIVE_TIP_MAX_MAX = 20;
+
 export type WatchPageSettings = {
   /** حجم أزرار مشغّل درايف على الجوال (%). */
   driveBtnScale: number;
+  /** إظهار فقاعة التنبيه عند أول تشغيل (تشير إلى زر درايف). */
+  driveTipShow: boolean;
+  /** نص الفقاعة (فارغ = النص الافتراضي). */
+  driveTipText: string;
+  /** مدة ظهورها بالثواني. */
+  driveTipSec: number;
+  /** أقصى عدد مرات لكل زائر (0 = بلا حد). */
+  driveTipMax: number;
   /** حجم زر التشغيل/الإيقاف الأوسط (%). */
   playBtnScale: number;
   /** تشغيل فيديوهات يوتيوب بلا صوت افتراضيًا (الزائر يستطيع تشغيل الصوت من زر الصوت). */
@@ -619,6 +635,10 @@ export type WatchPageSettings = {
 
 export const DEFAULT_WATCH_PAGE: WatchPageSettings = {
   driveBtnScale: 80,
+  driveTipShow: true,
+  driveTipText: DEFAULT_DRIVE_TIP_TEXT,
+  driveTipSec: 6,
+  driveTipMax: 3,
   playBtnScale: 100,
   ytMuted: false,
   ytNoMusic: true,
@@ -651,6 +671,10 @@ export function cleanWatchPage(v: unknown): WatchPageSettings {
   const count = int("sugCount", 1, SUG_COUNT_MAX, D.sugCount);
   return {
     driveBtnScale: int("driveBtnScale", DRIVE_BTN_SCALE_MIN, DRIVE_BTN_SCALE_MAX, D.driveBtnScale),
+    driveTipShow: flag("driveTipShow", D.driveTipShow),
+    driveTipText: typeof o.driveTipText === "string" ? o.driveTipText.replace(/\s+/g, " ").trim().slice(0, DRIVE_TIP_TEXT_MAX) || D.driveTipText : D.driveTipText,
+    driveTipSec: int("driveTipSec", DRIVE_TIP_SEC_MIN, DRIVE_TIP_SEC_MAX, D.driveTipSec),
+    driveTipMax: int("driveTipMax", 0, DRIVE_TIP_MAX_MAX, D.driveTipMax),
     playBtnScale: int("playBtnScale", PLAY_BTN_SCALE_MIN, PLAY_BTN_SCALE_MAX, D.playBtnScale),
     ytMuted: flag("ytMuted", D.ytMuted),
     ytNoMusic: flag("ytNoMusic", D.ytNoMusic),
