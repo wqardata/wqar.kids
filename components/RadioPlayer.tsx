@@ -55,6 +55,9 @@ export default function RadioPlayer() {
   // هل نريد التشغيل الآن؟ يصير false فقط حين يوقفه الزائر بنفسه، فلا نستأنفه رغمًا عنه.
   const want = useRef(true);
   const unlock = useRef<(() => void) | null>(null);
+  // مستوى الصوت (0–1) والكتم؛ يُحفظان في المتصفح. ملاحظة: iOS يتجاهل audio.volume فيعمل زر الكتم وحده هناك.
+  const [vol, setVol] = useState(1);
+  const [muted, setMuted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [dur, setDur] = useState(0);
@@ -116,6 +119,33 @@ export default function RadioPlayer() {
   const step = (d: -1 | 1) => {
     const j = idx + d;
     if (j >= 0 && j < items.length) pick(items[j].id);
+  };
+
+  // استرجاع مستوى الصوت المحفوظ (بعد التركيب كي لا يختلف العرض بين الخادم والمتصفح).
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem("radio-vol");
+      if (s !== null) { const v = Number(s); if (Number.isFinite(v)) setVol(Math.min(1, Math.max(0, v))); }
+      if (localStorage.getItem("radio-muted") === "1") setMuted(true);
+    } catch { /* التخزين غير متاح */ }
+  }, []);
+  // تطبيق الصوت على عنصر audio (يُرسم بعد جاهزية الإعدادات، وكل نشيد جديد يحتفظ بالمستوى نفسه).
+  useEffect(() => {
+    const a = audio.current;
+    if (a) { a.volume = vol; a.muted = muted; }
+  }, [vol, muted, ready, items.length]);
+  const changeVol = (v: number) => {
+    setVol(v);
+    const m = v === 0;
+    setMuted(m);
+    try { localStorage.setItem("radio-vol", String(v)); localStorage.setItem("radio-muted", m ? "1" : "0"); } catch { /* التخزين غير متاح */ }
+  };
+  const toggleMute = () => {
+    const m = !muted;
+    // إلغاء الكتم والمستوى صفر: نرجع لمستوى مسموع.
+    if (!m && vol === 0) setVol(0.6);
+    setMuted(m);
+    try { localStorage.setItem("radio-muted", m ? "1" : "0"); } catch { /* التخزين غير متاح */ }
   };
 
   // عند فتح الصفحة: نجهّز أول نشيد ونحاول تشغيله (قد يمنعه المتصفح حتى يضغط الزائر زر التشغيل).
@@ -188,6 +218,25 @@ export default function RadioPlayer() {
               aria-label="موضع التشغيل"
             />
             <span className="radio-time" dir="ltr">{fmt(time)} / {fmt(dur)}</span>
+            <div className="radio-vol">
+              <button type="button" onClick={toggleMute} aria-label={muted || vol === 0 ? "تشغيل الصوت" : "كتم الصوت"} title={muted || vol === 0 ? "تشغيل الصوت" : "كتم الصوت"}>
+                {muted || vol === 0 ? (
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3zm13.6 3 2.4-2.4-1.4-1.4-2.4 2.4-2.4-2.4-1.4 1.4 2.4 2.4-2.4 2.4 1.4 1.4 2.4-2.4 2.4 2.4 1.4-1.4z" /></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z" /></svg>
+                )}
+              </button>
+              <input
+                type="range"
+                dir="ltr"
+                min={0}
+                max={1}
+                step={0.05}
+                value={muted ? 0 : vol}
+                onChange={(e) => changeVol(Number(e.target.value))}
+                aria-label="مستوى الصوت"
+              />
+            </div>
           </div>
         )}
         <audio
