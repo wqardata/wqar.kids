@@ -14,8 +14,8 @@ export default function RadioPlayer() {
   const { settings, ready } = useSettings();
   const items = settings.radio.items;
   const [curId, setCurId] = useState("");
-  // لا تشغيل تلقائي عند فتح الصفحة؛ يبدأ فقط بعد أن يختار الزائر نشيدًا (لمسة منه).
-  const [chosen, setChosen] = useState(false);
+  // التشغيل تلقائي عند فتح الصفحة (قد تمنعه بعض المتصفحات، وخاصة الجوال، حتى يلمس الزائر الصفحة).
+  const [chosen, setChosen] = useState(true);
   const list = useRef<HTMLUListElement>(null);
 
   const found = items.findIndex((x) => x.id === curId);
