@@ -21,6 +21,10 @@ const RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const SKIP = 10;
 /** إن بدأ التشغيل ولم تصل بيانات الفيديو خلال هذه المدة نعتبر الرابط المباشر مرفوضًا. */
 const STALL_MS = 15_000;
+/** فقاعة «اضغط للمشاهدة عبر Drive»: مدة ظهورها، وأقصى عدد مرات تُعرض فيها لنفس الزائر (ثم لا تظهر ثانية). */
+const TIP_MS = 6_000;
+const TIP_MAX = 3;
+const TIP_KEY = "dp-drive-tip";
 
 function fmt(t: number): string {
   const s = Math.max(0, Math.floor(t || 0));
@@ -76,6 +80,10 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   const [muted, setMuted] = useState(false);
   const [rate, setRate] = useState(1);
   const [menu, setMenu] = useState(false);
+  // فقاعة تنبيه مؤقتة تشير إلى زر درايف (الجودة) عند أول تشغيل.
+  const [tip, setTip] = useState(false);
+  const tipShown = useRef(false);
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [idle, setIdle] = useState(false);
   const [fs, setFs] = useState(false);
   const [canFs, setCanFs] = useState(false);
@@ -95,6 +103,26 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   /** حفظ موضع التشغيل للاستئناف لاحقًا (في متصفح الزائر فقط). */
   const persist = () => { if (pos.current.d > 0) savePos(driveId, pos.current.t, pos.current.d); };
   const clearStall = () => { clearTimeout(stallTimer.current); stallTimer.current = undefined; };
+
+  /** تُعرض الفقاعة مرة واحدة لكل مشغّل عند أول تشغيل، وبحد أقصى TIP_MAX مرات للزائر (يُعدّ في متصفحه فقط). */
+  const showTip = () => {
+    if (tipShown.current) return;
+    tipShown.current = true;
+    let n = 0;
+    try { n = Number(localStorage.getItem(TIP_KEY)) || 0; } catch { /* التخزين غير متاح */ }
+    if (n >= TIP_MAX) return;
+    try { localStorage.setItem(TIP_KEY, String(n + 1)); } catch { /* التخزين غير متاح */ }
+    setTip(true);
+    clearTimeout(tipTimer.current);
+    tipTimer.current = setTimeout(() => setTip(false), TIP_MS);
+  };
+  /** الانتقال إلى مشغّل درايف الأصلي (لاختيار الجودة) من اللحظة الحالية. */
+  const openDrive = () => {
+    const el = v();
+    if (el) el.pause();
+    setTip(false);
+    onQuality(el?.currentTime ?? 0);
+  };
 
   const toggle = () => {
     const el = v();
@@ -177,6 +205,7 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
       clearTimeout(idleTimer.current);
       clearTimeout(tapTimer.current);
       clearTimeout(stallTimer.current);
+      clearTimeout(tipTimer.current);
     };
   }, []);
 
@@ -234,7 +263,8 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
 
   // مؤشر التحميل يظهر بعد بدء التشغيل فقط؛ إن منع المتصفح التشغيل التلقائي يبقى زر التشغيل ظاهرًا ولا يعلق المؤشر.
   const loading = (booting && !ready) || (started && !ready);
-  const showIdle = idle && playing && !menu;
+  // تبقى الأزرار ظاهرة ما دامت الفقاعة معروضة (هي تشير إلى أحدها).
+  const showIdle = idle && playing && !menu && !tip;
   const pct = dur > 0 ? Math.min(100, (time / dur) * 100) : 0;
   const bufPct = dur > 0 ? Math.min(100, (buf / dur) * 100) : 0;
   const cls = `player dp${showIdle ? " dp--idle" : ""}${fs ? " dp--fs" : ""}`;
@@ -258,7 +288,7 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
         preload="metadata"
         playsInline
         autoPlay={autoplay}
-        onPlay={() => { setPlaying(true); setStarted(true); armStall(); wake(); }}
+        onPlay={() => { setPlaying(true); setStarted(true); armStall(); wake(); showTip(); }}
         onPause={() => { setPlaying(false); setIdle(false); persist(); }}
         onWaiting={() => setWaiting(true)}
         onPlaying={() => { setWaiting(false); setReady(true); }}
@@ -362,14 +392,16 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
           <button type="button" className="dp-rate" onClick={() => setMenu((m) => !m)} aria-haspopup="menu" aria-expanded={menu} aria-label="سرعة التشغيل">
             {rate === 1 ? "1×" : `${rate}×`}
           </button>
-          <button
-            type="button"
-            onClick={() => { const el = v(); if (el) el.pause(); onQuality(el?.currentTime ?? 0); }}
-            title="الجودات المتاحة في درايف"
-            aria-label="اختيار الجودة (يفتح مشغّل درايف)"
-          >
-            <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M339 314.9L175.4 32h161.2l163.6 282.9H339zm-137.5 23.6L120.9 480h310.5L512 338.5H201.5zM154.1 67.4L0 338.5 80.6 480 237 208.8 154.1 67.4z" /></svg>
-          </button>
+          <span className="dp-q">
+            {tip && !menu && (
+              <button type="button" className="dp-tip" onClick={openDrive} tabIndex={-1} aria-hidden="true">
+                اضغط للمشاهدة عبر Drive ولتغيير الجودة
+              </button>
+            )}
+            <button type="button" onClick={openDrive} title="الجودات المتاحة في درايف" aria-label="اختيار الجودة (يفتح مشغّل درايف)">
+              <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M339 314.9L175.4 32h161.2l163.6 282.9H339zm-137.5 23.6L120.9 480h310.5L512 338.5H201.5zM154.1 67.4L0 338.5 80.6 480 237 208.8 154.1 67.4z" /></svg>
+            </button>
+          </span>
           {canFs && (
             <button type="button" onClick={toggleFs} aria-label={fs ? "الخروج من ملء الشاشة" : "ملء الشاشة"}>
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

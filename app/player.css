@@ -26,10 +26,19 @@
   background: linear-gradient(to top, rgba(0, 0, 0, .82), rgba(0, 0, 0, .45) 55%, transparent); }
 .dp-row { display: flex; align-items: center; gap: 2px; }
 .dp-row button, .dp-menu button { font: inherit; }
-.dp-row > button, .dp-vol > button { display: grid; place-items: center; min-width: 40px; height: 40px; padding: 0 6px; border: 0; border-radius: 10px; background: transparent; color: #fff; cursor: pointer; }
-.dp-row > button:hover, .dp-vol > button:hover { background: rgba(255, 255, 255, .16); }
-.dp-row > button:focus-visible, .dp-vol > button:focus-visible, .dp-menu button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.dp-q { position: relative; display: flex; flex: none; }
+.dp-row > button, .dp-q > button:not(.dp-tip), .dp-vol > button { display: grid; place-items: center; min-width: 40px; height: 40px; padding: 0 6px; border: 0; border-radius: 10px; background: transparent; color: #fff; cursor: pointer; }
+.dp-row > button:hover, .dp-q > button:not(.dp-tip):hover, .dp-vol > button:hover { background: rgba(255, 255, 255, .16); }
+.dp-row > button:focus-visible, .dp-q > button:focus-visible, .dp-vol > button:focus-visible, .dp-menu button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .dp-row svg { width: 24px; height: 24px; }
+
+/* فقاعة «اضغط للمشاهدة عبر Drive»: مؤقتة، سهمها يشير إلى زر درايف. */
+.dp-tip { position: absolute; z-index: 5; bottom: calc(100% + 12px); right: -6px; width: max-content; max-width: min(210px, calc(100vw - 32px)); padding: 8px 12px; border: 0; border-radius: 12px;
+  direction: rtl; text-align: center; font: inherit; font-size: .8rem; font-weight: 600; line-height: 1.5; color: var(--accent-ink); background: var(--accent); cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45); animation: dp-tip-in .28s ease-out both, dp-tip-bob 1.6s ease-in-out .3s infinite; }
+.dp-tip::after { content: ""; position: absolute; top: 100%; right: 20px; margin-top: -5px; width: 12px; height: 12px; background: inherit; border-radius: 2px; transform: rotate(45deg); }
+@keyframes dp-tip-in { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes dp-tip-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 .dp-time { font-size: .82rem; font-variant-numeric: tabular-nums; padding: 0 8px; opacity: .95; white-space: nowrap; flex: 0 1 auto; min-width: 0; overflow: hidden; }
 .dp-grow { flex: 1; }
 .dp-rate { font-size: .85rem; font-weight: 700; padding: 0 10px !important; }
@@ -66,14 +75,14 @@
 /* اللمس: أهداف أكبر، ولا شريط صوت (الصوت من أزرار الجهاز) */
 @media (pointer: coarse) {
   .dp-vol { display: none; }
-  .dp-row > button { min-width: 38px; height: 44px; padding: 0 3px; flex-shrink: 0; }
+  .dp-row > button, .dp-q > button:not(.dp-tip) { min-width: 38px; height: 44px; padding: 0 3px; flex-shrink: 0; }
   .dp-seek { height: 28px; }
   .dp-seek input[type="range"], .dp-seek input[type="range"]::-webkit-slider-runnable-track { height: 28px; }
   .dp-seek input[type="range"]::-webkit-slider-thumb { transform: scale(1); margin-top: 7px; }
   .dp-seek input[type="range"]::-moz-range-thumb { transform: scale(1); }
 }
 @media (max-width: 420px) { .dp-time { padding: 0 4px; font-size: .75rem; } .dp-rate { padding: 0 6px !important; } }
-@media (prefers-reduced-motion: reduce) { .dp-ui, .dp-track, .dp-center { transition: none; } .dp-flash { animation-duration: .01s; } .dp-spin { animation-duration: 2s; } }
+@media (prefers-reduced-motion: reduce) { .dp-ui, .dp-track, .dp-center { transition: none; } .dp-flash { animation-duration: .01s; } .dp-spin { animation-duration: 2s; } .dp-tip { animation: none; } }
 
 /* الشريط المصغّر: بلا أزرار تحكم (الشريط كله زر للعودة) */
 .mp--mini .dp-ui, .mp--mini .dp-center, .mp--mini .dp-flash, .mp--mini .dp-spin { display: none !important; }
