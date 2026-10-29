@@ -6,6 +6,9 @@ import { useSettings } from "@/lib/settings";
 
 const num = new Intl.NumberFormat("ar-EG");
 
+/** ألوان مبهجة تتناوب على أناشيد القائمة. */
+const COLORS = ["#ff6b6b", "#ffb02e", "#34c759", "#22b8f0", "#a66cff", "#ff6fb5"];
+
 /** صفحة الإذاعة: مشغّل درايف في الأعلى، وتحته قائمة الأناشيد المتحرّكة. الضغط على نشيد يشغّله في المشغّل. */
 export default function RadioPlayer() {
   const { settings, ready } = useSettings();
@@ -69,22 +72,25 @@ export default function RadioPlayer() {
         </div>
       </div>
 
-      <ul className="radio-list" ref={list} aria-label="قائمة الأناشيد">
-        {items.map((it, i) => {
-          const on = i === idx;
-          return (
-            <li key={it.id} style={{ "--i": Math.min(i, 14) } as CSSProperties}>
-              <button type="button" className={on ? "radio-item on" : "radio-item"} aria-current={on ? "true" : undefined} onClick={() => pick(it.id)}>
-                <span className="radio-n" aria-hidden="true">
-                  {on ? <span className="radio-eq"><i /><i /><i /></span> : num.format(i + 1)}
-                </span>
-                <span className="radio-t">{it.title}</span>
-                <span className="radio-go" aria-hidden="true"><Icon name="play" size={18} /></span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="radio-glass">
+        <h2 className="radio-glass-h"><span aria-hidden="true">🎵</span> أناشيدنا</h2>
+        <ul className="radio-list" ref={list} aria-label="قائمة الأناشيد">
+          {items.map((it, i) => {
+            const on = i === idx;
+            return (
+              <li key={it.id} style={{ "--i": Math.min(i, 14), "--c": COLORS[i % COLORS.length] } as CSSProperties}>
+                <button type="button" className={on ? "radio-item on" : "radio-item"} aria-current={on ? "true" : undefined} onClick={() => pick(it.id)}>
+                  <span className="radio-n" aria-hidden="true">
+                    {on ? <span className="radio-eq"><i /><i /><i /></span> : num.format(i + 1)}
+                  </span>
+                  <span className="radio-t">{it.title}</span>
+                  <span className="radio-go" aria-hidden="true"><Icon name="play" size={18} /></span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </section>
   );
 }
