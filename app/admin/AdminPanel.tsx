@@ -22,6 +22,7 @@ import WatchButtonsEditor from "./WatchButtonsEditor";
 import BehaviorPanel from "./BehaviorPanel";
 import AdhanTab from "./AdhanTab";
 import AdhkarTab from "./AdhkarTab";
+import RadioTab from "./RadioTab";
 import NotificationsTab from "./NotificationsTab";
 import DisplayTab from "./DisplayTab";
 import SuggestedSettings from "./SuggestedSettings";
@@ -56,6 +57,7 @@ const OWNERS: Record<OwnerId, () => ReactNode> = {
   display: () => <DisplayTab />,
   adhan: () => <AdhanTab />,
   adhkar: () => <AdhkarTab />,
+  radio: () => <RadioTab />,
   notifications: () => <NotificationsTab />,
   members: () => <MovableSection id="members"><MembersTab /></MovableSection>,
   videos: () => <MovableSection id="videos"><VideosTab /></MovableSection>,

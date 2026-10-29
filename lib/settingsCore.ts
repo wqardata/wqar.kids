@@ -5,6 +5,7 @@ import { DEFAULT_THEME, cleanTheme, type Theme } from "./theme";
 import { DEFAULT_ADHAN, cleanAdhan, type AdhanSettings } from "./adhanCore";
 import { ROW_ICON_IDS } from "./rowIcons";
 import { DEFAULT_ADHKAR, cleanAdhkar, type AdhkarSettings } from "./adhkarCore";
+import { DEFAULT_RADIO, cleanRadio, type RadioSettings } from "./radioCore";
 
 /** خطوط اسم الموقع. تُحمَّل من layout.tsx ولا تُنزَّل إلا عند استعمالها. */
 export const BRAND_FONTS = [
@@ -713,6 +714,8 @@ export type SiteSettings = {
   adhan: AdhanSettings;
   /** أذكار الصباح والمساء (إشعار منبثق وقارئ بملء الشاشة). */
   adhkar: AdhkarSettings;
+  /** أناشيد صفحة الإذاعة (روابط ملفات صوتية من درايف). */
+  radio: RadioSettings;
   /** قوة زجاجية الترويسة والنوافذ: 0 = معتمة تمامًا، 100 = أقصى شفافية وتمويه. */
   glass: number;
   /** نصوص صفحة التسجيل والدخول. */
@@ -819,6 +822,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   install: DEFAULT_INSTALL,
   adhan: DEFAULT_ADHAN,
   adhkar: DEFAULT_ADHKAR,
+  radio: DEFAULT_RADIO,
   glass: 60,
   signup: DEFAULT_SIGNUP,
   loginMethods: DEFAULT_LOGIN_METHODS,
@@ -964,6 +968,7 @@ export function merge(d: Record<string, unknown>): SiteSettings {
     install: cleanInstall(d.install),
     adhan: cleanAdhan(d.adhan),
     adhkar: cleanAdhkar(d.adhkar),
+    radio: cleanRadio(d.radio),
     glass: typeof d.glass === "number" && Number.isFinite(d.glass) ? Math.min(GLASS_MAX, Math.max(GLASS_MIN, Math.round(d.glass))) : DEFAULT_SETTINGS.glass,
     signup: cleanSignup(d.signup),
     loginMethods: cleanLoginMethods(d.loginMethods),

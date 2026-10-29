@@ -6,14 +6,14 @@ import { SIGNUP_FIELDS } from "./settingsCore";
  */
 export type BuiltinTabId =
   | "stats" | "settings" | "signup" | "appearance" | "menu" | "watch" | "display"
-  | "adhan" | "adhkar" | "notifications" | "members" | "videos" | "shorts" | "categories" | "series";
+  | "adhan" | "adhkar" | "radio" | "notifications" | "members" | "videos" | "shorts" | "categories" | "series";
 
 /** معرّف التبويب: الأصلية أعلاه، وما ينشئه المشرف يأخذ معرّفًا مولَّدًا (t_…). */
 export type TabId = string;
 
 export type OwnerId =
   | "stats" | "reports" | "settings" | "signup" | "appearance" | "behavior" | "menu" | "watchButtons" | "suggested"
-  | "display" | "adhan" | "adhkar" | "notifications" | "members" | "videos" | "shorts" | "categories" | "series";
+  | "display" | "adhan" | "adhkar" | "radio" | "notifications" | "members" | "videos" | "shorts" | "categories" | "series";
 
 export type SectionDef = {
   id: string;
@@ -39,6 +39,7 @@ export const OWNER_LABELS: Record<OwnerId, string> = {
   display: "العرض",
   adhan: "إعدادات الأذان",
   adhkar: "إعدادات الأذكار",
+  radio: "إعدادات الإذاعة",
   notifications: "الإشعارات",
   members: "الأعضاء",
   videos: "الفيديوهات",
@@ -98,6 +99,8 @@ export const SECTIONS: SectionDef[] = [
   S("adhkar.main", "تفعيل الأذكار", "adhkar", "adhkar", "/preview/adhkar"),
   S("adhkar.list", "قوائم الأذكار", "adhkar", "adhkar", "/preview/adhkar"),
   S("adhkar.preview", "معاينة الأذكار", "adhkar", "adhkar", "/preview/adhkar"),
+
+  S("radio.list", "أناشيد الإذاعة", "radio", "radio", "/radio"),
 
   S("notif.send", "إرسال إشعار", "notifications", "notifications", "/"),
   S("notif.count", "عرض الإشعارات (العدد)", "notifications", "notifications", "/"),
@@ -178,6 +181,7 @@ export const DEFAULT_STRUCTURE: Structure = {
     { id: "signup", label: "التسجيل", group: "settings" },
     { id: "adhan", label: "إعدادات الأذان", group: "tarbawi" },
     { id: "adhkar", label: "إعدادات الأذكار", group: "tarbawi" },
+    { id: "radio", label: "إعدادات الإذاعة", group: "tarbawi" },
     { id: "notifications", label: "إدارة الإشعارات", group: "notifications" },
     { id: "appearance", label: "المظهر", group: "organize" },
     { id: "menu", label: "القوائم", group: "organize" },
