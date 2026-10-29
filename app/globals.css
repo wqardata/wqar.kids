@@ -1274,6 +1274,14 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
 .radio-step:hover:not(:disabled) { border-color: var(--accent); transform: scale(1.06); }
 .radio-step:disabled { opacity: .45; cursor: default; }
 .radio-step svg { transform: rotate(90deg); }
+/* مشغّل الصوت المباشر (عنصر audio) */
+.radio-bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); direction: ltr; }
+.radio-play { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border: 0; border-radius: 50%; cursor: pointer; background: var(--accent); color: var(--accent-ink); }
+.radio-play svg { width: 26px; height: 26px; }
+.radio-play:hover { filter: brightness(1.08); }
+.radio-bar input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); height: 28px; margin: 0; cursor: pointer; touch-action: pan-y; }
+.radio-bar input[type="range"]:disabled { cursor: default; opacity: .5; }
+.radio-time { flex: none; font-size: .82rem; font-variant-numeric: tabular-nums; color: var(--mute); white-space: nowrap; }
 
 /* اللوحة: ألوان فرحة تطفو خلف عناصر زجاجية شفافة (التمويه على العناصر فيظهر اللون من خلفها) */
 .radio-glass { position: relative; isolation: isolate; overflow: hidden; margin: 16px 16px 0; padding: 14px 12px 12px; border-radius: 28px;
