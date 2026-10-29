@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import DrivePlayer from "@/components/DrivePlayer";
 import Icon from "@/components/Icon";
-import { driveAudioUrl } from "@/lib/adhkarAudio";
+import { audioCandidates } from "@/lib/adhkarAudio";
 import { useSettings } from "@/lib/settings";
 
 const num = new Intl.NumberFormat("ar-EG");
@@ -27,9 +27,9 @@ function fmt(t: number): string {
 }
 
 /**
- * صفحة الإذاعة: مشغّل صوت بسيط في الأعلى (عنصر audio يقرأ الملف مباشرة من درايف دون المرور بخادم الموقع)،
+ * صفحة الإذاعة: مشغّل صوت بسيط في الأعلى (عنصر audio يقرأ الملف مباشرة من درايف دون المرور بخادم الموقع، وإن رفضه المتصفح فعبر المسار الاحتياطي /api/drive-audio)،
  * وتحته قائمة الأناشيد المتحرّكة. الضغط على نشيد يشغّله فورًا (التشغيل يبدأ داخل الضغطة نفسها فلا يمنعه المتصفح).
- * إن رفض المتصفح الرابط المباشر لنشيد ما نعرض له مشغّل درايف الأصلي بدلًا منه.
+ * إن رفض المتصفح المصدرين معًا لنشيد ما نعرض له مشغّل درايف الأصلي بدلًا منه.
  */
 export default function RadioPlayer() {
   const { settings, ready } = useSettings();
@@ -47,6 +47,10 @@ export default function RadioPlayer() {
   const list = useRef<HTMLUListElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const loadedId = useRef("");
+  // رقم المصدر المجرَّب للنشيد الحالي (0 = الرابط المباشر من درايف، 1 = المسار الاحتياطي عبر الموقع).
+  const tryNo = useRef(0);
+  // إن فشل الرابط المباشر مرة نبدأ بقية الأناشيد بالمسار الاحتياطي فلا ننتظر فشله في كل نشيد.
+  const directBad = useRef(false);
   const started = useRef(false);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -64,9 +68,11 @@ export default function RadioPlayer() {
     if (!a) return;
     if (frameIds.includes(it.id)) { a.pause(); return; } // له مشغّل درايف الأصلي
     loadedId.current = it.id;
+    const urls = audioCandidates(it.drive);
+    tryNo.current = directBad.current && urls.length > 1 ? 1 : 0;
     setTime(0);
     setDur(0);
-    a.src = driveAudioUrl(it.drive);
+    a.src = urls[tryNo.current];
     void a.play().catch(() => { /* منع المتصفح التشغيل التلقائي: يضغط الزائر زر التشغيل */ });
   };
   const pick = (id: string) => {
@@ -164,7 +170,18 @@ export default function RadioPlayer() {
           onError={() => {
             // رفض المتصفح الرابط المباشر (حدود درايف وغيرها): نعرض مشغّل درايف الأصلي لهذا النشيد.
             const id = loadedId.current;
-            if (!id) return;
+            const it = items.find((x) => x.id === id);
+            const a = audio.current;
+            if (!id || !it || !a) return;
+            // نجرّب المصدر التالي (المسار عبر الموقع) قبل الرجوع لمشغّل درايف.
+            const urls = audioCandidates(it.drive);
+            if (tryNo.current === 0) directBad.current = true;
+            if (tryNo.current + 1 < urls.length) {
+              tryNo.current += 1;
+              a.src = urls[tryNo.current];
+              void a.play().catch(() => {});
+              return;
+            }
             setPlaying(false);
             setChosen(true);
             setFrameIds((f) => (f.includes(id) ? f : [...f, id]));

@@ -11,7 +11,7 @@ export const maxDuration = 60;
 
 /**
  * مسار احتياطي لصوت الأذكار: المتصفح يجرّب أولًا الرابط المباشر من درايف، وإن فشل يطلب الملف من هنا.
- * لا يخدم إلا ملفات صوت حفظها المشرف فعلًا في إعدادات الأذكار (وليس أي ملف درايف)، وصيغ صوتية فقط.
+ * لا يخدم إلا ملفات صوت حفظها المشرف فعلًا في إعدادات الأذكار أو أناشيد الإذاعة (وليس أي ملف درايف)، وصيغ صوتية فقط.
  * استثناء: المشرف (توكن ?token=) يجرّب أي ملف قبل الحفظ.
  */
 export async function GET(req: NextRequest) {
@@ -24,10 +24,10 @@ export async function GET(req: NextRequest) {
   if (!isAdmin) {
     // كل طلب يمرّر حتى 6MB عبر فيرسل: نحدّ عدد طلبات الزائر الواحد (أفضل جهد).
     if (!allow(`audio:${clientKey(req)}`, 30, 60_000)) return fail(429, "محاولات كثيرة.");
-    const { adhkar } = await getServerSettings();
+    const { adhkar, radio } = await getServerSettings();
     const allowed =
       [...adhkar.morning, ...adhkar.evening].some((x) => x.audio === id) ||
-      false;
+      radio.items.some((x) => x.drive === id);
     if (!allowed) return fail(404, "ملف غير معروف.");
   }
   return streamDrive(req, id, "private, max-age=3600", { fallbackType: "audio/mpeg", audioOnly: true });
