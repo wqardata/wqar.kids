@@ -52,6 +52,8 @@ const DEFAULT_QUALITY = "medium"; // الجودة المطلوبة (medium = 360
 const Q_LABEL: Record<string, string> = {
   highres: "4320p", hd2880: "2880p", hd2160: "2160p", hd1440: "1440p", hd1080: "1080p", hd720: "720p", large: "480p", medium: "360p", small: "240p", tiny: "144p", auto: "تلقائي", default: "تلقائي",
 };
+/** ارتفاع الفيديو بالبكسل لكل مستوى جودة (يُستعمل لضبط حجم إطار يوتيوب، انظر fit). */
+const Q_HEIGHT: Record<string, number> = { tiny: 144, small: 240, medium: 360, large: 480, hd720: 720, hd1080: 1080, hd1440: 1440, hd2160: 2160 };
 const Q_FALLBACK = ["hd1080", "hd720", "large", "medium", "small", "tiny"];
 
 const ENDED = 0, PLAYING = 1, PAUSED = 2, BUFFERING = 3;
@@ -91,6 +93,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   const muteRef = useRef(settings.watchPage.ytMuted);
   muteRef.current = settings.watchPage.ytMuted;
   const host = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLIFrameElement | null>(null);
   const player = useRef<YTPlayer | null>(null);
   const [ready, setReady] = useState(false);
   const [state, setState] = useState<number>(-1);
@@ -114,6 +117,36 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   }, []);
   useEffect(() => () => { if (ctlTimer.current) clearTimeout(ctlTimer.current); }, []);
 
+  /**
+   * يوتيوب لم يعد يطيع طلبات الجودة من الـ API، لكنه يختار الجودة التلقائية بحسب حجم الإطار على الشاشة.
+   * فنعطي الإطار حجمًا يناسب الجودة المطلوبة (مقسومًا على كثافة الشاشة) ثم نكبّره/نصغّره بـ CSS ليملأ المشغّل، فيراه يوتيوب بالحجم الذي يريده.
+   * «default» (تلقائي) يعيد الإطار لحجمه الطبيعي.
+   */
+  const fit = useCallback((q: string) => {
+    const f = frame.current, wrap = host.current;
+    if (!f || !wrap) return;
+    const h = Q_HEIGHT[q];
+    const boxW = wrap.clientWidth, boxH = wrap.clientHeight;
+    if (!h || !boxW || !boxH) { f.style.width = ""; f.style.height = ""; f.style.transform = ""; f.style.transformOrigin = ""; return; }
+    const dpr = window.devicePixelRatio || 1;
+    // الإطار بنسبة أبعاد المشغّل نفسه (فيبقى شكل الفيديو داخله كما كان)، وارتفاعه يطابق الجودة المطلوبة.
+    const ratio = boxW / boxH;
+    const w = Math.max(256, (h / dpr) * ratio); // أصغر من هذا لا يعرض يوتيوب الإطار جيدًا
+    f.style.width = `${w}px`;
+    f.style.height = `${w / ratio}px`;
+    f.style.transformOrigin = "0 0";
+    f.style.transform = `scale(${boxW / w})`;
+  }, []);
+
+  // تغيّر حجم المشغّل (تدوير الجوال، ملء الشاشة…) يغيّر معامل التكبير.
+  useEffect(() => {
+    const wrap = host.current;
+    if (!wrap || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => fit(qRef.current));
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, [fit]);
+
   useEffect(() => {
     if (!YT_ID.test(youtubeId) || !host.current) return;
     let dead = false;
@@ -135,6 +168,8 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
     f.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation"); // بلا allow-popups: لا نوافذ خارجية
     f.referrerPolicy = "strict-origin-when-cross-origin";
     wrap.appendChild(f);
+    frame.current = f;
+    fit(qRef.current);
 
     const fallback = setTimeout(() => !dead && setReady(true), 15_000);
     loadApi().then((YT) => {
@@ -166,9 +201,10 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
       clearTimeout(fallback);
       try { player.current?.destroy(); } catch { /* الإطار أُزيل */ }
       player.current = null;
+      frame.current = null;
       wrap.replaceChildren();
     };
-  }, [youtubeId, title, autoplay, startAt]);
+  }, [youtubeId, title, autoplay, startAt, fit]);
 
   // تحديث الوقت والشريط أثناء التشغيل.
   useEffect(() => {
@@ -203,6 +239,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
     const p = player.current;
     qRef.current = q; setQuality(q); setMenu(false);
     if (!p) return;
+    fit(q);
     try {
       applyQuality(p, q);
       // يوتيوب لا يبدّل الجودة أثناء التشغيل من تلقاء نفسه: نعيد تحميل الفيديو من اللحظة الحالية فتُطبَّق الجودة المطلوبة.
