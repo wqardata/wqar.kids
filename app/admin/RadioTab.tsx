@@ -67,7 +67,7 @@ export default function RadioTab() {
     setItems([...items, { id: newNasheedId(), title, drive: linkId }]);
     setLinkUrl("");
     setBusy(false);
-    setMsg((m) => m || "أُضيف النشيد إلى آخر القائمة. اضغط «حفظ التغييرات» لنشره.");
+    setMsg((m) => m || "أُضيف النشيد إلى آخر القائمة. يُحفظ تلقائيًا.");
   }
 
   /** قراءة الملفات الصوتية في مجلد درايف (مع المجلدات الفرعية اختياريًا). */
@@ -101,7 +101,7 @@ export default function RadioTab() {
     setItems([...items, ...add]);
     setFound((f) => f.map((x) => (x.on ? { ...x, exists: true, on: false } : x)));
     setErr("");
-    setMsg(`أُضيف ${num.format(add.length)} نشيدًا إلى آخر القائمة${picked.length > room ? ` (الباقي لم يتّسع للحد الأقصى)` : ""}. اضغط «حفظ التغييرات» لنشرها.`);
+    setMsg(`أُضيف ${num.format(add.length)} نشيدًا إلى آخر القائمة${picked.length > room ? ` (الباقي لم يتّسع للحد الأقصى)` : ""}. يُحفظ ذلك تلقائيًا.`);
   }
 
   usePreviewDraft("radio", { radio: cleanRadio(form) });

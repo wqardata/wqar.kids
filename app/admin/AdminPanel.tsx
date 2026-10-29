@@ -28,7 +28,7 @@ import DisplayTab from "./DisplayTab";
 import SuggestedSettings from "./SuggestedSettings";
 import LayoutEditor from "./LayoutEditor";
 import { HostCtx, MovableSection, OwnerCtx } from "./sectionKit";
-import { SaveBar, SaveProvider, UnsavedDialog, useSaveStore } from "./saveKit";
+import { SaveBar, SaveModeProvider, SaveProvider, UnsavedDialog, useSaveStore } from "./saveKit";
 
 type Group = string;
 type Sub = TabId | "layout-tabs" | "layout-arrange";
@@ -192,6 +192,8 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
   const sub = visibleSubs.some((s) => s.id === subs[current.id]) ? subs[current.id] : visibleSubs[0].id;
 
   const isLayout = sub === "layout-tabs" || sub === "layout-arrange";
+  // تبويبات «إدارة المحتوى»: بلا أزرار حفظ/افتراضي؛ أقسام الإعدادات تُحفظ تلقائيًا (انظر SaveMode في saveKit).
+  const autoSave = !isLayout && current.id === "content";
 
   /** ينفّذ الانتقال فورًا، أو يسأل أولًا (حفظ / تجاهل) إن كان في التبويب تعديلات غير محفوظة. */
   const leave = (apply: () => void) => {
@@ -245,6 +247,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
 
   return (
     <SaveProvider value={store.api}>
+    <SaveModeProvider value={autoSave ? "auto" : "bar"}>
     <PreviewDraftProvider>
       <div className={previewPath ? "admin admin--split" : "admin"}>
         <div className="admin-head">
@@ -317,7 +320,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
 
         <div className={previewPath && showPreview ? "admin-split" : "admin-split admin-split--solo"}>
           <div className="admin-split-main" id="admin-panel" onFocusCapture={pickSection} onPointerDownCapture={pickSection} role="tabpanel" aria-labelledby={visibleSubs.length > 1 ? `tab-${sub}` : `group-${current.id}`}>
-            <SaveBar store={store} />
+            <SaveBar store={store} statusOnly={autoSave} />
             {isLayout ? (
               <LayoutEditor key={`layout-${epoch}`} view={sub === "layout-tabs" ? "tabs" : "arrange"} structure={structure} arrangement={arrangement} isOwner={isOwner} onSave={save} />
             ) : (
@@ -344,6 +347,7 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
       </div>
       {pending && <UnsavedDialog busy={store.busy} error={store.error} onSave={() => void saveThenLeave()} onDiscard={discardThenLeave} onCancel={() => setPending(null)} />}
     </PreviewDraftProvider>
+    </SaveModeProvider>
     </SaveProvider>
   );
 }

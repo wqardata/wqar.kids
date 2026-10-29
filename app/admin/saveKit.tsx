@@ -30,8 +30,22 @@ type SaveApi = {
 const SaveCtx = createContext<SaveApi | null>(null);
 export const SaveProvider = SaveCtx.Provider;
 export const useSaveApi = () => useContext(SaveCtx);
-/** هل نحن داخل لوحة التحكم (فيها شريط حفظ)؟ خارجها (مثل صفحة عرض الفيديو) يبقى للنموذج زر حفظه. */
-export const useHasSaveBar = () => useContext(SaveCtx) !== null;
+
+/**
+ * طريقة الحفظ في التبويب المعروض:
+ *  - "bar": شريط «حفظ التغييرات» و«العودة إلى الافتراضي» (الأصل).
+ *  - "auto": تبويبات «إدارة المحتوى»: لا شريط أزرار؛ أقسام الإعدادات (مثل الإذاعة) تُحفظ تلقائيًا بعد توقف الكتابة،
+ *    ونماذج التعديل (فيديو/تصنيف/مجموعة) تعرض زر حفظها بنفسها لأنها تُغلق عند الحفظ.
+ */
+export type SaveMode = "bar" | "auto";
+const SaveModeCtx = createContext<SaveMode>("bar");
+export const SaveModeProvider = SaveModeCtx.Provider;
+/** هل نحن داخل لوحة التحكم وفيها شريط حفظ بأزرار؟ غير ذلك (صفحة عرض الفيديو، أو تبويبات الحفظ التلقائي) يبقى للنموذج زر حفظه. */
+export function useHasSaveBar() {
+  const api = useContext(SaveCtx);
+  const mode = useContext(SaveModeCtx);
+  return api !== null && mode === "bar";
+}
 
 export type SaveStore = {
   api: SaveApi;
@@ -193,26 +207,47 @@ export function useSettingsOwner({
     },
   });
 
+  // الحفظ التلقائي (تبويبات إدارة المحتوى): بعد ثانية من آخر تعديل. الخطأ (تحقق أو حفظ) يوقفه حتى يتغيّر المحتوى،
+  // ونمنع تكرار محاولة بالمحتوى نفسه كي لا تتكرر الطلبات.
+  const auto = useContext(SaveModeCtx) === "auto";
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const lastTried = useRef("");
+  useEffect(() => {
+    if (!auto || !dirty || busy || error) return;
+    const sig = JSON.stringify(patch);
+    if (sig === lastTried.current) return;
+    const t = setTimeout(() => {
+      lastTried.current = sig;
+      void saveRef.current();
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [auto, dirty, busy, error, patch]);
+
   return { dirty, busy, error, setError };
 }
 
 /** الشريط الثابت أعلى الإعدادات: «حفظ التغييرات» و«العودة إلى الافتراضي» وحالة المسودة. */
-export function SaveBar({ store }: { store: SaveStore }) {
+export function SaveBar({ store, statusOnly = false }: { store: SaveStore; /** حفظ تلقائي: بلا أزرار، وتبقى حالة الحفظ والأخطاء. */ statusOnly?: boolean }) {
   if (store.count === 0) return null;
   return (
     <div className="savebar" role="region" aria-label="حفظ التغييرات">
       {/* الأزرار أولًا في الترتيب: تظهر أعلى يمين الصفحة (RTL)، وحالة المسودة بجانبها. */}
-      <div className="savebar-btns">
-        <button type="button" className="btn" disabled={!store.dirty || store.busy} onClick={() => void store.saveAll()}>
-          {store.busy ? "جارٍ الحفظ…" : "حفظ التغييرات"}
-        </button>
-        <button type="button" className="btn btn--ghost" disabled={store.busy || store.allDefault} onClick={store.resetAll}>
-          العودة إلى الافتراضي
-        </button>
-      </div>
+      {!statusOnly && (
+        <div className="savebar-btns">
+          <button type="button" className="btn" disabled={!store.dirty || store.busy} onClick={() => void store.saveAll()}>
+            {store.busy ? "جارٍ الحفظ…" : "حفظ التغييرات"}
+          </button>
+          <button type="button" className="btn btn--ghost" disabled={store.busy || store.allDefault} onClick={store.resetAll}>
+            العودة إلى الافتراضي
+          </button>
+        </div>
+      )}
       <div className="savebar-status" aria-live="polite">
         {store.error ? (
           <span className="field-error" role="alert">{store.error}</span>
+        ) : statusOnly && store.busy ? (
+          <span className="dirty-dot">جارٍ الحفظ…</span>
         ) : store.dirty ? (
           <span className="dirty-dot">● تعديلات غير محفوظة</span>
         ) : store.saved ? (
