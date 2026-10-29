@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import Icon from "@/components/Icon";
-import DrivePlayer from "@/components/DrivePlayer";
+import DriveVideoPlayer from "@/components/DriveVideoPlayer";
 import YouTubePlayer from "@/components/YouTubePlayer";
 import { useMiniPlayer } from "@/lib/miniPlayer";
 
@@ -98,7 +98,7 @@ export default function MiniPlayerHost() {
         {track.youtubeId ? (
           <YouTubePlayer youtubeId={track.youtubeId} title={track.title} autoplay={track.autoplay} />
         ) : (
-          <DrivePlayer driveId={track.driveId} title={track.title} hue={160} autoplay={track.autoplay} />
+          <DriveVideoPlayer driveId={track.driveId} title={track.title} hue={160} autoplay={track.autoplay} />
         )}
         {full && (
           // طبقة شفافة فوق أعلى الفيديو تلتقط السحب لأسفل (إطار درايف لا يمرّر اللمس للصفحة)؛ باقي الفيديو وأزرار التشغيل أسفله تبقى تعمل.

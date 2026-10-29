@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { doc, getDoc } from "firebase/firestore";
 import Icon from "@/components/Icon";
-import DrivePlayer from "@/components/DrivePlayer";
+import DriveVideoPlayer from "@/components/DriveVideoPlayer";
 import YouTubePlayer from "@/components/YouTubePlayer";
 import SeriesAvatar from "@/components/SeriesAvatar";
 import SuggestedVideos, { episodeLabel } from "@/components/SuggestedVideos";
@@ -106,7 +106,7 @@ export default function VideoView({ id }: { id: string }) {
           ) : video.youtubeId ? (
             <YouTubePlayer youtubeId={video.youtubeId} title={video.title} autoplay={settings.autoplay} />
           ) : (
-            <DrivePlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} />
+            <DriveVideoPlayer driveId={video.driveId} title={video.title} hue={160} autoplay={settings.autoplay} />
           )}
         </div>
         {video.hidden && <p className="meta">⚠ هذا الفيديو مخفي عن الزوار (تراه لأنك مشرف).</p>}

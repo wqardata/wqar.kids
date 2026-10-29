@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import EpisodeCard from "@/components/EpisodeCard";
 import FavoriteButton from "@/components/FavoriteButton";
-import DrivePlayer from "@/components/DrivePlayer";
+import DriveVideoPlayer from "@/components/DriveVideoPlayer";
 import { episodes, getEpisode, relatedEpisodes } from "@/lib/data";
 import { viewsLabel } from "@/lib/format";
 
@@ -30,7 +30,7 @@ export default async function Watch({ params }: Props) {
   return (
     <div className="watch">
       <article>
-        <DrivePlayer driveId={ep.driveId} title={ep.title} hue={hue} />
+        <DriveVideoPlayer driveId={ep.driveId} title={ep.title} hue={hue} />
         <h1>{ep.title}</h1>
         <p className="meta">
           {ep.series} • م{ep.season} • ح{ep.episode} • {ep.duration}
