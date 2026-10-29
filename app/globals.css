@@ -1263,7 +1263,7 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
 
 /* ---------- الإذاعة (/radio): مشغّل درايف أعلى الصفحة وقائمة أناشيد على لوحة زجاجية مبهجة للأطفال ---------- */
 .radio { max-width: 760px; margin-inline: auto; }
-.radio-player { padding: 0 16px; display: grid; gap: 10px; overflow-x: clip; }
+.radio-player { padding: 0 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .radio-player .player { aspect-ratio: 16 / 7; min-height: 150px; }
 .radio-now { display: flex; align-items: center; gap: 10px; }
 .radio-title { flex: 1; min-width: 0; text-align: center; line-height: 1.35; }
