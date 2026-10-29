@@ -1285,7 +1285,7 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
 .radio-glass-h { display: flex; align-items: center; gap: 8px; padding: 0 6px 10px; font-weight: 700; font-size: 1.02rem; }
 .radio-glass-h span { display: inline-block; animation: radio-bounce 2.2s ease-in-out infinite; }
 
-.radio-list { display: grid; gap: 9px; max-height: min(52dvh, 440px); overflow-y: auto; padding: 4px 2px 6px; scroll-behavior: smooth; overscroll-behavior: contain; }
+.radio-list { display: grid; gap: 9px; max-height: min(52dvh, 440px); overflow-y: auto; overflow-x: hidden; padding: 4px 10px 6px; scroll-behavior: smooth; overscroll-behavior: contain; touch-action: pan-y; }
 .radio-list li { --c: #22b8f0; animation: radio-in .5s cubic-bezier(.2, .9, .3, 1.3) both; animation-delay: calc(var(--i, 0) * 55ms); }
 .radio-item { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; text-align: start; cursor: pointer; color: var(--ink);
   background: color-mix(in srgb, var(--surface) 55%, transparent); border: 1.5px solid rgba(255, 255, 255, .6); border-radius: 20px;
@@ -1294,6 +1294,8 @@ html[data-mp="mini"] .main { padding-bottom: calc(var(--nav-h) + 24px + 80px + e
   transition: transform .2s cubic-bezier(.2, .9, .3, 1.4), border-color .18s, background .18s, box-shadow .18s; }
 .radio-item:hover { transform: translateX(-5px) scale(1.015); border-color: var(--c); }
 .radio-item:active { transform: scale(.985); }
+/* اللمس: بلا إزاحة/تكبير عند الضغط كي لا تتجاوز الأسطر عرض القائمة */
+@media (hover: none) { .radio-item:hover { transform: none; } }
 .radio-item.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 24%, color-mix(in srgb, var(--surface) 55%, transparent)); box-shadow: 0 5px 16px color-mix(in srgb, var(--c) 38%, transparent), inset 0 1px 0 rgba(255, 255, 255, .6); }
 .radio-n { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 50%; font-size: .9rem; font-weight: 700; color: #fff;
   background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--c) 55%, #fff), var(--c) 70%); box-shadow: 0 2px 6px color-mix(in srgb, var(--c) 50%, transparent); text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
