@@ -54,7 +54,11 @@ export default function RadioPlayer() {
     const box = list.current;
     const el = box?.querySelector<HTMLElement>('[aria-current="true"]');
     if (!box || !el) return;
-    const top = el.offsetTop - box.offsetTop - (box.clientHeight - el.offsetHeight) / 2;
+    const b = box.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    if (r.top >= b.top && r.bottom <= b.bottom) return; // ظاهر كاملًا: لا نحرّك القائمة
+    // الموضع الحالي للتمرير + بُعد النشيد عن أعلى القائمة المرئي (offsetTop يتجاهل التمرير فكانت القائمة تقفز لأعلاها).
+    const top = box.scrollTop + (r.top - b.top) - (box.clientHeight - el.offsetHeight) / 2;
     box.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }, [curId, chosen]);
 
