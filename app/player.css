@@ -37,6 +37,10 @@
   direction: rtl; text-align: center; font: inherit; font-size: .8rem; font-weight: 600; line-height: 1.5; color: var(--accent-ink); background: var(--accent); cursor: pointer;
   box-shadow: 0 6px 18px rgba(0, 0, 0, .45); animation: dp-tip-in .28s ease-out both, dp-tip-bob 1.6s ease-in-out .3s infinite; }
 .dp-tip::after { content: ""; position: absolute; top: 100%; right: 20px; margin-top: -5px; width: 12px; height: 12px; background: inherit; border-radius: 2px; transform: rotate(45deg); }
+/* «أسفل الشعار»: تنزل الفقاعة تحت الشريط خارج حافة المشغّل (يُفتح القصّ مؤقتًا ما دامت ظاهرة) وسهمها لأعلى. */
+.dp-tip--below { bottom: auto; top: calc(100% + 12px); }
+.dp-tip--below::after { top: auto; bottom: 100%; margin-top: 0; margin-bottom: -5px; }
+.player.dp--tipbelow { overflow: visible; }
 @keyframes dp-tip-in { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
 @keyframes dp-tip-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 .dp-time { font-size: .82rem; font-variant-numeric: tabular-nums; padding: 0 8px; opacity: .95; white-space: nowrap; flex: 0 1 auto; min-width: 0; overflow: hidden; }

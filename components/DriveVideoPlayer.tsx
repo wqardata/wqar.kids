@@ -268,7 +268,9 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   const showIdle = idle && playing && !menu && !tip;
   const pct = dur > 0 ? Math.min(100, (time / dur) * 100) : 0;
   const bufPct = dur > 0 ? Math.min(100, (buf / dur) * 100) : 0;
-  const cls = `player dp${showIdle ? " dp--idle" : ""}${fs ? " dp--fs" : ""}`;
+  // «أسفل الشعار» لا يتسع في ملء الشاشة (الشريط عند الحافة السفلية) فنعود فيه إلى «أعلى».
+  const tipBelow = tipCfg.driveTipPos === "below" && !fs;
+  const cls = `player dp${showIdle ? " dp--idle" : ""}${fs ? " dp--fs" : ""}${tip && !menu && tipBelow ? " dp--tipbelow" : ""}`;
 
   return (
     <div
@@ -395,7 +397,7 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
           </button>
           <span className="dp-q">
             {tip && !menu && (
-              <button type="button" className="dp-tip" onClick={openDrive} tabIndex={-1} aria-hidden="true">
+              <button type="button" className={tipBelow ? "dp-tip dp-tip--below" : "dp-tip"} onClick={openDrive} tabIndex={-1} aria-hidden="true">
                 {tipCfg.driveTipText}
               </button>
             )}

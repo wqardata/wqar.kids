@@ -14,6 +14,8 @@ import {
   SUG_COUNT_MAX,
   SUG_LAYOUTS,
   SUG_ORDERS,
+  DRIVE_TIP_POSITIONS,
+  type DriveTipPos,
   SUG_SCOPES,
   cleanWatchPage,
   useSettings,
@@ -110,6 +112,13 @@ export default function SuggestedSettings() {
               <label htmlFor="sg-tip-text">النص</label>
               <input id="sg-tip-text" value={form.driveTipText} onChange={(e) => set("driveTipText", e.target.value.slice(0, DRIVE_TIP_TEXT_MAX))} maxLength={DRIVE_TIP_TEXT_MAX} placeholder={DEFAULT_DRIVE_TIP_TEXT} />
               <p className="hint">اتركه فارغًا لاستعمال النص الافتراضي. يُفضَّل أن يبقى قصيرًا كي لا يغطي الفيديو.</p>
+            </div>
+            <div className="field">
+              <label htmlFor="sg-tip-pos">مكان الفقاعة</label>
+              <select id="sg-tip-pos" value={form.driveTipPos} onChange={(e) => set("driveTipPos", e.target.value as DriveTipPos)}>
+                {DRIVE_TIP_POSITIONS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+              <p className="hint">«أعلى الشعار» فوق شريط التحكم داخل الفيديو (الافتراضي). «أسفل الشعار» تنزل تحت المشغّل (وفي ملء الشاشة تظهر أعلى الشعار).</p>
             </div>
             <div className="two">
               <div className="field">

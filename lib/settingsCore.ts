@@ -564,6 +564,13 @@ export const SUG_ORDERS = [
 ] as const;
 export type SugOrder = (typeof SUG_ORDERS)[number]["id"];
 
+/** مكان فقاعة «المشاهدة عبر Drive» بالنسبة لشعار درايف في المشغّل. */
+export const DRIVE_TIP_POSITIONS = [
+  { id: "above", label: "أعلى الشعار" },
+  { id: "below", label: "أسفل الشعار" },
+] as const;
+export type DriveTipPos = (typeof DRIVE_TIP_POSITIONS)[number]["id"];
+
 export const SUG_SCOPES = [
   { id: "all", label: "كل الفيديوهات" },
   { id: "series", label: "من نفس المجموعة فقط" },
@@ -600,6 +607,8 @@ export type WatchPageSettings = {
   driveTipSec: number;
   /** أقصى عدد مرات لكل زائر (0 = بلا حد). */
   driveTipMax: number;
+  /** مكان الفقاعة: أعلى شعار درايف أو أسفله. */
+  driveTipPos: DriveTipPos;
   /** حجم زر التشغيل/الإيقاف الأوسط (%). */
   playBtnScale: number;
   /** تشغيل فيديوهات يوتيوب بلا صوت افتراضيًا (الزائر يستطيع تشغيل الصوت من زر الصوت). */
@@ -639,6 +648,7 @@ export const DEFAULT_WATCH_PAGE: WatchPageSettings = {
   driveTipText: DEFAULT_DRIVE_TIP_TEXT,
   driveTipSec: 6,
   driveTipMax: 3,
+  driveTipPos: "above",
   playBtnScale: 100,
   ytMuted: false,
   ytNoMusic: true,
@@ -675,6 +685,7 @@ export function cleanWatchPage(v: unknown): WatchPageSettings {
     driveTipText: typeof o.driveTipText === "string" ? o.driveTipText.replace(/\s+/g, " ").trim().slice(0, DRIVE_TIP_TEXT_MAX) || D.driveTipText : D.driveTipText,
     driveTipSec: int("driveTipSec", DRIVE_TIP_SEC_MIN, DRIVE_TIP_SEC_MAX, D.driveTipSec),
     driveTipMax: int("driveTipMax", 0, DRIVE_TIP_MAX_MAX, D.driveTipMax),
+    driveTipPos: DRIVE_TIP_POSITIONS.some((x) => x.id === o.driveTipPos) ? (o.driveTipPos as DriveTipPos) : D.driveTipPos,
     playBtnScale: int("playBtnScale", PLAY_BTN_SCALE_MIN, PLAY_BTN_SCALE_MAX, D.playBtnScale),
     ytMuted: flag("ytMuted", D.ytMuted),
     ytNoMusic: flag("ytNoMusic", D.ytNoMusic),
