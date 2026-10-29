@@ -196,6 +196,10 @@ export const DEFAULT_STRUCTURE: Structure = {
   ],
 };
 
+/** تبويب الإذاعة (انظر reconcileStructure). */
+const RADIO_TAB = "radio";
+const RADIO_SECTION = "radio.list";
+
 export function cloneStructure(s: Structure): Structure {
   return { groups: s.groups.map((g) => ({ ...g })), tabs: s.tabs.map((t) => ({ ...t })) };
 }
@@ -231,6 +235,12 @@ export function reconcileStructure(raw: unknown): Structure {
     if (!id || !label || id === UNSORTED_TAB || tids.has(id) || !gids.has(group)) continue;
     tids.add(id);
     tabs.push({ id, label, group, ...(OWNER_ONLY_TABS.includes(id) ? { ownerOnly: true } : {}) });
+  }
+
+  // تبويب الإذاعة أُضيف بعد أن حفظ بعض المشرفين بنيتهم: إن غاب عن البنية المحفوظة يُلحق بآخر تبويبات «إدارة المحتوى».
+  if (!tids.has(RADIO_TAB) && gids.has("content")) {
+    const last = tabs.map((t) => t.group).lastIndexOf("content");
+    tabs.splice(last + 1, 0, { id: RADIO_TAB, label: "الإذاعة", group: "content" });
   }
 
   const used = new Set(tabs.map((t) => t.group));
@@ -287,6 +297,11 @@ export function reconcileArrangement(raw: unknown, structure: Structure = DEFAUL
     for (const k of Object.keys(r)) if (!ids.includes(k)) take(r[k], UNSORTED_TAB);
   }
   for (const s of SECTIONS) if (!seen.has(s.id)) out[out[s.home] ? s.home : UNSORTED_TAB].push(s.id);
+  // مربع الإذاعة الذي حُفظ في «غير منظم» (لأن تبويبه لم يكن في بنية المشرف بعد) يعود إلى تبويب الإذاعة.
+  if (out[RADIO_TAB] && out[RADIO_TAB].length === 0 && out[UNSORTED_TAB].includes(RADIO_SECTION)) {
+    out[UNSORTED_TAB] = out[UNSORTED_TAB].filter((id) => id !== RADIO_SECTION);
+    out[RADIO_TAB].push(RADIO_SECTION);
+  }
   return out;
 }
 
