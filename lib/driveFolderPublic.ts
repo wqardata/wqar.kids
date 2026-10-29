@@ -2,9 +2,9 @@
 //   https://drive.google.com/embeddedfolderview?id=<ID>#list
 // تعرض لكل عنصر الاسم والمعرّف ونوعه (أيقونة)، ولا تعرض المدة. الصفحة غير موثّقة رسميًا، فالمحلّل
 // أدناه متساهل عمدًا (يعتمد على الروابط والأيقونات لا على بنية HTML الدقيقة) ويعيد null عند أي فشل.
-import { DRIVE_ID } from "./drive";
+import { AUDIO_EXT, DRIVE_ID } from "./drive";
 
-export type PublicItem = { id: string; name: string; isFolder: boolean; isVideo: boolean };
+export type PublicItem = { id: string; name: string; isFolder: boolean; isVideo: boolean; isAudio: boolean };
 
 const VIDEO_EXT = /\.(mp4|mkv|mov|avi|webm|m4v|wmv|flv|mpg|mpeg|3gp)$/i;
 
@@ -36,8 +36,9 @@ export function parseEmbeddedFolder(html: string): PublicItem[] {
     const icon = block.match(/<img[^>]+src="([^"]+)"/)?.[1] ?? "";
     const isFolder = /\/folders\//.test(href) || /vnd\.google-apps\.folder|\/folder/i.test(icon);
     const isVideo = !isFolder && (/\/type\/video\//i.test(icon) || /mime=video|video%2F/i.test(icon) || VIDEO_EXT.test(name));
+    const isAudio = !isFolder && !isVideo && (/\/type\/audio\//i.test(icon) || /mime=audio|audio%2F/i.test(icon) || AUDIO_EXT.test(name));
     seen.add(id);
-    items.push({ id, name, isFolder, isVideo });
+    items.push({ id, name, isFolder, isVideo, isAudio });
   }
   return items;
 }

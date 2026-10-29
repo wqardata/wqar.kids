@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { DRIVE_ID, stripExtension } from "@/lib/drive";
+import { AUDIO_EXT, DRIVE_ID, stripExtension } from "@/lib/drive";
 import { folderNamePublic, listFolderPublic } from "@/lib/driveFolderPublic";
 import { adminFromToken, bearer } from "@/lib/serverAuth";
 
@@ -65,7 +65,7 @@ async function folderName(folderId: string, key: string | undefined): Promise<st
 async function listFolderNoKey(folderId: string): Promise<DriveFile[] | null> {
   const items = await listFolderPublic(folderId);
   if (!items) return null;
-  return items.map((i) => ({ id: i.id, name: i.name, mimeType: i.isFolder ? FOLDER : i.isVideo ? "video/*" : "application/octet-stream" }));
+  return items.map((i) => ({ id: i.id, name: i.name, mimeType: i.isFolder ? FOLDER : i.isVideo ? "video/*" : i.isAudio ? "audio/*" : "application/octet-stream" }));
 }
 
 export async function GET(req: NextRequest) {
@@ -78,6 +78,8 @@ export async function GET(req: NextRequest) {
 
   const id = req.nextUrl.searchParams.get("id") ?? "";
   const deep = req.nextUrl.searchParams.get("deep") === "1";
+  // kind=audio: الأناشيد الصوتية بدل الفيديوهات (تستعمله لوحة الإذاعة).
+  const audio = req.nextUrl.searchParams.get("kind") === "audio";
   if (!DRIVE_ID.test(id)) return NextResponse.json({ error: "رابط المجلد غير صالح." }, { status: 400 });
 
   const key = process.env.DRIVE_API_KEY;
@@ -112,7 +114,7 @@ export async function GET(req: NextRequest) {
       if (f.mimeType === FOLDER) {
         if (deep && cur.depth < MAX_DEPTH) queue.push({ id: f.id, path: cur.path ? `${cur.path} / ${f.name}` : f.name, depth: cur.depth + 1 });
         else skipped++;
-      } else if (f.mimeType.startsWith("video/")) {
+      } else if (audio ? f.mimeType.startsWith("audio/") || AUDIO_EXT.test(f.name) : f.mimeType.startsWith("video/")) {
         if (videos.length >= MAX_FILES) {
           truncated = true;
           continue;
@@ -137,5 +139,5 @@ export async function GET(req: NextRequest) {
   }
 
   videos.sort((a, b) => a.path.localeCompare(b.path, "ar") || a.name.localeCompare(b.name, "ar", { numeric: true }));
-  return NextResponse.json({ videos, skipped, truncated, usedApi, folderName: await folderName(id, key) });
+  return NextResponse.json({ videos, items: videos, skipped, truncated, usedApi, folderName: await folderName(id, key) });
 }

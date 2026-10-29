@@ -17,9 +17,12 @@ export function driveThumbnail(id: string, width = 640): string {
   return `https://drive.google.com/thumbnail?id=${id}&sz=w${width}`;
 }
 
+/** امتدادات الملفات الصوتية (للتعرّف على الأناشيد في المجلدات). */
+export const AUDIO_EXT = /\.(mp3|m4a|wav|ogg|oga|aac|opus|flac|wma|amr)$/i;
+
 /** يحذف امتداد الملف من الاسم: «حلقة 1.mp4» → «حلقة 1». */
 export function stripExtension(name: string): string {
-  return name.replace(/\.(mp4|mkv|mov|avi|webm|m4v|wmv|flv|mpg|mpeg|3gp)$/i, "").trim();
+  return name.replace(/\.(mp4|mkv|mov|avi|webm|m4v|wmv|flv|mpg|mpeg|3gp|mp3|m4a|wav|ogg|oga|aac|opus|flac|wma|amr)$/i, "").trim();
 }
 
 /** يستخرج معرّف المجلد من رابط مجلد درايف (…/folders/ID أو ?id=ID) أو من المعرّف نفسه. */
