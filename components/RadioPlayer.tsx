@@ -52,6 +52,9 @@ export default function RadioPlayer() {
   // إن فشل الرابط المباشر مرة نبدأ بقية الأناشيد بالمسار الاحتياطي فلا ننتظر فشله في كل نشيد.
   const directBad = useRef(false);
   const started = useRef(false);
+  // هل نريد التشغيل الآن؟ يصير false فقط حين يوقفه الزائر بنفسه، فلا نستأنفه رغمًا عنه.
+  const want = useRef(true);
+  const unlock = useRef<(() => void) | null>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [dur, setDur] = useState(0);
@@ -61,6 +64,34 @@ export default function RadioPlayer() {
   const found = items.findIndex((x) => x.id === curId);
   const idx = found >= 0 ? found : 0;
   const cur = items[idx];
+
+  const disarm = () => {
+    const f = unlock.current;
+    if (!f) return;
+    unlock.current = null;
+    window.removeEventListener("click", f, true);
+    window.removeEventListener("keydown", f, true);
+    window.removeEventListener("touchend", f, true);
+  };
+  /**
+   * يشغّل عنصر audio. إن منع المتصفح التشغيل التلقائي (لم يلمس الزائر الصفحة بعد) ننتظر أول ضغطة أو لمسة أو مفتاح في أي مكان
+   * ثم نشغّل حينها، فيبدأ الصوت من أول لمسة دون أن يبحث الزائر عن زر التشغيل.
+   */
+  const play = (a: HTMLAudioElement) => {
+    a.play().then(disarm, (e: unknown) => {
+      if ((e as { name?: string } | null)?.name !== "NotAllowedError" || unlock.current) return;
+      const f = () => {
+        disarm();
+        const el = audio.current;
+        if (el && want.current && el.paused && el.src) void el.play().catch(() => {});
+      };
+      unlock.current = f;
+      window.addEventListener("click", f, true);
+      window.addEventListener("keydown", f, true);
+      window.addEventListener("touchend", f, true);
+    });
+  };
+  useEffect(() => disarm, []);
 
   /** يبدأ تشغيل نشيد بعنصر audio. يُستدعى داخل معالج الضغط نفسه كي يسمح المتصفح (خاصة الجوال) بالصوت. */
   const start = (it: { id: string; drive: string }) => {
@@ -72,8 +103,9 @@ export default function RadioPlayer() {
     tryNo.current = directBad.current && urls.length > 1 ? 1 : 0;
     setTime(0);
     setDur(0);
+    want.current = true;
     a.src = urls[tryNo.current];
-    void a.play().catch(() => { /* منع المتصفح التشغيل التلقائي: يضغط الزائر زر التشغيل */ });
+    play(a);
   };
   const pick = (id: string) => {
     setCurId(id);
@@ -134,7 +166,7 @@ export default function RadioPlayer() {
               onClick={() => {
                 const a = audio.current;
                 if (!a) return;
-                if (a.paused) { if (!a.src) start(cur); else void a.play().catch(() => {}); } else a.pause();
+                if (a.paused) { if (!a.src) start(cur); else { want.current = true; play(a); } } else { want.current = false; a.pause(); }
               }}
               aria-label={playing ? "إيقاف مؤقت" : "تشغيل"}
             >
@@ -179,7 +211,7 @@ export default function RadioPlayer() {
             if (tryNo.current + 1 < urls.length) {
               tryNo.current += 1;
               a.src = urls[tryNo.current];
-              void a.play().catch(() => {});
+              play(a);
               return;
             }
             setPlaying(false);
