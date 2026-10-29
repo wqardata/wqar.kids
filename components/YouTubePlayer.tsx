@@ -289,9 +289,6 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
           <>
             {/* حاجز شفاف فوق شريط عنوان يوتيوب (الشعار/نسخ الرابط/مشاهدة لاحقًا/مشاركة) كي لا يُضغط عليه. */}
             <div className="yt-guard yt-guard--top" aria-hidden="true" />
-            {/* عند الإيقاف يعرض يوتيوب صفّ «المزيد من الفيديوهات» أسفل الفيديو: حاجز شفاف فوقه يمنع الضغط على المقترحات،
-                ويترك شريط التحكم السفلي (التشغيل/الصوت/الجودة/ملء الشاشة) وزر الوسط يعملان. */}
-            {ready && state === PAUSED && <div className="yt-guard yt-guard--rel" aria-hidden="true" />}
             {/* عند الانتهاء نغطّي الإطار كي لا تظهر مقترحات يوتيوب، ونعرض زر إعادة التشغيل. */}
             {ready && state === ENDED && (
               <div className="yt-cover">
