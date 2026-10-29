@@ -62,6 +62,9 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   const [playing, setPlaying] = useState(false);
   const [started, setStarted] = useState(false);
   const [ready, setReady] = useState(false); // وصلت بيانات كافية لعرض أول لقطة
+  // التحميل الأول عند فتح الصفحة: نُظهر مؤشر التحميل حتى تصل بيانات الفيديو (أو تنقضي مهلة قصيرة؛ بعض المتصفحات كالآيفون لا تحمّل شيئًا قبل الضغط على تشغيل فلا نُبقي المؤشر معلّقًا).
+  const [booting, setBooting] = useState(true);
+  const endBoot = () => setBooting(false);
   const [waiting, setWaiting] = useState(false); // توقف مؤقت للتحميل أثناء التشغيل
   const [time, setTime] = useState(0);
   const [dur, setDur] = useState(0);
@@ -166,6 +169,11 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   }, []);
 
   useEffect(() => {
+    const t = setTimeout(() => setBooting(false), 8000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
     if (!flash) return;
     const t = setTimeout(() => setFlash(null), 650);
     return () => clearTimeout(t);
@@ -213,7 +221,7 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
   };
 
   // مؤشر التحميل يظهر بعد بدء التشغيل فقط؛ إن منع المتصفح التشغيل التلقائي يبقى زر التشغيل ظاهرًا ولا يعلق المؤشر.
-  const loading = started && !ready;
+  const loading = (booting && !ready) || (started && !ready);
   const showIdle = idle && playing && !menu;
   const pct = dur > 0 ? Math.min(100, (time / dur) * 100) : 0;
   const bufPct = dur > 0 ? Math.min(100, (buf / dur) * 100) : 0;
@@ -241,16 +249,17 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
         onPause={() => { setPlaying(false); setIdle(false); }}
         onWaiting={() => setWaiting(true)}
         onPlaying={() => { setWaiting(false); setReady(true); }}
-        onCanPlay={() => { setWaiting(false); setReady(true); }}
+        onCanPlay={() => { setWaiting(false); setReady(true); endBoot(); }}
         onLoadedMetadata={(e) => {
           sawData.current = true;
+          endBoot();
           clearStall();
           const el = e.currentTarget;
           setDur(Number.isFinite(el.duration) ? el.duration : 0);
           if (startAt >= 1 && Number.isFinite(el.duration) && startAt < el.duration) el.currentTime = startAt;
           el.playbackRate = rate;
         }}
-        onLoadedData={() => { sawData.current = true; clearStall(); setReady(true); }}
+        onLoadedData={() => { sawData.current = true; clearStall(); setReady(true); endBoot(); }}
         onDurationChange={(e) => setDur(Number.isFinite(e.currentTarget.duration) ? e.currentTarget.duration : 0)}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
         onProgress={(e) => {
@@ -332,12 +341,11 @@ function CustomPlayer({ driveId, title, hue, autoplay, startAt, onFail, onQualit
           </button>
           <button
             type="button"
-            className="dp-rate"
             onClick={() => { const el = v(); if (el) el.pause(); onQuality(el?.currentTime ?? 0); }}
             title="الجودات المتاحة في درايف"
             aria-label="اختيار الجودة (يفتح مشغّل درايف)"
           >
-            الجودة
+            <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M339 314.9L175.4 32h161.2l163.6 282.9H339zm-137.5 23.6L120.9 480h310.5L512 338.5H201.5zM154.1 67.4L0 338.5 80.6 480 237 208.8 154.1 67.4z" /></svg>
           </button>
           {canFs && (
             <button type="button" onClick={toggleFs} aria-label={fs ? "الخروج من ملء الشاشة" : "ملء الشاشة"}>
