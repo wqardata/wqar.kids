@@ -181,7 +181,6 @@ export const DEFAULT_STRUCTURE: Structure = {
     { id: "signup", label: "التسجيل", group: "settings" },
     { id: "adhan", label: "إعدادات الأذان", group: "tarbawi" },
     { id: "adhkar", label: "إعدادات الأذكار", group: "tarbawi" },
-    { id: "radio", label: "إعدادات الإذاعة", group: "tarbawi" },
     { id: "notifications", label: "إدارة الإشعارات", group: "notifications" },
     { id: "appearance", label: "المظهر", group: "organize" },
     { id: "menu", label: "القوائم", group: "organize" },
@@ -192,6 +191,7 @@ export const DEFAULT_STRUCTURE: Structure = {
     { id: "shorts", label: "المقاطع القصيرة", group: "content" },
     { id: "categories", label: "التصنيفات", group: "content" },
     { id: "series", label: "المجموعات", group: "content" },
+    { id: "radio", label: "الإذاعة", group: "content" },
     { id: UNSORTED_TAB, label: UNSORTED_LABEL, group: UNSORTED_GROUP },
   ],
 };
