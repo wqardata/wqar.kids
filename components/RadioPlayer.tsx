@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import DrivePlayer from "@/components/DrivePlayer";
 import Icon from "@/components/Icon";
 import { useSettings } from "@/lib/settings";
@@ -9,10 +9,27 @@ const num = new Intl.NumberFormat("ar-EG");
 /** ألوان مبهجة تتناوب على أناشيد القائمة. */
 const COLORS = ["#ff6b6b", "#ffb02e", "#34c759", "#22b8f0", "#a66cff", "#ff6fb5"];
 
+/** خلط عشوائي (Fisher–Yates) لنسخة من المصفوفة. */
+function shuffle<T>(a: T[]): T[] {
+  const r = [...a];
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+}
+
 /** صفحة الإذاعة: مشغّل درايف في الأعلى، وتحته قائمة الأناشيد المتحرّكة. الضغط على نشيد يشغّله في المشغّل. */
 export default function RadioPlayer() {
   const { settings, ready } = useSettings();
-  const items = settings.radio.items;
+  const raw = settings.radio.items;
+  // ترتيب عشوائي جديد عند كل فتح للصفحة (ويبقى ثابتًا ما دامت الأناشيد نفسها؛ تعديل عنوان نشيد لا يعيد الخلط).
+  const idsKey = raw.map((x) => x.id).join(",");
+  const order = useMemo(() => shuffle(idsKey ? idsKey.split(",") : []), [idsKey]);
+  const items = useMemo(() => {
+    const byId = new Map(raw.map((x) => [x.id, x]));
+    return order.map((id) => byId.get(id)).filter((x): x is (typeof raw)[number] => Boolean(x));
+  }, [raw, order]);
   const [curId, setCurId] = useState("");
   // التشغيل تلقائي عند فتح الصفحة (قد تمنعه بعض المتصفحات، وخاصة الجوال، حتى يلمس الزائر الصفحة).
   const [chosen, setChosen] = useState(true);
