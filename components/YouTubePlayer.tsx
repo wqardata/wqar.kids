@@ -19,6 +19,9 @@ type YTPlayer = {
   setPlaybackQuality(q: string): void; getAvailableQualityLevels(): string[]; getPlaybackQuality(): string;
   setPlaybackRate(r: number): void; getPlaybackRate(): number; getAvailablePlaybackRates(): number[];
   mute(): void; unMute(): void; isMuted(): boolean; destroy(): void;
+  /** غير موثّقة رسميًا لكنها ما زالت تعمل: تثبّت أدنى/أعلى جودة (setPlaybackQuality ألغاها يوتيوب فلا أثر لها). */
+  setPlaybackQualityRange?(min: string, max?: string): void;
+  loadVideoById?(o: { videoId: string; startSeconds?: number; suggestedQuality?: string }): void;
   /** غير موثّقة رسميًا: المسارات الصوتية المتعددة (إن وُجدت). */
   getAvailableAudioTracks?(): unknown[]; setAudioTrack?(t: unknown): void;
 };
@@ -52,6 +55,16 @@ const Q_LABEL: Record<string, string> = {
 const Q_FALLBACK = ["hd1080", "hd720", "large", "medium", "small", "tiny"];
 
 const ENDED = 0, PLAYING = 1, PAUSED = 2, BUFFERING = 3;
+
+/**
+ * يطلب جودة من يوتيوب. setPlaybackQuality وحدها لا تؤثر (ألغاها يوتيوب عام 2018)، لذا نثبّت مدى الجودة بـ setPlaybackQualityRange.
+ * «default» = تلقائي: نفتح المدى كله ليعود يوتيوب لاختياره.
+ */
+function applyQuality(p: YTPlayer | null, q: string) {
+  if (!p) return;
+  try { if (q === "default") p.setPlaybackQualityRange?.("tiny", "highres"); else p.setPlaybackQualityRange?.(q, q); } catch { /* غير مدعوم */ }
+  try { p.setPlaybackQuality(q); } catch { /* غير مدعوم */ }
+}
 
 function fmt(t: number): string {
   const s = Math.max(0, Math.floor(t));
@@ -90,6 +103,8 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   const [levels, setLevels] = useState<string[]>(Q_FALLBACK);
   const [quality, setQuality] = useState(DEFAULT_QUALITY); // الجودة المطلوبة (small = 240p)
   const qRef = useRef(DEFAULT_QUALITY);
+  // لا نفرض الجودة الافتراضية (240p) بالمدى؛ المدى يُطبَّق فقط بعد أن يختار الزائر جودة بنفسه.
+  const pickedRef = useRef(false);
   const [rate, setRate] = useState(1);
   // زر الوسط يظهر أثناء التشغيل لثوانٍ بعد لمس المشغّل (وهو الوحيد الذي يُشغّل ويوقف).
   const [ctl, setCtl] = useState(false);
@@ -106,7 +121,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
     let dead = false;
     const wrap = host.current;
     audioTried.current = false;
-    qRef.current = DEFAULT_QUALITY; setQuality(DEFAULT_QUALITY); setRate(1); setMenu(false);
+    qRef.current = DEFAULT_QUALITY; pickedRef.current = false; setQuality(DEFAULT_QUALITY); setRate(1); setMenu(false);
     setReady(false); setState(-1); setFailed(false); setCur(0); setDur(0); setBuf(0); setMuted(muteRef.current);
 
     const q = new URLSearchParams({
@@ -128,7 +143,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
       if (dead) return;
       player.current = new YT.Player(f, {
         events: {
-          onReady: () => { if (!dead) { setReady(true); try { if (muteRef.current) player.current?.mute(); } catch { /* غير مدعوم */ } try { player.current?.setPlaybackQuality(qRef.current); } catch { /* غير مدعوم */ } } },
+          onReady: () => { if (!dead) { setReady(true); try { if (muteRef.current) player.current?.mute(); } catch { /* غير مدعوم */ } try { if (pickedRef.current) applyQuality(player.current, qRef.current); else player.current?.setPlaybackQuality(qRef.current); } catch { /* غير مدعوم */ } } },
           onStateChange: (e) => {
             if (dead) return;
             setState(e.data);
@@ -141,7 +156,7 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
                 if (hit) player.current?.setAudioTrack?.(hit);
               } catch { /* غير مدعوم */ }
             }
-            if (e.data === PLAYING || e.data === BUFFERING) { try { player.current?.setPlaybackQuality(qRef.current); } catch { /* غير مدعوم */ } }
+            if (e.data === PLAYING || e.data === BUFFERING) { try { if (pickedRef.current) applyQuality(player.current, qRef.current); else player.current?.setPlaybackQuality(qRef.current); } catch { /* غير مدعوم */ } }
           },
           onError: () => { if (!dead) setFailed(true); },
         },
@@ -188,12 +203,17 @@ export default function YouTubePlayer({ youtubeId, title, autoplay = false, star
   };
   const pickQuality = (q: string) => {
     const p = player.current;
-    qRef.current = q; setQuality(q); setMenu(false);
+    qRef.current = q; pickedRef.current = true; setQuality(q); setMenu(false);
     if (!p) return;
     try {
-      p.setPlaybackQuality(q);
-      // يوتيوب يتجاهل الطلب أحيانًا أثناء التشغيل؛ إعادة التموضع في اللحظة نفسها تجبره على تحميل الجودة الجديدة.
-      p.seekTo(p.getCurrentTime() || 0, true);
+      applyQuality(p, q);
+      // يوتيوب لا يبدّل الجودة أثناء التشغيل من تلقاء نفسه: نعيد تحميل الفيديو من اللحظة الحالية فتُطبَّق الجودة المطلوبة.
+      if ((state === PLAYING || state === BUFFERING) && p.loadVideoById) {
+        p.loadVideoById({ videoId: youtubeId, startSeconds: p.getCurrentTime() || 0, suggestedQuality: q === "default" ? undefined : q });
+        setTimeout(() => { try { applyQuality(player.current, q); player.current?.setPlaybackRate(rate); } catch { /* غير مدعوم */ } }, 600);
+      } else {
+        p.seekTo(p.getCurrentTime() || 0, true);
+      }
     } catch { /* غير مدعوم */ }
   };
   const pickRate = (r: number) => { setRate(r); setMenu(false); try { player.current?.setPlaybackRate(r); } catch { /* غير مدعوم */ } };
