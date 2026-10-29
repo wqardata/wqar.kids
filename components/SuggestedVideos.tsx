@@ -7,9 +7,9 @@ import VideoStats from "@/components/VideoStats";
 import { formatClock } from "@/lib/format";
 import { useHistory } from "@/lib/history";
 import { useSettings, type WatchPageSettings } from "@/lib/settings";
-import { fetchLatestVideos, type VideoDoc } from "@/lib/videos";
+import { fetchEveryVideo, fetchLatestVideos, type VideoDoc } from "@/lib/videos";
 
-// نقرأ أحدث N فيديو فقط (N من إعدادات «صفحة الفيديو»، والافتراضي 80) ثم نختار منها حسب الإعدادات؛ ما هو أقدم من ذلك لا يظهر مقترحًا.
+// نقرأ آخر 50 أو آخر 200 فيديو أو الجميع (من إعدادات «صفحة الفيديو»، والافتراضي آخر 200) ثم نختار منها حسب الإعدادات؛ ما هو أقدم من ذلك لا يظهر مقترحًا.
 
 const seKey = (v: Pick<VideoDoc, "season" | "episode">) => (v.season ?? 0) * 10_000 + (v.episode ?? 0);
 
@@ -85,7 +85,7 @@ function Thumb({ v, showDuration }: { v: VideoDoc; showDuration: boolean }) {
 export default function SuggestedVideos({ current }: { current: VideoDoc }) {
   const { settings } = useSettings();
   const w = settings.watchPage;
-  const poolSize = w.sugPool;
+  const poolKind = w.sugPool;
   const [pool, setPool] = useState<VideoDoc[]>([]);
   const [ready, setReady] = useState(!isFirebaseConfigured);
   const history = useHistory();
@@ -100,14 +100,17 @@ export default function SuggestedVideos({ current }: { current: VideoDoc }) {
     if (!isFirebaseConfigured) return;
     let off = false;
     // مخزّنة 15 دقيقة في المتصفح: فتح فيديو بعد آخر لا يقرأ من Firestore مجددًا.
-    fetchLatestVideos(poolSize)
+    const load = poolKind === "all"
+      ? fetchEveryVideo().then((list) => [...list].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))) // الترتيب من الأحدث تفترضه بقية الدالة
+      : fetchLatestVideos(Number(poolKind));
+    load
       .then((list) => !off && setPool(list))
       .catch(() => {})
       .finally(() => !off && setReady(true));
     return () => {
       off = true;
     };
-  }, [poolSize]);
+  }, [poolKind]);
 
   const doneKey = history.filter((e) => e.done).map((e) => e.id).join(",");
   // eslint-disable-next-line react-hooks/exhaustive-deps

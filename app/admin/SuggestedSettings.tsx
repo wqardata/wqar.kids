@@ -14,8 +14,8 @@ import {
   SUG_COUNT_MAX,
   SUG_LAYOUTS,
   SUG_ORDERS,
-  SUG_POOL_MIN,
-  SUG_POOL_MAX,
+  SUG_POOLS,
+  type SugPool,
   DRIVE_TIP_POSITIONS,
   DRIVE_TIP_OPACITY_MIN,
   type DriveTipPos,
@@ -218,9 +218,11 @@ export default function SuggestedSettings() {
           <section className="dsec" aria-labelledby="sg-s-crit">
             <h3 id="sg-s-crit" className="dsec-h">معايير الاختيار والترتيب</h3>
             <div className="field">
-              <label htmlFor="sg-pool">الاختيار من أحدث كم فيديو</label>
-              <input id="sg-pool" type="number" inputMode="numeric" dir="ltr" min={SUG_POOL_MIN} max={SUG_POOL_MAX} step={10} value={form.sugPool} onChange={(e) => set("sugPool", int(e.target.value, SUG_POOL_MIN, SUG_POOL_MAX))} />
-              <p className="hint">المقترحات (حتى العشوائية) تُختار من أحدث هذا العدد فقط؛ ما هو أقدم لا يظهر أبدًا. ارفعه (حتى {SUG_POOL_MAX}) لتنويع المقترحات إن كان عندك فيديوهات أكثر من الافتراضي (80). كل زيادة تكبّر قليلًا ما يحمّله كل زائر عند فتح فيديو (يُخزَّن 15 دقيقة في متصفحه).</p>
+              <label htmlFor="sg-pool">الاختيار من</label>
+              <select id="sg-pool" value={form.sugPool} onChange={(e) => set("sugPool", e.target.value as SugPool)}>
+                {SUG_POOLS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+              <p className="hint">المقترحات (حتى العشوائية) تُختار من هذه الفيديوهات فقط؛ ما هو أقدم لا يظهر. «الجميع» أكثر تنويعًا لكنه يحمّل كل فيديوهاتك لكل زائر عند فتح فيديو (يُخزَّن 15 دقيقة في متصفحه)، فاختره إن كان عددها ليس كبيرًا.</p>
             </div>
             <div className="field">
               <label htmlFor="sg-order">الترتيب</label>

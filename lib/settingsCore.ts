@@ -579,9 +579,13 @@ export const SUG_SCOPES = [
 export type SugScope = (typeof SUG_SCOPES)[number]["id"];
 
 export const SUG_COUNT_MAX = 30;
-/** عدد أحدث الفيديوهات التي تُختار منها المقترحات (الأكبر يُنوّع المقترحات لكنه يزيد حجم ما يُحمَّل لكل زائر). */
-export const SUG_POOL_MIN = 20;
-export const SUG_POOL_MAX = 300;
+/** الفيديوهات التي تُختار منها المقترحات: آخر 50، آخر 200، أو الجميع (الأكبر يُنوّع المقترحات لكنه يزيد حجم ما يُحمَّل لكل زائر). */
+export const SUG_POOLS = [
+  { id: "50", label: "آخر 50 فيديو" },
+  { id: "200", label: "آخر 200 فيديو" },
+  { id: "all", label: "الجميع" },
+] as const;
+export type SugPool = (typeof SUG_POOLS)[number]["id"];
 
 /** حجم واجهة مشغّل درايف على الجوال بالنسبة المئوية (100 = حجم درايف الأصلي، أقل = أزرار أصغر). */
 export const DRIVE_BTN_SCALE_MIN = 30;
@@ -637,8 +641,8 @@ export type WatchPageSettings = {
   /** عنوان القسم (فارغ = بلا عنوان). */
   sugTitle: string;
   sugCount: number;
-  /** من كم فيديو (من الأحدث) تُختار المقترحات. */
-  sugPool: number;
+  /** من أي فيديوهات تُختار المقترحات (من الأحدث). */
+  sugPool: SugPool;
   sugLayout: SugLayout;
   sugOrder: SugOrder;
   /** من أين تُؤخذ الفيديوهات: الكل، أو نفس مجموعة/تصنيف الفيديو المشغَّل فقط (إن لم يوجد شيء تُستعمل البقية). */
@@ -676,7 +680,7 @@ export const DEFAULT_WATCH_PAGE: WatchPageSettings = {
   sugShow: true,
   sugTitle: "فيديوهات مقترحة",
   sugCount: 10,
-  sugPool: 80,
+  sugPool: "200",
   sugLayout: "list",
   sugOrder: "mix",
   sugScope: "all",
@@ -716,7 +720,7 @@ export function cleanWatchPage(v: unknown): WatchPageSettings {
     sugShow: flag("sugShow", D.sugShow),
     sugTitle: typeof o.sugTitle === "string" ? o.sugTitle.trim().slice(0, 60) : D.sugTitle,
     sugCount: count,
-    sugPool: int("sugPool", SUG_POOL_MIN, SUG_POOL_MAX, D.sugPool),
+    sugPool: SUG_POOLS.some((x) => x.id === o.sugPool) ? (o.sugPool as SugPool) : D.sugPool,
     sugLayout: SUG_LAYOUTS.some((x) => x.id === o.sugLayout) ? (o.sugLayout as SugLayout) : D.sugLayout,
     sugOrder: SUG_ORDERS.some((x) => x.id === o.sugOrder) ? (o.sugOrder as SugOrder) : D.sugOrder,
     sugScope: SUG_SCOPES.some((x) => x.id === o.sugScope) ? (o.sugScope as SugScope) : D.sugScope,

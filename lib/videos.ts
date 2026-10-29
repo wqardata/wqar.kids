@@ -343,7 +343,8 @@ const ALL_MAX_PAGES = 40; // حماية: 20 ألف فيديو كحد أقصى
 let allCache: { at: number; videos: VideoDoc[] } | null = null;
 let allInflight: Promise<VideoDoc[]> | null = null;
 
-async function fetchEveryVideo(): Promise<VideoDoc[]> {
+/** كل الفيديوهات الظاهرة (مخزّنة مؤقتًا كما في useEveryVideo). */
+export async function fetchEveryVideo(): Promise<VideoDoc[]> {
   await ensureFreshVideos();
   if (allCache && Date.now() - allCache.at < CACHE_TTL) return allCache.videos;
   const stored = cacheGet<VideoDoc[]>("all");
