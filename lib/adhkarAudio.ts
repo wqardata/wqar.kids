@@ -24,6 +24,21 @@ export function audioCandidates(v: string): string[] {
   return AUDIO_PROXY_ON ? [driveAudioUrl(v), proxyAudioUrl(v)] : [driveAudioUrl(v)];
 }
 
+/**
+ * مصادر تشغيل الإذاعة بالترتيب: الرابط المباشر (Drive API إن وُجد المفتاح)، ثم رابط التنزيل العام بلا مفتاح
+ * (ينفع حين يرفض المفتاح عنوان الموقع أو قيوده)، ثم المسار عبر الموقع إن كان مفعّلًا. كل ما سبق قبل الرجوع لمشغّل درايف الأصلي
+ * الذي لا يمكن بدؤه تلقائيًا من الكود لأنه إطار من موقع آخر.
+ */
+export function radioAudioCandidates(v: string): string[] {
+  if (!DRIVE_ID.test(v)) return [v];
+  const safe = encodeURIComponent(v);
+  const list = [driveAudioUrl(v)];
+  const open = `https://drive.usercontent.google.com/download?id=${safe}&export=download&confirm=t`;
+  if (!list.includes(open)) list.push(open);
+  if (AUDIO_PROXY_ON) list.push(proxyAudioUrl(v));
+  return list;
+}
+
 /** مسار احتياطي عبر الموقع إن رفض المتصفح الرابط المباشر (انظر app/api/drive-audio). */
 export function proxyAudioUrl(id: string): string {
   return `/api/drive-audio?id=${encodeURIComponent(id)}`;

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import DrivePlayer from "@/components/DrivePlayer";
 import Icon from "@/components/Icon";
-import { audioCandidates } from "@/lib/adhkarAudio";
+import { radioAudioCandidates } from "@/lib/adhkarAudio";
 import { useSettings } from "@/lib/settings";
 
 const num = new Intl.NumberFormat("ar-EG");
@@ -103,7 +103,7 @@ export default function RadioPlayer() {
     if (!a) return;
     if (frameIds.includes(it.id)) { a.pause(); return; } // له مشغّل درايف الأصلي
     loadedId.current = it.id;
-    const urls = audioCandidates(it.drive);
+    const urls = radioAudioCandidates(it.drive);
     tryNo.current = directBad.current && urls.length > 1 ? 1 : 0;
     setTime(0);
     setDur(0);
@@ -269,7 +269,7 @@ export default function RadioPlayer() {
             const a = audio.current;
             if (!id || !it || !a) return;
             // نجرّب المصدر التالي (المسار عبر الموقع) قبل الرجوع لمشغّل درايف.
-            const urls = audioCandidates(it.drive);
+            const urls = radioAudioCandidates(it.drive);
             if (tryNo.current === 0) directBad.current = true;
             if (tryNo.current + 1 < urls.length) {
               tryNo.current += 1;
