@@ -249,7 +249,8 @@ export default function AdminPanel({ initial }: { initial?: "series" | "reports"
     <SaveProvider value={store.api}>
     <SaveModeProvider value={autoSave ? "auto" : "bar"}>
     <PreviewDraftProvider>
-      <div className={previewPath ? "admin admin--split" : "admin"}>
+      {/* التخطيط الواسع (إعدادات | معاينة) فقط حين تكون المعاينة ظاهرة؛ وإلا تبقى اللوحة في المنتصف بعرض الإحصائيات. */}
+      <div className={previewPath && showPreview ? "admin admin--split" : "admin"}>
         <div className="admin-head">
           <h1>لوحة التحكم</h1>
           <Link
