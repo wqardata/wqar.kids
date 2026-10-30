@@ -28,8 +28,13 @@ function dm(day: string | number | Date): string {
 function TrafficChart({ data }: { data: DayPoint[] }) {
   const W = 640;
   const H = 200;
-  const PAD = { t: 12, r: 8, b: 26, l: 40 };
   const max = Math.max(1, ...data.map((d) => d.views));
+  // كل يوم له تسمية تحت عموده: الخط يصغر بقدر عرض العمود، وإن لم يتّسع الأفقي تُدار التسمية عموديًا.
+  const slot = (W - 48) / Math.max(1, data.length);
+  const horizFs = Math.min(11, slot / 2.9);
+  const rotated = horizFs < 8;
+  const fs = rotated ? Math.min(9, Math.max(4.5, slot * 0.85)) : horizFs;
+  const PAD = { t: 12, r: 8, b: rotated ? Math.ceil(fs * 2.9) + 10 : 26, l: 40 };
   // سقف محور مرتّب (1, 2, 5 × 10^n) كي تكون الخطوط الأفقية أرقامًا مقروءة.
   const pow = 10 ** Math.floor(Math.log10(max));
   const top = [1, 2, 5, 10].map((m) => m * pow).find((v) => v >= max) ?? max;
@@ -37,7 +42,6 @@ function TrafficChart({ data }: { data: DayPoint[] }) {
   const ih = H - PAD.t - PAD.b;
   const bw = iw / data.length;
   const ticks = [0, 0.5, 1].map((f) => Math.round(top * f));
-  const every = Math.ceil(data.length / 6);
   const total = data.reduce((s, d) => s + d.views, 0);
 
   return (
@@ -59,8 +63,20 @@ function TrafficChart({ data }: { data: DayPoint[] }) {
             <rect x={x + bw * 0.15} y={PAD.t + ih - h} width={Math.max(1, bw * 0.7)} height={h} rx={Math.min(3, bw * 0.35)} className="stat-bar">
               <title>{`${new Date(d.day).toLocaleDateString("ar", { dateStyle: "medium", timeZone: "UTC" })}: ${nf.format(d.views)} مشاهدة`}</title>
             </rect>
-            {i % every === 0 && (
-              <text x={x + bw / 2} y={H - 8} textAnchor="middle" className="stat-axis">
+            {rotated ? (
+              <text
+                x={x + bw / 2}
+                y={PAD.t + ih + 5}
+                dy="0.35em"
+                textAnchor="end"
+                className="stat-axis"
+                style={{ fontSize: fs }}
+                transform={`rotate(-90 ${x + bw / 2} ${PAD.t + ih + 5})`}
+              >
+                {dm(d.day)}
+              </text>
+            ) : (
+              <text x={x + bw / 2} y={H - 8} textAnchor="middle" className="stat-axis" style={{ fontSize: fs }}>
                 {dm(d.day)}
               </text>
             )}

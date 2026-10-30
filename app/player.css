@@ -34,7 +34,7 @@
 
 /* فقاعة «اضغط للمشاهدة عبر Drive»: مؤقتة، سهمها يشير إلى زر درايف. */
 .dp-tip { position: absolute; z-index: 5; bottom: calc(100% + 12px); right: -6px; width: max-content; max-width: min(210px, calc(100vw - 32px)); padding: 8px 12px; border: 0; border-radius: 12px;
-  direction: rtl; text-align: center; font: inherit; font-size: .8rem; font-weight: 600; line-height: 1.5; color: var(--accent-ink); background: color-mix(in srgb, var(--tip-bg, var(--accent)) var(--tip-op, 100%), transparent); cursor: pointer;
+  direction: rtl; text-align: center; font: inherit; font-size: .8rem; font-weight: 600; line-height: 1.5; color: var(--accent-ink); background: color-mix(in srgb, var(--tip-bg, var(--accent)) var(--tip-op, 100%), transparent); cursor: default;
   box-shadow: 0 6px 18px rgba(0, 0, 0, .45); animation: dp-tip-in .28s ease-out both, dp-tip-bob 1.6s ease-in-out .3s infinite; }
 .dp-tip::after { content: ""; position: absolute; top: 100%; right: 20px; margin-top: -5px; width: 12px; height: 12px; background: inherit; border-radius: 2px; transform: rotate(45deg); }
 /* «أسفل الشعار»: تنزل الفقاعة تحت الشريط خارج حافة المشغّل (يُفتح القصّ مؤقتًا ما دامت ظاهرة) وسهمها لأعلى. */
