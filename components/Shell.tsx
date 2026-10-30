@@ -162,8 +162,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         ) : (
           <>
           <NotificationBell />
-          <button type="button" className="login login--icon" aria-label="تسجيل الدخول" aria-haspopup="dialog" aria-expanded={menuOpen} title="تسجيل الدخول" onClick={openMenu}>
-            <Icon name="user" size={20} />
+          <button type="button" className="login login--icon" aria-label="القائمة" aria-haspopup="dialog" aria-expanded={menuOpen} title="القائمة" onClick={openMenu}>
+            <Icon name="menu" size={20} />
           </button>
           </>
         )}
@@ -176,7 +176,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             className="acct-menu"
             role="dialog"
             aria-modal="true"
-            aria-label={user ? "الحساب والمزيد" : "تسجيل الدخول"}
+            aria-label={user ? "الحساب والمزيد" : "القائمة"}
             ref={dialogRef}
             onClick={(e) => {
               if ((e.target as HTMLElement).closest("a")) setMenuOpen(false);
@@ -190,15 +190,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                 <Link href="/account" className="acct-btn acct-btn--primary">حسابي</Link>
                 {canAdd && <Link href="/admin" className="acct-btn">لوحة التحكم</Link>}
               </div>
-            ) : (
-              <>
-                <p className="acct-title">أهلًا بك</p>
-                <div className="acct-actions">
-                  <Link href="/login" className="login login--icon" aria-label="تسجيل الدخول" title="تسجيل الدخول"><Icon name="user" size={20} /></Link>
-                </div>
-              </>
-            )}
-            <div className="acct-mode" role="radiogroup" aria-label="لون العرض">
+            ) : null}
+            <div className="acct-mode" role="radiogroup" aria-label="لون العرض" style={user ? undefined : { marginTop: 0, paddingInlineEnd: 44 }}>
               <span>لون العرض</span>
               <div className="seg">
                 {MODES.map((m) => (
