@@ -7,7 +7,7 @@ import { cleanVideoId } from "@/lib/visitorInput";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** POST /api/data/view {id} — يزيد مشاهدات الفيديو وإحصاء اليوم. المتصفح يرسله مرة لكل فيديو في كل جلسة. */
+/** POST /api/data/view {id} — يسجّل مشاهدة تُكتب في القاعدة دفعة كل بضع دقائق (فيزيد مشاهدات الفيديو وإحصاء اليوم). المتصفح يرسله مرة لكل فيديو في كل جلسة. */
 export async function POST(req: Request) {
   if (!isDbConfigured()) return NextResponse.json({ error: "DATABASE_URL غير مضبوط" }, { status: 503 });
   if (!allow(`view:${clientKey(req)}`, 120, 60_000)) return NextResponse.json({ error: "محاولات كثيرة" }, { status: 429 });
