@@ -6,7 +6,8 @@ import { isNamedColl, namedList, namedOne } from "@/lib/neonServer";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CACHE = { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" };
+// 10 دقائق: يقلّل إيقاظ Neon (التصنيفات والمجموعات نادرة التغيّر).
+const CACHE = { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=300" };
 
 /** GET /api/data/named?coll=categories|series[&id=…] — قائمة التصنيفات/المجموعات، أو عنصر واحد (404 إن لم يوجد). */
 export async function GET(req: Request) {

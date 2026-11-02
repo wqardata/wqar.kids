@@ -20,8 +20,9 @@ export async function flushViews(counts: Map<string, number>): Promise<void> {
   );
 }
 
-// مشاهدات الزوار تُجمَّع في ذاكرة الخادم وتُكتب كل 5 دقائق (lib/viewBuffer.ts) لتقليل إيقاظ Neon.
-const views = createViewBuffer(flushViews);
+// مشاهدات الزوار تُجمَّع في ذاكرة الخادم وتُكتب كل 15 دقيقة (lib/viewBuffer.ts) لتقليل إيقاظ Neon
+// (القاعدة تنام بعد نحو 5 دقائق بلا نشاط، فيجب أن يزيد الفاصل عن ذلك ليكون للتجميع أثر).
+const views = createViewBuffer(flushViews, { intervalMs: 15 * 60_000 });
 
 /** مشاهدة: تُسجَّل في الذاكرة وتُكتب في القاعدة دفعة لاحقًا. لا تتحقق من وجود الفيديو (يُتجاهل المعرّف غير الموجود عند الكتابة). */
 export async function recordView(id: string): Promise<boolean> {

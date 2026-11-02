@@ -6,7 +6,7 @@ import { PUBLIC_SETTING_KEYS, settingDoc } from "@/lib/neonServer";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/data/settings?key=site|videosVersion → { exists, data }. قصير الكاش: رقم إصدار الفيديوهات يجب أن يظهر تغييره سريعًا. */
+/** GET /api/data/settings?key=site|videosVersion → { exists, data }. كاش 5 دقائق: يُرفع رقم إصدار الفيديوهات عند الإضافة فيلحظه الزوار خلال هذه المدة (المشرف يتجاوز الكاش بـ fresh). */
 export async function GET(req: Request) {
   if (!isDbConfigured()) return NextResponse.json({ error: "DATABASE_URL غير مضبوط" }, { status: 503 });
   // الطلبات التي تُخدم من كاش CDN لا تصل هنا؛ هذا الحد يحمي القاعدة من إغراق الطلبات التي تتجاوز الكاش (أفضل جهد: العدّاد لكل نسخة تشغيل).
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   if (!(PUBLIC_SETTING_KEYS as readonly string[]).includes(key)) return NextResponse.json({ error: "مفتاح غير مسموح" }, { status: 400 });
   try {
     const data = await settingDoc(key);
-    return NextResponse.json({ exists: data !== null, data: data ?? {} }, { headers: { "Cache-Control": "public, s-maxage=15, stale-while-revalidate=60" } });
+    return NextResponse.json({ exists: data !== null, data: data ?? {} }, { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=300" } });
   } catch {
     return NextResponse.json({ error: "تعذّر الاتصال بالقاعدة" }, { status: 502 });
   }

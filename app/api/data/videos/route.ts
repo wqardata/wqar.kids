@@ -6,8 +6,8 @@ import { MAX_IDS, allVideos, latestVideos, videosBy, videosByIds } from "@/lib/n
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// قراءة عامة (كانت قواعد Firestore تسمح بها لكل أحد). كاش قصير على شبكة فيرسل يخفّف الحمل عن Neon.
-const CACHE = { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" };
+// قراءة عامة (كانت قواعد Firestore تسمح بها لكل أحد). كاش على شبكة فيرسل (10 دقائق) يُبقي قاعدة Neon نائمة بين الزيارات؛ الإضافة الجديدة تظهر للزوار خلال هذه المدة.
+const CACHE = { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=300" };
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 /**

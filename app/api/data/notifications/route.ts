@@ -28,7 +28,7 @@ export async function GET(req: Request) {
   }
   try {
     return NextResponse.json(await listNotices(auds, n), {
-      headers: { "Cache-Control": token ? "private, no-store" : "public, s-maxage=30, stale-while-revalidate=60", Vary: "Authorization" },
+      headers: { "Cache-Control": token ? "private, no-store" : "public, s-maxage=300, stale-while-revalidate=300", Vary: "Authorization" },
     });
   } catch {
     return NextResponse.json({ error: "تعذّر الاتصال بالقاعدة" }, { status: 502 });
