@@ -60,8 +60,8 @@ test("جمل SQL: الدمج السطحي للموقع، والاستبدال ا
 });
 
 test("مدة تحديث الجرس: الافتراضي 30، و0 يوقف الدوري، والباقي يُقيَّد بين الحدّين", () => {
-  assert.equal(DEFAULT_NOTICE_REFRESH_MIN, 30);
-  assert.equal(DEFAULT_SETTINGS.noticeRefreshMin, 30);
+  assert.equal(DEFAULT_NOTICE_REFRESH_MIN, 60);
+  assert.equal(DEFAULT_SETTINGS.noticeRefreshMin, 60);
   assert.equal(cleanNoticeRefreshMin(0), 0);
   assert.equal(cleanNoticeRefreshMin(-4), 0);
   assert.equal(cleanNoticeRefreshMin(1), NOTICE_REFRESH_MIN); // أقل من الحد الأدنى يرفع إليه (لا يتحوّل لإيقاف)

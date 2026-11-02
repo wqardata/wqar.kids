@@ -387,7 +387,7 @@ export function cleanNoticeCount(v: unknown): number {
 /** كل كم دقيقة يحدّث الجرس نفسه ما دامت الصفحة ظاهرة (0 = بلا تحديث دوري: يتحدّث فقط عند العودة للصفحة). */
 export const NOTICE_REFRESH_MIN = 5;
 export const NOTICE_REFRESH_MAX = 1440;
-export const DEFAULT_NOTICE_REFRESH_MIN = 30;
+export const DEFAULT_NOTICE_REFRESH_MIN = 60;
 export function cleanNoticeRefreshMin(v: unknown): number {
   if (v === null || v === undefined || (typeof v === "string" && v.trim() === "")) return DEFAULT_NOTICE_REFRESH_MIN;
   const n = Math.round(Number(v));
