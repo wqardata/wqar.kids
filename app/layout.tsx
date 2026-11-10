@@ -48,9 +48,9 @@ export async function generateMetadata(): Promise<Metadata> {
       title: tab,
       description: s.siteDescription,
       locale: "ar_AR",
-      images: [{ url: IDENTITY.icon512, width: 512, height: 512, alt: s.siteName }],
+      images: [{ url: IDENTITY.ogImage, width: 1200, height: 630, alt: s.siteName }],
     },
-    twitter: { card: "summary", title: tab, description: s.siteDescription, images: [IDENTITY.icon512] },
+    twitter: { card: "summary_large_image", title: tab, description: s.siteDescription, images: [IDENTITY.ogImage] },
     icons: { icon: [{ url: IDENTITY.favicon, sizes: "32x32", type: "image/png" }, { url: IDENTITY.icon192, sizes: "192x192", type: "image/png" }], apple: IDENTITY.icon192 },
   };
 }

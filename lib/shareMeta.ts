@@ -83,7 +83,8 @@ async function build(b: Base): Promise<Metadata> {
   const s = await getServerSettings();
   const origin = siteOrigin();
   const siteName = s.siteName;
-  const image = safeImage(b.image) || IDENTITY.icon512;
+  const custom = safeImage(b.image);
+  const image = custom || IDENTITY.ogImage;
   const description = clip(b.description || s.siteDescription, 200);
   return {
     ...(origin ? { metadataBase: origin } : {}),
@@ -97,7 +98,7 @@ async function build(b: Base): Promise<Metadata> {
       description,
       url: b.path,
       locale: "ar_AR",
-      images: [{ url: image, alt: b.title }],
+      images: [custom ? { url: image, alt: b.title } : { url: image, width: 1200, height: 630, alt: b.title }],
     },
     twitter: { card: "summary_large_image", title: b.title, description, images: [image] },
   };

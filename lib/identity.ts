@@ -18,4 +18,6 @@ export const IDENTITY = {
   icon192: "/icons/icon-192.png",
   icon512: "/icons/icon-512.png",
   iconMaskable: "/icons/maskable-512.png",
+  /** صورة المعاينة الافتراضية عند مشاركة الرابط (1200×630). استبدل الملف لتغييرها. */
+  ogImage: "/brand/og-default.png",
 } as const;
