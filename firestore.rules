@@ -45,6 +45,7 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if request.resource.data.keys().hasOnly(['day', 'views'])
         && request.resource.data.day is string
+        && request.resource.data.day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && id == ('d-' + request.resource.data.day)
         && request.resource.data.views == 1;
       allow update: if isAdmin()
@@ -61,7 +62,8 @@ service cloud.firestore {
         && request.resource.data.reason is string && request.resource.data.reason.size() <= 80
         && request.resource.data.note is string && request.resource.data.note.size() <= 500
         && request.resource.data.status == 'open'
-        && request.resource.data.size() <= 8;
+        // الحقول التي يرسلها ReportButton فقط (كان size() <= 8 يترك 3 حقول إضافية بلا قيد على النوع أو الحجم).
+        && request.resource.data.keys().hasOnly(['videoId', 'videoTitle', 'reason', 'note', 'status', 'createdAt']);
       allow read, update, delete: if isAdmin();
     }
 
@@ -123,6 +125,8 @@ service cloud.firestore {
         && request.resource.data.role == resource.data.role
         && request.resource.data.banned == resource.data.banned
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email', 'name', 'avatar', 'lastLoginAt'])
+        // البريد يُحدَّث عند الدخول من حساب Firebase نفسه فقط، لا بقيمة يختارها العضو.
+        && request.resource.data.email == request.auth.token.email.lower()
         && request.resource.data.name.size() <= 60
         && request.resource.data.avatar.size() <= 20;
 

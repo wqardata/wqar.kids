@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isDbConfigured } from "@/lib/db";
 import { allow, clientKey } from "@/lib/rateLimit";
 import { isNamedColl, namedList, namedOne } from "@/lib/neonServer";
+import { onlyParams } from "@/lib/queryParams";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
   if (!allow(`read:${clientKey(req)}`, 120, 60_000)) return NextResponse.json({ error: "محاولات كثيرة" }, { status: 429 });
   const p = new URL(req.url).searchParams;
   const coll = p.get("coll");
-  if (!isNamedColl(coll)) return NextResponse.json({ error: "مجموعة غير معروفة" }, { status: 400 });
+  if (!onlyParams(p, ["coll", "id"]) || !isNamedColl(coll)) return NextResponse.json({ error: "مجموعة غير معروفة" }, { status: 400 });
   try {
     const id = p.get("id");
     if (id === null) return NextResponse.json(await namedList(coll), { headers: CACHE });

@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
   const isAdmin = token ? !("error" in (await adminFromToken(token))) : false;
   if (!isAdmin) {
-    // كل طلب يمرّر حتى 6MB عبر فيرسل: نحدّ عدد طلبات الزائر الواحد (أفضل جهد).
-    if (!allow(`audio:${clientKey(req)}`, 30, 60_000)) return fail(429, "محاولات كثيرة.");
+    // كل طلب يمرّر حتى 6MB عبر فيرسل: نحدّ عدد طلبات الزائر الواحد (أفضل جهد). 12/دقيقة تكفي التشغيل والتقديم العادي.
+    if (!allow(`audio:${clientKey(req)}`, 12, 60_000)) return fail(429, "محاولات كثيرة.");
     const { adhkar, radio } = await getServerSettings();
     const allowed =
       [...adhkar.morning, ...adhkar.evening].some((x) => x.audio === id) ||

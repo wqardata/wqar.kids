@@ -13,6 +13,9 @@ export async function POST(req: Request) {
   if (!allow(`view:${clientKey(req)}`, 120, 60_000)) return NextResponse.json({ error: "محاولات كثيرة" }, { status: 429 });
   const id = cleanVideoId(await req.json().catch(() => null));
   if (!id) return NextResponse.json({ error: "معرّف غير صالح" }, { status: 400 });
+  // مشاهدة واحدة لكل زائر ولكل فيديو في الساعة (المتصفح يرسل مرة لكل جلسة أصلًا): يمنع تضخيم العدّاد بالتكرار.
+  // نردّ بنجاح صامت كي لا يتغيّر سلوك الواجهة.
+  if (!allow(`view1:${clientKey(req)}:${id}`, 1, 60 * 60_000)) return NextResponse.json({ ok: true });
   try {
     return (await recordView(id)) ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "غير موجود" }, { status: 404 });
   } catch {

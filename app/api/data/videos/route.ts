@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isDbConfigured } from "@/lib/db";
 import { allow, clientKey } from "@/lib/rateLimit";
 import { MAX_IDS, allVideos, latestVideos, videosBy, videosByIds } from "@/lib/neonServer";
+import { LATEST_ALLOWED, onlyParams } from "@/lib/queryParams";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,10 @@ export async function GET(req: Request) {
   // الطلبات التي تُخدم من كاش CDN لا تصل هنا؛ هذا الحد يحمي القاعدة من إغراق الطلبات التي تتجاوز الكاش (أفضل جهد: العدّاد لكل نسخة تشغيل).
   if (!allow(`read:${clientKey(req)}`, 120, 60_000)) return NextResponse.json({ error: "محاولات كثيرة" }, { status: 429 });
   const p = new URL(req.url).searchParams;
+  // معامل واحد معروف فقط في كل طلب، وإلا يمكن تجاوز كاش CDN بمعاملات وهمية.
+  if ([...p.keys()].length !== 1 || !onlyParams(p, ["ids", "categoryId", "seriesId", "latest", "all"])) {
+    return NextResponse.json({ error: "معامل غير صالح" }, { status: 400 });
+  }
   try {
     const ids = p.get("ids");
     if (ids !== null) {
@@ -36,7 +41,7 @@ export async function GET(req: Request) {
     const latest = p.get("latest");
     if (latest !== null) {
       const n = Number(latest);
-      return Number.isInteger(n) && n > 0 ? NextResponse.json(await latestVideos(n), { headers: CACHE }) : NextResponse.json({ error: "عدد غير صالح" }, { status: 400 });
+      return LATEST_ALLOWED.includes(n) ? NextResponse.json(await latestVideos(n), { headers: CACHE }) : NextResponse.json({ error: "عدد غير صالح" }, { status: 400 });
     }
     if (p.get("all") === "1") return NextResponse.json(await allVideos(), { headers: CACHE });
     return NextResponse.json({ error: "معامل ناقص" }, { status: 400 });
